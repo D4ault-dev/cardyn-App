@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "Tuka",
+    "slug": "tuka-giftcard",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "tuka",
+    "userInterfaceStyle": "automatic",
+    "statusBar": {
+      "backgroundColor": "#003C8B",
+      "style": "light",
+      "translucent": false
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#000000",
+      "barStyle": "light-content"
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#00C853"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tuka.giftcard",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow FUFU CARDS to access your photos to upload gift card images.",
+        "NSCameraUsageDescription": "Allow FUFU CARDS to take photos of your gift cards and scan card codes.",
+        "NSFaceIDUsageDescription": "Allow FUFU CARDS to use Face ID for secure biometric login."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#00C853"
+      },
+      "package": "com.tuka.giftcard",
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": ["READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "CAMERA"],
+      "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "fufucards.app", "pathPrefix": "/ref" },
+            { "scheme": "https", "host": "fufucards.app", "pathPrefix": "/invite" },
+            { "scheme": "tuka" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ce3b6dc9-1d06-4c8e-929d-7b9a59038d47"
+      }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1677FF",
+          "sounds": [],
+          "mode": "production"
+        }
+      ]
+    ]
+  }
+}
