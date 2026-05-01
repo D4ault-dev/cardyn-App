@@ -17,6 +17,7 @@ const { width: W } = Dimensions.get('window')
 import { useAuth } from '../context/AuthContext'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchCountries, Country } from '../api/country'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client, { BASE_URL } from '../api/client'
 import { currSym, currLabel } from '../util/currency'
@@ -505,7 +506,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
           <View style={{ width: 36 }} />
         </View>
         <View style={s.loadingBox}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <Spinner size="large" />
         </View>
       </SafeAreaView>
     )
@@ -815,7 +816,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
             </View>
             {couponsLoading ? (
               <View style={{ padding: spacing[10], alignItems: 'center' }}>
-                <ActivityIndicator size="large" color={colors.primary} />
+                <Spinner size="large" />
               </View>
             ) : (
               <ScrollView contentContainerStyle={{ padding: spacing[4], paddingBottom: spacing[4] }} showsVerticalScrollIndicator={false}>

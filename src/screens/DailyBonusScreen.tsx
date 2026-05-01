@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import {
   fetchStreakInfo, fetchBonusHistory,
@@ -179,7 +180,7 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
     return (
       <SafeAreaView style={s.safe}>
         <AppHeader title="Daily Bonus" onBack={() => props.navigation.goBack()} light />
-        <View style={s.centered}><ActivityIndicator size="large" color={GREEN} /></View>
+        <View style={s.centered}><Spinner size="large" color={GREEN} /></View>
       </SafeAreaView>
     )
   }
@@ -194,7 +195,7 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} colors={[GREEN]} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* ── Coin balance card ── */}
         <View style={s.balanceCard}>

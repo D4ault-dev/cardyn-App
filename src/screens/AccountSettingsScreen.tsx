@@ -8,6 +8,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { useAuth } from '../context/AuthContext'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { resolveImageUrl } from '../api/cards'
@@ -113,7 +114,7 @@ export default function AccountSettingsScreen(props: StackScreenProps<RootStackP
 
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.primary} />
+          <Spinner />
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: spacing[5], paddingBottom: Math.max(insets.bottom, 16) + 40 }}>

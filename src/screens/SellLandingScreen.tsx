@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 
@@ -74,7 +75,7 @@ export default function SellLandingScreen(props: StackScreenProps<RootStackParam
 
       {loading ? (
         <View style={s.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <Spinner size="large" />
         </View>
       ) : (
         <FlatList
@@ -85,11 +86,11 @@ export default function SellLandingScreen(props: StackScreenProps<RootStackParam
           contentContainerStyle={{ padding: spacing[4], paddingBottom: 120, gap: spacing[3] }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
+            <AppRefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); load(true) }}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
+             
+             
             />
           }
           ListEmptyComponent={

@@ -6,6 +6,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { ms } from '../util/responsive'
@@ -184,7 +185,7 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
       </View>
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing[16] }} />
+        <Spinner style={{ marginTop: spacing[16] }} />
       ) : (
         <FlatList
           data={notifications}
@@ -192,11 +193,11 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ padding: spacing[4], paddingBottom: 40 }}
           refreshControl={
-            <RefreshControl
+            <AppRefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); load() }}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
+             
+             
             />
           }
           ListEmptyComponent={

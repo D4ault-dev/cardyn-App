@@ -10,6 +10,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { useAuth } from '../context/AuthContext'
 import { useDrawer, DRAWER_W as DRAWER_WIDTH } from '../context/DrawerContext'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchCountries, Country } from '../api/country'
@@ -203,8 +204,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh}
-              tintColor={colors.primary} colors={[colors.primary]} />
+            <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh}
+              />
           }
           contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}
         >
@@ -271,7 +272,7 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
 
           {cardsLoading ? (
             <View style={s.loadingBox}>
-              <ActivityIndicator color={colors.primary} size="large" />
+              <Spinner size="large" />
             </View>
           ) : cards.length === 0 ? (
             <View style={s.emptyBox}>

@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as ExpoClipboard from 'expo-clipboard'
 import { useAuth } from '../context/AuthContext'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import client from '../api/client'
@@ -256,7 +257,7 @@ function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation
 
   if (loading) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
-      <ActivityIndicator color={colors.primary} />
+      <Spinner />
     </View>
   )
 
@@ -266,7 +267,7 @@ function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation
       keyExtractor={e => String(e.userId)}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) + 60 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+      refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <View style={it.container}>
 
@@ -561,14 +562,14 @@ export default function LeaderboardScreen(props: StackScreenProps<RootStackParam
       {/* ── Content — fades when switching tabs ── */}
       <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
       {loading ? (
-        <View style={s.centered}><ActivityIndicator color={colors.primary} size="large" /></View>
+        <View style={s.centered}><Spinner size="large" /></View>
       ) : tab === 'Leaderboard' ? (
         <FlatList
           data={rest}
           keyExtractor={e => String(e.userId)}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) + 60 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true) }} tintColor={colors.primary} colors={[colors.primary]} />}
+          refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true) }} />}
           ListEmptyComponent={
             entries.length === 0 ? (
               <View style={s.emptyWrap}>

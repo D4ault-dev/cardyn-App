@@ -8,6 +8,7 @@ import {
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius } from '../theme'
 import { fetchNigerianBanks, NigerianBank } from '../api/wallet'
 

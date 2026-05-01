@@ -10,6 +10,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as ExpoClipboard from 'expo-clipboard'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import client from '../api/client'
@@ -271,7 +272,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
             }
             contentContainerStyle={{ paddingBottom: 100 }}
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true) }} tintColor={colors.primary} colors={[colors.primary]} />}
+            refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true) }} />}
             ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 46 + spacing[3] + spacing[5] }} />}
           />
         </View>

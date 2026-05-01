@@ -6,6 +6,7 @@ import {
 } from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 
@@ -74,7 +75,7 @@ export default function CardPickerScreen(props: StackScreenProps<RootStackParams
       </View>
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing[16] }} />
+        <Spinner style={{ marginTop: spacing[16] }} />
       ) : (
         <FlatList
           data={filtered}

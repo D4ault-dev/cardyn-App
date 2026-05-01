@@ -229,7 +229,7 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
 
       {loading ? (
         <View style={s.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <Spinner size="large" />
         </View>
       ) : !detail ? (
         <View style={s.centered}>

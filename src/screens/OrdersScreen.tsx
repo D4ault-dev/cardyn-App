@@ -11,6 +11,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { useAuth } from '../context/AuthContext'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import { fetchMyWithdrawals, fetchTransactions, Transaction } from '../api/wallet'
@@ -641,7 +642,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ padding: spacing[4], paddingBottom: 120 }}>
 
         {loading && tab !== 'commission' ? (

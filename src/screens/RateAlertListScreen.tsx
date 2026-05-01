@@ -6,6 +6,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { ms } from '../util/responsive'
@@ -109,7 +110,7 @@ export default function RateAlertListScreen(props: StackScreenProps<RootStackPar
       </View>
 
       {loading ? (
-        <ActivityIndicator color={GREEN} style={{ marginTop: spacing[8] }} />
+        <Spinner color={GREEN} style={{ marginTop: spacing[8] }} />
       ) : (
         <FlatList
           data={alerts}

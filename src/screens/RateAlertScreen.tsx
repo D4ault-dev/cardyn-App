@@ -7,6 +7,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchCountries, Country } from '../api/country'
@@ -148,7 +149,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
           <Text style={s.headerTitle}>Set Rate Alert</Text>
           <View style={{ width: 36 }} />
         </View>
-        <ActivityIndicator color={GREEN} style={{ marginTop: spacing[8] }} />
+        <Spinner color={GREEN} style={{ marginTop: spacing[8] }} />
       </SafeAreaView>
     )
   }

@@ -16,6 +16,7 @@ import {
   fetchBankAccounts, addBankAccount, deleteBankAccount, submitWithdrawal,
   BankAccount,
 } from '../api/wallet'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 
 type Tab = 'giftcards' | 'withdrawals'
@@ -155,7 +156,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+        refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ paddingBottom: 120 }}>
 
         {/* ── Balance card ── */}

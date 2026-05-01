@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, RefreshControl, ActivityIndicator,
+  Image,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { StackScreenProps } from '@react-navigation/stack'
@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchArticles, Article } from '../api/discovery'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
+import { Spinner, AppRefreshControl } from '../components/Spinner'
 
 // ── Article list card ─────────────────────────────────────────────────────────
 function ArticleCard({ article, onPress }: { article: Article; onPress: () => void }) {
@@ -83,7 +84,7 @@ export default function DiscoveryScreen(props: StackScreenProps<RootStackParams,
       </View>
 
       {loading ? (
-        <View style={s.centered}><ActivityIndicator size="large" color={colors.primary} /></View>
+        <View style={s.centered}><Spinner size="large" /></View>
       ) : (
         <FlatList
           data={articles}
@@ -105,8 +106,7 @@ export default function DiscoveryScreen(props: StackScreenProps<RootStackParams,
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh}
-              tintColor={colors.primary} colors={[colors.primary]} />
+            <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         />
       )}
