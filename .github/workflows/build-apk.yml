@@ -3,12 +3,10 @@ name: Build Android APK
 on:
   push:
     branches: [main, master]
-    tags:
-      - 'v*'
-  workflow_dispatch:  # manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,19 +45,41 @@ jobs:
           EXPO_PUBLIC_API_URL: https://api.cardyn.net
           EXPO_PUBLIC_ENV: production
 
+      - name: Rename APK with version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          cp android/app/build/outputs/apk/release/app-release.apk \
+             android/app/build/outputs/apk/release/cardyn-v${VERSION}.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cardyn-android-release
-          path: android/app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
+          name: cardyn-android-apk
+          path: android/app/build/outputs/apk/release/cardyn-*.apk
+          retention-days: 30
 
-      # Create GitHub Release with APK when a version tag is pushed
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Auto-create GitHub Release on every push to main
+      - name: Get version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Create/Update Release
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/release/*.apk
-          generate_release_notes: true
+          tag_name: android-latest
+          name: "Cardyn Android — Latest Build"
+          body: |
+            **Auto-built from commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref_name }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
+
+            ### Install
+            1. Download `cardyn-v${{ steps.version.outputs.version }}.apk`
+            2. On your Android phone: Settings → Install unknown apps → Allow
+            3. Open the downloaded APK and install
+
+            > This is always the latest build. Previous builds are in the [Actions artifacts](https://github.com/${{ github.repository }}/actions).
+          files: android/app/build/outputs/apk/release/cardyn-*.apk
+          prerelease: false
         permissions:
           contents: write

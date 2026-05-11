@@ -82,15 +82,6 @@
         "projectId": "98a1c75e-abef-4a2d-b8c1-1bb67c162440"
       }
     },
-    "updates": {
-      "url": "https://u.expo.dev/98a1c75e-abef-4a2d-b8c1-1bb67c162440",
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "plugins": [
       "expo-dev-client",
       [
