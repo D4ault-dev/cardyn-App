@@ -4,10 +4,12 @@ export type Country = {
   id: number
   name: string
   todayRate: number
+  rateMode: 'multiply' | 'divide'
   registerBonus: number
   withdrawFee: number
   currencyName: string
   currencySymbol: string
+  flag: string           // emoji flag e.g. '🇳🇬'
   phonePrefix: string
 }
 

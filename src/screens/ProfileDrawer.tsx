@@ -171,9 +171,9 @@ const s = StyleSheet.create({
 
   levelCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFF8F0', borderRadius: radius.lg,
+    backgroundColor: '#E6F7F5', borderRadius: radius.lg,
     marginHorizontal: spacing[4], marginBottom: spacing[4],
-    padding: spacing[4], borderWidth: 1, borderColor: '#FFE0B2',
+    padding: spacing[4], borderWidth: 1, borderColor: '#00C2B4',
   },
   levelBadge: {
     width: 38, height: 38, borderRadius: 19,

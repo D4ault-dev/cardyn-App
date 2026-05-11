@@ -303,7 +303,7 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
           activeOpacity={0.85}>
           {saving
             ? <ActivityIndicator color="#fff" />
-            : <Text style={s.submitBtnTxt}>Submit</Text>
+            : <Text style={[s.submitBtnTxt, !canSubmit && s.submitBtnTxtOff]}>Submit</Text>
           }
         </TouchableOpacity>
       </View>
@@ -391,6 +391,7 @@ const s = StyleSheet.create({
   },
   submitBtnOff: { backgroundColor: colors.disabled },
   submitBtnTxt: { fontSize: ms(typography.size.lg), fontWeight: typography.weight.bold, color: '#fff' },
+  submitBtnTxtOff: { color: colors.disabledText },
 
   // Inline error
   errorBox: {

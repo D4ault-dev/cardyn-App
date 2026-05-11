@@ -1,233 +1,236 @@
-import { RF } from '../util/responsive'
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  TextInput, ActivityIndicator, Alert, ScrollView,
+  View, Text, ScrollView, TouchableOpacity,
+  StyleSheet, ActivityIndicator, RefreshControl,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { StackScreenProps } from '@react-navigation/stack'
-import * as Clipboard from 'expo-clipboard'
-import { AppHeader } from '../components/AppHeader'
+import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
-import { colors, typography, spacing, radius, shadow } from '../theme'
-import { fetchCoupon, Coupon } from '../api/coupon'
+import { colors, typography, spacing, radius } from '../theme'
+import { fetchAllCoupons, Coupon } from '../api/coupon'
+import { AppHeader } from '../components/AppHeader'
 
-export default function CouponScreen(props: StackScreenProps<RootStackParams, 'Coupon'>) {
-  const [code, setCode]         = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [coupon, setCoupon]     = useState<Coupon | null>(null)
-  const [notFound, setNotFound] = useState(false)
+// ── Usage rules text ─────────────────────────────────────────────────────────
+const USAGE_RULES =
+  'Coupons cannot be used in combination. Only one coupon can be used at a time. ' +
+  'Coupons will become invalid if they are not used before the expiration date.'
 
-  async function handleCheck() {
-    if (!code.trim()) {
-      Alert.alert('提示', '请输入优惠码')
-      return
-    }
-    setLoading(true)
-    setNotFound(false)
-    try {
-      const c = await fetchCoupon(code.trim().toUpperCase())
-      if (c) {
-        setCoupon(c)
-        setNotFound(false)
-      } else {
-        setCoupon(null)
-        setNotFound(true)
-      }
-    } catch {
-      setCoupon(null)
-      setNotFound(true)
-    } finally {
-      setLoading(false)
-    }
-  }
+// ── Single coupon card ────────────────────────────────────────────────────────
+function CouponCard({ coupon, onUse }: { coupon: Coupon; onUse: () => void }) {
+  const [rulesOpen, setRulesOpen] = useState(false)
+  const sym = '₦'
 
-  async function copyCoupon() {
-    if (!coupon) return
-    await Clipboard.setStringAsync(coupon.code)
-    Alert.alert('已复制！', `优惠码 ${coupon.code} 已复制到剪贴板`)
-  }
+  const amountLabel =
+    coupon.discountType === 'percent'
+      ? `${coupon.discountValue}%`
+      : `${sym}${coupon.discountValue.toLocaleString()}`
 
-  const amount = coupon
-    ? (coupon.discountType === 'percent' ? `${coupon.discountValue}%` : `₦${coupon.discountValue.toLocaleString()}`)
-    : ''
-  const minOrder = coupon && coupon.minOrderAmount > 0
-    ? `Available for ₦${coupon.minOrderAmount.toLocaleString()} order`
-    : 'No minimum order'
+  const conditionText =
+    coupon.minOrderAmount > 0
+      ? `The face value of the card in a single transaction exceeds ${coupon.minOrderAmount.toLocaleString()}`
+      : 'The face value of the card in a single transaction exceeds 0'
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-      <AppHeader title="优惠券" onBack={() => props.navigation.goBack()} />
-
-      <ScrollView contentContainerStyle={{ padding: spacing[5], paddingBottom: 60 }}>
-        {/* Input */}
-        <Text style={s.label}>输入优惠码</Text>
-        <View style={s.inputRow}>
-          <TextInput
-            style={s.input}
-            placeholder="例如：WELCOME2026"
-            placeholderTextColor={colors.subtle}
-            value={code}
-            onChangeText={setCode}
-            autoCapitalize="characters"
-            autoCorrect={false}
-          />
-          <TouchableOpacity style={s.checkBtn} onPress={handleCheck} disabled={loading} activeOpacity={0.85}>
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={s.checkBtnTxt}>查询</Text>
-            )}
-          </TouchableOpacity>
+    <View style={[s.card, coupon.expired && s.cardExpired]}>
+      {/* Top section */}
+      <View style={s.cardTop}>
+        <View style={s.cardLeft}>
+          <Text style={s.cardAmount}>
+            <Text style={s.cardAmountGreen}>{amountLabel}</Text>
+            {' '}
+            <Text style={s.cardAmountLabel}>Coupon</Text>
+          </Text>
+          <Text style={s.cardCondition}>{conditionText}</Text>
         </View>
 
-        {/* Result */}
-        {notFound && (
-          <View style={s.notFoundCard}>
-            <Feather name="alert-circle" size={32} color={colors.error} />
-            <Text style={s.notFoundTxt}>优惠码不存在或已过期</Text>
-          </View>
-        )}
+        <TouchableOpacity
+          style={[s.useBtn, coupon.expired && s.useBtnDisabled]}
+          activeOpacity={0.8}
+          onPress={coupon.expired ? undefined : onUse}
+          disabled={coupon.expired}
+        >
+          <Text style={s.useBtnTxt}>
+            {coupon.expired ? 'Expired' : 'Use at once'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-        {coupon && !coupon.expired && (
-          <View style={s.couponCard}>
-            {/* Left: amount */}
-            <View style={s.couponLeft}>
-              <Text style={s.couponAmount}>{amount}</Text>
-            </View>
-            {/* Notched divider */}
-            <View style={s.divider} />
-            {/* Right: details */}
-            <View style={s.couponRight}>
-              <Text style={s.couponDetail}>{minOrder}</Text>
-              <Text style={s.couponDetail}>Code: {coupon.code}</Text>
-              <TouchableOpacity style={s.copyBtn} onPress={copyCoupon} activeOpacity={0.85}>
-                <Feather name="copy" size={14} color="#fff" style={{ marginRight: 4 }} />
-                <Text style={s.copyBtnTxt}>复制优惠码</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+      {/* Divider */}
+      <View style={s.divider} />
 
-        {coupon && coupon.expired && (
-          <View style={[s.couponCard, { opacity: 0.5 }]}>
-            <View style={s.expiredBanner}>
-              <Text style={s.expiredTxt}>已过期</Text>
+      {/* Bottom section */}
+      <View style={s.cardBottom}>
+        <View style={s.validRow}>
+          <Feather name="clock" size={13} color={colors.muted} />
+          <Text style={s.validTxt}>
+            {coupon.endDate ? `Valid until ${coupon.endDate}` : 'No expiry'}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={s.rulesBtn}
+          onPress={() => setRulesOpen(v => !v)}
+          activeOpacity={0.7}
+        >
+          <Text style={s.rulesBtnTxt}>Usage Rules</Text>
+          <Feather
+            name={rulesOpen ? 'chevron-up' : 'chevron-down'}
+            size={13}
+            color={colors.muted}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Expanded rules */}
+      {rulesOpen && (
+        <Text style={s.rulesText}>{USAGE_RULES}</Text>
+      )}
+    </View>
+  )
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+export default function CouponScreen({ navigation }: any) {
+  const [coupons, setCoupons]     = useState<Coupon[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+    try {
+      const data = await fetchAllCoupons()
+      setCoupons(data)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  useFocusEffect(useCallback(() => { load() }, [load]))
+
+  const active  = coupons.filter(c => !c.expired)
+  const expired = coupons.filter(c => c.expired)
+
+  return (
+    <SafeAreaView style={s.root} edges={['top']}>
+      <AppHeader title="Coupon" onBack={() => navigation.goBack()} />
+
+      {loading ? (
+        <View style={s.center}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />
+          }
+        >
+          {active.length === 0 && expired.length === 0 ? (
+            <View style={s.empty}>
+              <Feather name="tag" size={48} color={colors.muted} />
+              <Text style={s.emptyTxt}>No coupons yet</Text>
+              <Text style={s.emptySubTxt}>Claim coupons from articles or promotions</Text>
             </View>
-            <View style={s.couponLeft}>
-              <Text style={s.couponAmount}>{amount}</Text>
-            </View>
-            <View style={s.divider} />
-            <View style={s.couponRight}>
-              <Text style={s.couponDetail}>{minOrder}</Text>
-              <Text style={s.couponDetail}>Code: {coupon.code}</Text>
-            </View>
-          </View>
-        )}
-      </ScrollView>
+          ) : (
+            <>
+              {active.map(c => (
+                <CouponCard
+                  key={c.id}
+                  coupon={c}
+                  onUse={() => navigation.navigate('SellCard', { couponId: c.id })}
+                />
+              ))}
+              {expired.length > 0 && (
+                <>
+                  <Text style={s.sectionLabel}>Expired</Text>
+                  {expired.map(c => (
+                    <CouponCard key={c.id} coupon={c} onUse={() => {}} />
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   )
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  root:   { flex: 1, backgroundColor: '#F5F5F5' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  list:   { padding: spacing[4], gap: spacing[3] },
 
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+  // Card
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  backBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: typography.size.lg, fontWeight: typography.weight.bold, color: colors.dark },
-  label:       { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.dark, marginBottom: spacing[2] },
-  inputRow:    { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[5] },
-  input:       {
-    flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg,
-    borderWidth: 1.5, borderColor: colors.border,
-    paddingHorizontal: spacing[4], height: 52,
-    fontSize: typography.size.lg, color: colors.dark, fontWeight: typography.weight.extrabold,
-  },
-  checkBtn:    {
-    backgroundColor: colors.accent, borderRadius: radius.lg,
-    paddingHorizontal: spacing[5], alignItems: 'center', justifyContent: 'center',
-  },
-  checkBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: '#fff' },
-  notFoundCard:{
-    backgroundColor: colors.errorLight, borderRadius: radius.xl,
-    padding: spacing[6], alignItems: 'center', gap: spacing[3],
-  },
-  notFoundTxt: { fontSize: typography.size.base, color: colors.error, fontWeight: typography.weight.semibold },
-
-  // Coupon ticket card
-  couponCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.primary,
-    borderRadius: radius['2xl'],
-    overflow: 'visible',
-    position: 'relative',
-    ...shadow.lg,
-  },
-  couponLeft: {
-    width: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing[6],
-    borderRightWidth: 2,
-    borderRightColor: 'rgba(255,255,255,0.4)',
-    borderStyle: 'dashed',
-  },
-  couponAmount: {
-    fontSize: RF(32),
-    fontWeight: typography.weight.extrabold,
-    color: '#fff',
-    textAlign: 'center',
-  },
-  divider: {
-    position: 'absolute',
-    left: 120,
-    top: 0,
-    bottom: 0,
-    width: 0,
-  },
-  couponRight: {
-    flex: 1,
-    padding: spacing[5],
-    paddingLeft: spacing[6],
-    justifyContent: 'center',
-    gap: spacing[2],
-  },
-  couponDetail: {
-    fontSize: typography.size.base,
-    color: 'rgba(255,255,255,0.92)',
-    fontWeight: typography.weight.medium,
-  },
-  copyBtn: {
+  cardExpired: { opacity: 0.55 },
+  cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: radius.full,
-    paddingVertical: spacing[2],
+    justifyContent: 'space-between',
+    padding: spacing[4],
+    paddingBottom: spacing[3],
+  },
+  cardLeft:        { flex: 1, marginRight: spacing[3] },
+  cardAmount:      { fontSize: typography.size.xl as any, fontWeight: typography.weight.bold, marginBottom: spacing[1] },
+  cardAmountGreen: { color: '#22C55E', fontSize: 22 as any, fontWeight: '800' as any },
+  cardAmountLabel: { color: colors.dark, fontSize: 22 as any, fontWeight: '800' as any },
+  cardCondition:   { fontSize: typography.size.sm as any, color: colors.muted, lineHeight: 20 },
+
+  useBtn: {
+    backgroundColor: '#1A191E',
+    borderRadius: 100,
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[3],
+    minWidth: 110,
+    alignItems: 'center',
+  },
+  useBtnDisabled: { backgroundColor: '#ccc' },
+  useBtnTxt:      { color: '#fff', fontSize: typography.size.sm as any, fontWeight: typography.weight.semibold },
+
+  divider: { height: 1, backgroundColor: '#F0F0F0', marginHorizontal: spacing[4] },
+
+  cardBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing[4],
-    alignSelf: 'flex-start',
+    paddingVertical: spacing[3],
+  },
+  validRow:    { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
+  validTxt:    { fontSize: typography.size.xs as any, color: colors.muted },
+  rulesBtn:    { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  rulesBtnTxt: { fontSize: typography.size.xs as any, color: colors.muted },
+  rulesText: {
+    fontSize: typography.size.xs as any,
+    color: colors.muted,
+    lineHeight: 18,
+    paddingHorizontal: spacing[4],
+    paddingBottom: spacing[3],
+  },
+
+  sectionLabel: {
+    fontSize: typography.size.sm as any,
+    color: colors.muted,
+    fontWeight: typography.weight.semibold,
     marginTop: spacing[2],
+    marginBottom: spacing[1],
   },
-  copyBtnTxt: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    color: '#fff',
-  },
-  expiredBanner: {
-    position: 'absolute',
-    top: spacing[3],
-    right: spacing[3],
-    backgroundColor: colors.error,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
-    zIndex: 10,
-  },
-  expiredTxt: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-    color: '#fff',
-  },
+
+  empty:       { alignItems: 'center', paddingTop: spacing[16], gap: spacing[3] },
+  emptyTxt:    { fontSize: typography.size.lg as any, fontWeight: typography.weight.bold, color: colors.dark },
+  emptySubTxt: { fontSize: typography.size.sm as any, color: colors.muted, textAlign: 'center' },
 })

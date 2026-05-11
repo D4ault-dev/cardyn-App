@@ -18,6 +18,7 @@ import {
   submitWithdrawal, BankAccount, WalletInfo,
   fetchNigerianBanks, resolveAccountName, NigerianBank,
 } from '../api/wallet'
+import { useCountry } from '../context/CountryContext'
 
 function fmt(n: number | undefined | null) {
   return (typeof n === 'number' && !isNaN(n) ? n : 0)
@@ -110,13 +111,17 @@ function SwipeableBank({ bank, selected, onSelect, onDelete }: {
 }
 
 export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
+  const { selectedCountry } = useCountry()
+  const localSym = selectedCountry?.currencySymbol ?? '₦'
+
   const [wallet, setWallet]           = useState<WalletInfo | null>(null)
   const [banks, setBanks]             = useState<BankAccount[]>([])
   const [selectedBank, setSelectedBank] = useState<BankAccount | null>(null)
   const [loading, setLoading]         = useState(true)
   const [withdrawAmt, setWithdrawAmt] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
-  const [withdrawalFee, setWithdrawalFee] = useState(50)
+  // Use country's withdrawFee, fallback to systemConfig, then 50
+  const [withdrawalFee, setWithdrawalFee] = useState(selectedCountry?.withdrawFee ?? 50)
   const [hasWithdrawPin, setHasWithdrawPin] = useState(true) // assume true until loaded
   const [pinPromptOpen, setPinPromptOpen]   = useState(false)
   // Add bank form
@@ -134,15 +139,23 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
   const load = useCallback(async () => {
     try {
-      const [w, b] = await Promise.all([fetchWalletInfo(), fetchBankAccounts()])
+      const [w, b] = await Promise.all([
+        fetchWalletInfo(selectedCountry?.name),  // country-scoped wallet
+        fetchBankAccounts(),
+      ])
       setWallet(w)
       setBanks(b)
       setSelectedBank(b.find(x => x.isDefault) || b[0] || null)
       try {
-        const cfgRes = await client.get('/tuka/systemConfig/public')
-        const fee = parseFloat(cfgRes.data?.data?.withdrawal_fee || '50')
-        if (!isNaN(fee)) setWithdrawalFee(fee)
-      } catch { /* use default 50 */ }
+        // Use country's withdrawFee first, fallback to systemConfig
+        if (selectedCountry?.withdrawFee) {
+          setWithdrawalFee(selectedCountry.withdrawFee)
+        } else {
+          const cfgRes = await client.get('/tuka/systemConfig/public')
+          const fee = parseFloat(cfgRes.data?.data?.withdrawal_fee || '50')
+          if (!isNaN(fee)) setWithdrawalFee(fee)
+        }
+      } catch { /* use default */ }
       // Check if withdrawal PIN is set
       try {
         const meRes = await client.get('/tuka/user/me')
@@ -150,9 +163,13 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
       } catch { /* assume set */ }
     } catch { /* keep */ }
     finally { setLoading(false) }
-  }, [])
+  }, [selectedCountry?.name])
 
-  useEffect(() => { load() }, [])
+  // Reload when country switches
+  useEffect(() => {
+    setLoading(true)
+    load()
+  }, [selectedCountry?.name])
 
   // Refresh when returning from AddBankScreen or WithdrawPassword
   useEffect(() => {
@@ -161,8 +178,8 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
         setBanks(b)
         setSelectedBank(prev => b.find(x => x.id === prev?.id) || b.find(x => x.isDefault) || b[0] || null)
       })
-      // Also refresh balance silently
-      fetchWalletInfo().then(w => setWallet(w)).catch(() => {})
+      // Also refresh balance silently with current country
+      fetchWalletInfo(selectedCountry?.name).then(w => setWallet(w)).catch(() => {})
       client.get('/tuka/user/me').then(res => {
         setHasWithdrawPin(!!res.data?.data?.hasWithdrawPassword)
       }).catch(() => {})
@@ -218,11 +235,21 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
         {/* Balance card — clean white */}
         <View style={s.balanceCard}>
-          <Text style={s.balanceLbl}>Total Balance</Text>
+          <View style={s.balanceCardTop}>
+            <Text style={s.balanceLbl}>Total Balance</Text>
+            <TouchableOpacity
+              onPress={() => props.navigation.navigate('WithdrawalHistory' as any)}
+              activeOpacity={0.8}
+              style={s.historyBtn}
+            >
+              <Feather name="clock" size={13} color={colors.primary} />
+              <Text style={s.historyBtnTxt}>History</Text>
+            </TouchableOpacity>
+          </View>
           {loading ? (
             <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing[3] }} />
           ) : (
-            <Text style={s.balanceAmt}>₦ {fmt(wallet?.balance)}</Text>
+            <Text style={s.balanceAmt}>{localSym} {fmt(wallet?.balance)}</Text>
           )}
         </View>
 
@@ -362,7 +389,7 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
                   activeOpacity={0.85}>
                   {addingBank
                     ? <ActivityIndicator color="#fff" />
-                    : <Text style={m.submitBtnTxt}>Submit</Text>
+                    : <Text style={[m.submitBtnTxt, (addingBank || !newAccName || !selectedNgBank) && m.submitBtnTxtOff]}>Submit</Text>
                   }
                 </TouchableOpacity>
               </ScrollView>
@@ -423,7 +450,7 @@ const s = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    backgroundColor: '#F2F3F5',
+    backgroundColor: colors.background,
   },
 
   // Balance card — clean white, no gradient
@@ -433,8 +460,25 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadow.sm,
   },
-  balanceLbl: { fontSize: typography.size.sm, color: colors.muted, marginBottom: spacing[1] },
+  balanceCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing[1],
+  },
+  balanceLbl: { fontSize: typography.size.sm, color: colors.muted },
   balanceAmt: { fontSize: RF(36), fontWeight: typography.weight.extrabold, color: colors.dark, letterSpacing: -1 },
+  historyBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[1],
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[1] + 2,
+  },
+  historyBtnTxt: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.primary,
+  },
   balanceStats: {
     flexDirection: 'row', marginTop: spacing[4],
     paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: colors.border,
@@ -512,7 +556,7 @@ const s = StyleSheet.create({
   bottomBar: {
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[4],
-    backgroundColor: '#F2F3F5',
+    backgroundColor: colors.background,
   },
   withdrawBtn: {
     backgroundColor: colors.accent, borderRadius: radius.full,
@@ -586,6 +630,7 @@ const m = StyleSheet.create({
   },
   submitBtnOff: { backgroundColor: colors.disabled },
   submitBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: '#fff' },
+  submitBtnTxtOff: { color: colors.disabledText },
 
   // Add bank form
   warningBox: {

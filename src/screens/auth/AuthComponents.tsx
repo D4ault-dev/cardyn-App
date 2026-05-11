@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect, useMemo } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Modal, ScrollView, ActivityIndicator, SectionList,
-  Platform, Animated,
+  Platform, Animated, Linking, Alert,
 } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import Svg, { Path } from 'react-native-svg'
-import { colors, spacing, radius, typography } from '../../theme'
-import { ms, AVATAR_MD } from '../../util/responsive'
+import { colors, spacing, radius, typography, fw } from '../../theme'
+import { ms, RF, AVATAR_MD } from '../../util/responsive'
 import { Country } from '../../api/country'
 
 // ── StepHeader ────────────────────────────────────────────────────────────────
@@ -64,8 +64,8 @@ export function SocialButton({
 }: { provider: 'google' | 'apple'; loading: boolean; onPress: () => void }) {
   const isGoogle = provider === 'google'
   // On iOS: always flex:1 so two buttons share the row equally
-  // On Android: full width (no flex, no side margin)
-  const btnStyle = Platform.OS === 'ios' ? sbt.half : sbt.fullWidth
+  // On Android: flex:1 too so button fills available width correctly
+  const btnStyle = sbt.half  // flex:1 on both platforms
   return (
     <TouchableOpacity
       style={[sbt.btn, btnStyle]}
@@ -92,15 +92,24 @@ export function SocialButton({
 }
 
 const sbt = StyleSheet.create({
-  btn:       {
+  btn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: spacing[2], backgroundColor: '#FAFAFA',
-    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
-    paddingVertical: ms(12),
+    gap: spacing[2],
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: '#D0D0D0',
+    paddingVertical: ms(13),
+    // Android shadow for depth
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
   },
-  half:      { flex: 1 },                    // iOS: fills half the row
-  fullWidth: {},                             // Android: natural full width from parent
-  txt:       { fontSize: typography.size.md, fontWeight: typography.weight.semibold, color: colors.dark },
+  half:      { flex: 1 },
+  fullWidth: {},
+  txt: { fontSize: RF(typography.size.md), fontWeight: fw('semibold') as any, color: colors.dark },
 })
 
 // ── CountryPickerModal ────────────────────────────────────────────────────────
@@ -239,7 +248,7 @@ const cp = StyleSheet.create({
 // ── HelpModal ─────────────────────────────────────────────────────────────────
 const FAQ_ITEMS = [
   { id: '1', q: 'How do I create an account?', a: 'Tap Sign Up, enter your name and phone number, verify with the OTP code, then set your password.' },
-  { id: '2', q: 'I forgot my password', a: 'Contact our support team via WhatsApp or Telegram and we will help you reset your password.' },
+  { id: '2', q: 'I forgot my password', a: 'Tap "Reset password" on the login screen, enter your phone number, verify with OTP, then set a new password.' },
   { id: '3', q: 'How do I sell a gift card?', a: 'Tap "Sell Card" on the home screen, select your card type, enter the card details and amount, then submit.' },
   { id: '4', q: 'How long does payment take?', a: 'Payments are processed within 5–30 minutes after your card is verified.' },
   { id: '5', q: 'How do I withdraw my balance?', a: 'Go to Wallet → Withdraw, enter your bank details and amount, then confirm.' },
@@ -247,46 +256,35 @@ const FAQ_ITEMS = [
 ]
 
 import { Dimensions } from 'react-native'
-const SCREEN_HEIGHT = Dimensions.get('screen').height  // full screen including nav bar
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+const SCREEN_HEIGHT = Dimensions.get('screen').height
 
-export function HelpModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function HelpModal({ visible, onClose, onChatSupport }: { visible: boolean; onClose: () => void; onChatSupport?: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+  const insets = useSafeAreaInsets()
 
-  // Sheet slides up from bottom
-  const slideAnim   = useRef(new Animated.Value(SCREEN_HEIGHT)).current
-  // Backdrop fades in
+  const slideAnim    = useRef(new Animated.Value(SCREEN_HEIGHT)).current
   const backdropAnim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
     if (visible) {
       setMounted(true)
-      // Slide up + fade backdrop together
       Animated.parallel([
         Animated.spring(slideAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 68,
-          friction: 13,
+          toValue: 0, useNativeDriver: true, tension: 68, friction: 13,
         }),
         Animated.timing(backdropAnim, {
-          toValue: 1,
-          duration: 280,
-          useNativeDriver: true,
+          toValue: 1, duration: 280, useNativeDriver: true,
         }),
       ]).start()
     } else {
-      // Slide down + fade out backdrop
       Animated.parallel([
         Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 260,
-          useNativeDriver: true,
+          toValue: SCREEN_HEIGHT, duration: 260, useNativeDriver: true,
         }),
         Animated.timing(backdropAnim, {
-          toValue: 0,
-          duration: 220,
-          useNativeDriver: true,
+          toValue: 0, duration: 220, useNativeDriver: true,
         }),
       ]).start(() => setMounted(false))
     }
@@ -297,14 +295,11 @@ export function HelpModal({ visible, onClose }: { visible: boolean; onClose: () 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       {/* Backdrop */}
-      <Animated.View
-        style={[hm.overlay, { opacity: backdropAnim }]}
-        pointerEvents="box-none"
-      >
+      <Animated.View style={[hm.overlay, { opacity: backdropAnim }]} pointerEvents="box-none">
         <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
       </Animated.View>
 
-      {/* Sheet — extends past screen bottom to cover nav bar gap */}
+      {/* Sheet */}
       <Animated.View style={[hm.sheetWrap, { transform: [{ translateY: slideAnim }] }]}>
         <View style={hm.sheet}>
           <View style={hm.handle} />
@@ -317,31 +312,27 @@ export function HelpModal({ visible, onClose }: { visible: boolean; onClose: () 
           <ScrollView
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
-            contentContainerStyle={hm.content}
+            contentContainerStyle={[hm.content, { paddingBottom: Math.max(insets.bottom, 16) + spacing[6] }]}
             bounces={false}
           >
             <Text style={hm.title}>How can we help you?</Text>
             <Text style={hm.sectionLabel}>Frequently Asked Questions</Text>
-            <View style={hm.card}>
-              {FAQ_ITEMS.map((faq, i) => (
-                <View key={faq.id}>
-                  {i > 0 && <View style={hm.divider} />}
-                  <TouchableOpacity style={hm.faqRow}
-                    onPress={() => setExpanded(p => p === faq.id ? null : faq.id)} activeOpacity={0.7}>
-                    <Text style={hm.faqQ}>{faq.q}</Text>
-                    <Feather name={expanded === faq.id ? 'chevron-up' : 'chevron-down'} size={ms(17)} color={colors.primary} />
-                  </TouchableOpacity>
-                  {expanded === faq.id && (
-                    <View style={hm.faqAns}>
-                      <Text style={hm.faqAnsTxt}>{faq.a}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
+            {FAQ_ITEMS.map((faq, i) => (
+              <View key={faq.id} style={[hm.faqItem, i > 0 && hm.faqItemBorder]}>
+                <TouchableOpacity style={hm.faqRow}
+                  onPress={() => setExpanded(p => p === faq.id ? null : faq.id)} activeOpacity={0.7}>
+                  <Text style={hm.faqQ}>{faq.q}</Text>
+                  <Feather name={expanded === faq.id ? 'chevron-up' : 'chevron-down'} size={ms(17)} color={colors.primary} />
+                </TouchableOpacity>
+                {expanded === faq.id && (
+                  <View style={hm.faqAns}>
+                    <Text style={hm.faqAnsTxt}>{faq.a}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
           </ScrollView>
         </View>
-        {/* White fill below sheet — covers Android nav bar area, no white rectangle */}
         <View style={hm.bottomFill} />
       </Animated.View>
     </Modal>
@@ -353,11 +344,10 @@ const hm = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  // Wrapper that slides — taller than screen so bottom fill covers nav bar
   sheetWrap: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
-    height: SCREEN_HEIGHT * 0.94,
+    height: SCREEN_HEIGHT * 0.75,
   },
   sheet: {
     flex: 1,
@@ -366,21 +356,26 @@ const hm = StyleSheet.create({
     borderTopRightRadius: ms(24),
     overflow: 'hidden',
   },
-  // Covers the gap between sheet bottom and screen bottom (nav bar area)
   bottomFill: {
     backgroundColor: '#F5F5F5',
-    height: 120,   // generous — covers any nav bar height
+    height: 0,
   },
-  handle:      { width: ms(40), height: ms(4), backgroundColor: colors.border, borderRadius: ms(2), alignSelf: 'center', marginTop: spacing[3], marginBottom: spacing[2] },
-  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing[5], paddingVertical: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  headerTitle: { fontSize: typography.size.lg, fontWeight: typography.weight.bold, color: colors.dark },
-  content:     { paddingHorizontal: spacing[5], paddingTop: spacing[5], paddingBottom: spacing[8] },
-  title:       { fontSize: typography.size['2xl'], fontWeight: typography.weight.extrabold, color: colors.dark, marginBottom: spacing[5] },
-  sectionLabel:{ fontSize: typography.size.xs, fontWeight: typography.weight.medium, color: colors.muted, marginBottom: spacing[2] },
-  card:        { backgroundColor: '#FFFFFF', borderRadius: radius.md, marginBottom: spacing[5], overflow: 'hidden' },
-  divider:     { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginHorizontal: spacing[4] },
-  faqRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[4], paddingVertical: spacing[4] },
-  faqQ:        { flex: 1, fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: colors.dark, marginRight: spacing[3] },
-  faqAns:      { paddingHorizontal: spacing[4], paddingBottom: spacing[4] },
-  faqAnsTxt:   { fontSize: typography.size.base, color: colors.muted, lineHeight: ms(22) },
+  handle:       { width: ms(40), height: ms(4), backgroundColor: colors.border, borderRadius: ms(2), alignSelf: 'center', marginTop: spacing[3], marginBottom: spacing[2] },
+  header:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing[5], paddingVertical: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  headerTitle:  { fontSize: RF(typography.size.lg), fontWeight: typography.weight.bold, color: colors.dark },
+  content:      { paddingHorizontal: spacing[5], paddingTop: spacing[5] },
+  title:        { fontSize: RF(typography.size['2xl']), fontWeight: typography.weight.extrabold, color: colors.dark, marginBottom: spacing[5] },
+  sectionLabel: { fontSize: RF(typography.size.xs), fontWeight: typography.weight.medium, color: colors.muted, marginBottom: spacing[2], textTransform: 'uppercase', letterSpacing: 0.5 },
+  card:         { backgroundColor: '#FFFFFF', borderRadius: radius.md, marginBottom: spacing[5], overflow: 'hidden' },
+  divider:      { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginHorizontal: spacing[4] },
+  faqItem:      { backgroundColor: '#FFFFFF', borderRadius: radius.md, marginBottom: spacing[2], overflow: 'hidden' },
+  faqItemBorder:{ marginTop: 0 },
+  faqRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[4], paddingVertical: spacing[4] },
+  faqQ:         { flex: 1, fontSize: RF(typography.size.base), fontWeight: typography.weight.semibold, color: colors.dark, marginRight: spacing[3] },
+  faqAns:       { paddingHorizontal: spacing[4], paddingBottom: spacing[4] },
+  faqAnsTxt:    { fontSize: RF(typography.size.base), color: colors.muted, lineHeight: ms(22) },
+  supportCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.md, padding: spacing[4], marginBottom: spacing[3] },
+  supportIconWrap: { width: ms(40), height: ms(40), borderRadius: ms(20), backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  supportTitle:    { fontSize: RF(typography.size.base), fontWeight: typography.weight.semibold, color: colors.dark },
+  supportSub:      { fontSize: RF(typography.size.sm), color: colors.muted, marginTop: 2 },
 })

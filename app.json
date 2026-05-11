@@ -1,56 +1,75 @@
 {
   "expo": {
-    "name": "Tuka",
-    "slug": "tuka",
+    "name": "Cardyn",
+    "slug": "cardflex",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "tuka",
-    "userInterfaceStyle": "automatic",
+    "scheme": "cardyn",
+    "userInterfaceStyle": "light",
     "statusBar": {
-      "backgroundColor": "#003C8B",
+      "backgroundColor": "#0D1F24",
       "style": "light",
       "translucent": false
     },
     "androidNavigationBar": {
-      "backgroundColor": "#000000",
+      "backgroundColor": "#0D1F24",
       "barStyle": "light-content"
     },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#00C853"
+      "backgroundColor": "#0D1F24"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tuka.giftcard",
+      "bundleIdentifier": "com.cardyn.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Allow FUFU CARDS to access your photos to upload gift card images.",
-        "NSCameraUsageDescription": "Allow FUFU CARDS to take photos of your gift cards and scan card codes.",
-        "NSFaceIDUsageDescription": "Allow FUFU CARDS to use Face ID for secure biometric login."
+        "NSPhotoLibraryUsageDescription": "Allow Cardyn to access your photos to upload gift card images.",
+        "NSCameraUsageDescription": "Allow Cardyn to take photos of your gift cards and scan card codes.",
+        "NSFaceIDUsageDescription": "Allow Cardyn to use Face ID for secure biometric login.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false
+        }
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#00C853"
+        "backgroundColor": "#0D1F24"
       },
-      "package": "com.tuka.giftcard",
+      "package": "com.cardyn.app",
       "softwareKeyboardLayoutMode": "pan",
-      "permissions": ["READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "CAMERA"],
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ],
       "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "fufucards.app", "pathPrefix": "/ref" },
-            { "scheme": "https", "host": "fufucards.app", "pathPrefix": "/invite" },
-            { "scheme": "tuka" }
+            {
+              "scheme": "https",
+              "host": "cardyn.net",
+              "pathPrefix": "/ref"
+            },
+            {
+              "scheme": "https",
+              "host": "cardyn.net",
+              "pathPrefix": "/invite"
+            },
+            {
+              "scheme": "cardyn"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -60,19 +79,43 @@
     },
     "extra": {
       "eas": {
-        "projectId": "ce3b6dc9-1d06-4c8e-929d-7b9a59038d47"
+        "projectId": "98a1c75e-abef-4a2d-b8c1-1bb67c162440"
       }
     },
+    "updates": {
+      "url": "https://u.expo.dev/98a1c75e-abef-4a2d-b8c1-1bb67c162440",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "plugins": [
+      "expo-dev-client",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0D1F24",
+          "image": "./assets/splash.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0D1F24",
+            "image": "./assets/splash.png"
+          }
+        }
+      ],
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#1677FF",
+          "color": "#00C2B4",
           "sounds": [],
           "mode": "production"
         }
       ]
-    ]
+    ],
+    "owner": "tuka21"
   }
 }

@@ -36,7 +36,12 @@ export async function apiLogin(username: string, password: string): Promise<stri
 // ── Get user info ──
 export async function apiGetUserInfo(): Promise<ApiUser> {
   const res = await client.get('/getInfo')
-  return res.data.user as ApiUser
+  // country is returned at top level (res.data.country), not inside user object
+  const user = res.data.user as ApiUser
+  if (res.data.country && !user.country) {
+    user.country = res.data.country
+  }
+  return user
 }
 
 // ── Register ──
@@ -44,11 +49,23 @@ export async function apiRegister(username: string, password: string): Promise<v
   await client.post('/register', { username, password, code: '', uuid: '' })
 }
 
-// ── Logout ──
+// ── Logout — clears ALL sensitive local data ──
 export async function apiLogout(): Promise<void> {
   try { await client.delete('/logout') } catch {}
+  // Clear token
   await deleteToken()
   clearAuthToken()
+  // Clear all other sensitive cached data
+  const keysToRemove = [
+    '@tuka_user_name',
+    '@tuka_last_phone',
+    '@tuka_last_country',
+    '@tuka_login_points_awarded',
+    '@tuka_onboarding_done',
+  ]
+  await Promise.allSettled(
+    keysToRemove.map(k => storage.removeItem(k))
+  )
 }
 
 // ── Restore session from AsyncStorage on app start ──

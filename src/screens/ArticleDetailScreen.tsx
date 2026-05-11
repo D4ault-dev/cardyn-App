@@ -25,8 +25,14 @@ function buildHtml(content: string, baseUrl: string): string {
   let fixed = content
     .replace(/src="\/dev-api\//g, `src="${baseUrl}/`)
     .replace(/src='\/dev-api\//g, `src='${baseUrl}/`)
-    .replace(/src="\/profile\//g, `src="${baseUrl}/profile/`)
-    .replace(/src='\/profile\//g, `src='${baseUrl}/profile/`)
+    // Rewrite /profile/ → /files/ (public file serving endpoint, no auth required)
+    .replace(/src="\/profile\//g, `src="${baseUrl}/files/`)
+    .replace(/src='\/profile\//g, `src='${baseUrl}/files/`)
+    .replace(/src="http[^"]*\/profile\//g, (m) => m.replace('/profile/', '/files/'))
+    .replace(/src='http[^']*\/profile\//g, (m) => m.replace('/profile/', '/files/'))
+    // Replace localhost with actual BASE_URL in any remaining http src
+    .replace(/src="https?:\/\/localhost:\d+\//g, `src="${baseUrl}/`)
+    .replace(/src='https?:\/\/localhost:\d+\//g, `src='${baseUrl}/`)
     .replace(/src="\/(?!\/|http)/g, `src="${baseUrl}/`)
     .replace(/src='\/(?!\/|http)/g, `src='${baseUrl}/`)
 
@@ -229,7 +235,7 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
 
       {loading ? (
         <View style={s.centered}>
-          <Spinner size="large" />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : !detail ? (
         <View style={s.centered}>

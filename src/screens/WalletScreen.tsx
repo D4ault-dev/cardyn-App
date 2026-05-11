@@ -18,6 +18,7 @@ import {
 } from '../api/wallet'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
+import { useCountry } from '../context/CountryContext'
 
 type Tab = 'giftcards' | 'withdrawals'
 
@@ -35,6 +36,9 @@ function fmt(n: number | undefined | null) {
 
 export default function WalletScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
   const { user } = useAuth()
+  const { selectedCountry } = useCountry()
+  const sym = selectedCountry?.currencySymbol ?? '₦'
+
   const [wallet, setWallet]           = useState<WalletInfo>({
     balance: 0, totalSales: 0, totalWithdrawn: 0,
     registerBonus: 0, totalEarned: 0,
@@ -62,14 +66,25 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
 
   const load = useCallback(async () => {
     try {
-      const [w, tx] = await Promise.all([fetchWalletInfo(), fetchTransactions({ pageSize: 100 })])
+      // Pass selected country — backend returns that country's wallet (0 if no activity)
+      const [w, tx] = await Promise.all([
+        fetchWalletInfo(selectedCountry?.name),
+        fetchTransactions({ pageSize: 100 }),
+      ])
       setWallet(w)
       setTransactions(tx.list)
     } catch { /* keep existing */ }
     finally { setLoading(false); setRefreshing(false) }
-  }, [])
+  }, [selectedCountry?.name])
 
-  useEffect(() => { if (user.isPresent()) load() }, [user])
+  // Reload when user logs in/out OR when country switches
+  useEffect(() => {
+    if (user.isPresent()) {
+      setLoading(true)
+      load()
+    }
+  }, [user, selectedCountry?.name])
+
   const onRefresh = () => { setRefreshing(true); load() }
 
   async function openWithdraw() {
@@ -87,7 +102,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
     const amt = parseFloat(withdrawAmt)
     if (!selectedBank) { Alert.alert('Error', 'Please select a bank account'); return }
     if (!amt || amt <= 0) { Alert.alert('Error', 'Enter a valid amount'); return }
-    if (amt > wallet.balance) { Alert.alert('Insufficient Balance', `Your balance is ₦${fmt(wallet.balance)}`); return }
+    if (amt > wallet.balance) { Alert.alert('Insufficient Balance', `Your balance is ${sym}${fmt(wallet.balance)}`); return }
     setWithdrawing(true)
     try {
       await submitWithdrawal({
@@ -124,7 +139,15 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
 
   const giftCardTx   = transactions.filter(tx => !tx.type?.toLowerCase().includes('withdraw'))
   const withdrawalTx = transactions.filter(tx =>  tx.type?.toLowerCase().includes('withdraw'))
-  const displayed    = tab === 'giftcards' ? giftCardTx : withdrawalTx
+
+  // Backend now returns country-scoped wallet — no client-side filtering needed
+  const displayBalance      = wallet.balance
+  const displayTotalSales   = wallet.totalSales
+  const displayWithdrawn    = wallet.totalWithdrawn
+  const displayBonus        = wallet.registerBonus
+  const displayGiftCardTx   = giftCardTx
+  const displayWithdrawalTx = withdrawalTx
+  const displayed = tab === 'giftcards' ? displayGiftCardTx : displayWithdrawalTx
 
   // ── Guest ──────────────────────────────────────────────────────────────────
   if (!user.isPresent()) {
@@ -176,7 +199,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
             <ActivityIndicator color="#fff" style={{ marginVertical: spacing[3] }} />
           ) : (
             <Text style={s.balanceAmt}>
-              {balanceVisible ? `₦${fmt(wallet.balance)}` : '• • • • • •'}
+              {balanceVisible ? `${sym}${fmt(displayBalance)}` : '• • • • • •'}
             </Text>
           )}
 
@@ -184,17 +207,17 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
           <View style={s.statsRow}>
             <View style={s.statItem}>
               <Text style={s.statLabel}>Total Sales</Text>
-              <Text style={s.statVal}>₦{fmt(wallet.totalSales)}</Text>
+              <Text style={s.statVal}>{sym}{fmt(displayTotalSales)}</Text>
             </View>
             <View style={s.statDivider} />
             <View style={s.statItem}>
               <Text style={s.statLabel}>Withdrawn</Text>
-              <Text style={s.statVal}>₦{fmt(wallet.totalWithdrawn)}</Text>
+              <Text style={s.statVal}>{sym}{fmt(displayWithdrawn)}</Text>
             </View>
             <View style={s.statDivider} />
             <View style={s.statItem}>
               <Text style={s.statLabel}>Bonus</Text>
-              <Text style={s.statVal}>₦{fmt(wallet.registerBonus)}</Text>
+              <Text style={s.statVal}>{sym}{fmt(displayBonus)}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -223,10 +246,10 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
                 style={{ marginRight: spacing[1] + 2 }}
               />
               <Text style={[s.tabTxt, tab === 'giftcards' && s.tabTxtOn]}>Gift Cards</Text>
-              {giftCardTx.length > 0 && (
+              {displayGiftCardTx.length > 0 && (
                 <View style={[s.tabBadge, tab === 'giftcards' && s.tabBadgeOn]}>
                   <Text style={[s.tabBadgeTxt, tab === 'giftcards' && s.tabBadgeTxtOn]}>
-                    {giftCardTx.length}
+                    {displayGiftCardTx.length}
                   </Text>
                 </View>
               )}
@@ -243,10 +266,10 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
                 style={{ marginRight: spacing[1] + 2 }}
               />
               <Text style={[s.tabTxt, tab === 'withdrawals' && s.tabTxtOn]}>Withdrawals</Text>
-              {withdrawalTx.length > 0 && (
+              {displayWithdrawalTx.length > 0 && (
                 <View style={[s.tabBadge, tab === 'withdrawals' && s.tabBadgeOn]}>
                   <Text style={[s.tabBadgeTxt, tab === 'withdrawals' && s.tabBadgeTxtOn]}>
-                    {withdrawalTx.length}
+                    {displayWithdrawalTx.length}
                   </Text>
                 </View>
               )}
@@ -300,7 +323,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
 
                     {/* Amount */}
                     <Text style={[s.txAmt, { color: amtColor }]}>
-                      {isWithdraw ? '−' : '+'}₦{fmt(Math.abs(tx.amount ?? 0))}
+                      {isWithdraw ? '−' : '+'}{sym}{fmt(Math.abs(tx.amount ?? 0))}
                     </Text>
                   </View>
                 </View>
@@ -328,13 +351,13 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
                 {/* Balance */}
                 <View style={w.balanceRow}>
                   <Text style={w.balanceLbl}>Available Balance</Text>
-                  <Text style={w.balanceVal}>₦{fmt(wallet.balance)}</Text>
+                  <Text style={w.balanceVal}>{sym}{fmt(wallet.balance)}</Text>
                 </View>
 
                 {/* Amount */}
                 <Text style={w.fieldLbl}>Amount</Text>
                 <View style={w.inputRow}>
-                  <Text style={w.inputPrefix}>₦</Text>
+                  <Text style={w.inputPrefix}>{sym}</Text>
                   <TextInput
                     style={w.input}
                     placeholder="0.00"

@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler'
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native'
 import { CardStyleInterpolators, createStackNavigator } from '@react-navigation/stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
@@ -8,6 +8,7 @@ import { Feather } from '@expo/vector-icons'
 import { View, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Platform, StatusBar as RNStatusBar } from 'react-native'
 import Svg, { Path, Rect } from 'react-native-svg'
 import * as ExpoLinking from 'expo-linking'
+import * as SplashScreen from 'expo-splash-screen'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import {
@@ -19,8 +20,8 @@ import {
 const linking = {
   prefixes: [
     ExpoLinking.createURL('/'),
-    'https://fufucards.app',
-    'tuka://',
+    'https://cardyn.net',
+    'cardyn://',
   ],
   config: {
     screens: {
@@ -37,6 +38,7 @@ const linking = {
 }
 
 import { AuthProvider, useAuth } from './src/context/AuthContext'
+import { CountryProvider } from './src/context/CountryContext'
 import { LoadingContextProvider } from './src/context/LoadingContext'
 import { DrawerProvider } from './src/context/DrawerContext'
 import { AppDrawer } from './src/components/AppDrawer'
@@ -45,6 +47,7 @@ import { prefetchCredentials } from './src/api/socialAuth'
 import { setupNotificationListeners } from './src/util/pushNotifications'
 import { initFirebase } from './src/firebaseInit'
 import { Analytics } from './src/util/analytics'
+import { fetchAdConfig, initializeAdSDKs } from './src/util/adManager'
 
 import HomeScreen    from './src/screens/HomeScreen'
 import AuthScreen    from './src/screens/AuthScreen'
@@ -62,6 +65,7 @@ import OrderDetailScreen from './src/screens/OrderDetailScreen'
 import AddBankScreen from './src/screens/AddBankScreen'
 import SelectBankScreen from './src/screens/SelectBankScreen'
 import WithdrawDetailScreen from './src/screens/WithdrawDetailScreen'
+import WithdrawalHistoryScreen from './src/screens/WithdrawalHistoryScreen'
 import AccountSettingsScreen from './src/screens/AccountSettingsScreen'
 import ProfileEditScreen from './src/screens/ProfileEditScreen'
 import VerifyIdentityScreen from './src/screens/VerifyIdentityScreen'
@@ -84,6 +88,7 @@ import RateCalculatorScreen  from './src/screens/RateCalculatorScreen'
 import BindPhoneScreen       from './src/screens/BindPhoneScreen'
 import RateAlertScreen       from './src/screens/RateAlertScreen'
 import RateAlertListScreen   from './src/screens/RateAlertListScreen'
+import SplashAnimationScreen from './src/screens/SplashAnimationScreen'
 
 const Tab   = createBottomTabNavigator()
 const Stack = createStackNavigator<RootStackParams>()
@@ -187,64 +192,78 @@ function RootNavigator() {
   }, [isLoggedIn])
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking} theme={{ dark: true, colors: { background: colors.primary, card: colors.primary, text: '#fff', border: 'transparent', notification: colors.accent, primary: colors.accent } }}>
       <Stack.Navigator screenOptions={{
         headerShown: false,
-        cardStyleInterpolator: ({ current, next, layouts }) => {
-          return {
-            cardStyle: {
-              transform: [
-                {
-                  translateX: current.progress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [layouts.screen.width * 0.92, 0],
-                  }),
-                },
-              ],
-              opacity: current.progress.interpolate({
-                inputRange: [0, 0.3, 1],
-                outputRange: [0, 0.9, 1],
-              }),
-            },
-            ...(next ? {
-              overlayStyle: {
-                opacity: next.progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 0.15],
+        // ── Premium screen transition ──────────────────────────────────────
+        // Incoming screen: slides in from the right with a subtle fade-in.
+        // Outgoing screen: scales back slightly for depth — no opacity change
+        // because containerStyle opacity bleeds into the iOS status bar area.
+        cardStyleInterpolator: ({ current, next, layouts }) => ({
+          cardStyle: {
+            transform: [
+              {
+                translateX: current.progress.interpolate({
+                  inputRange:  [0, 1],
+                  outputRange: [layouts.screen.width, 0],
+                  extrapolate: 'clamp',
                 }),
               },
-            } : {}),
-          }
-        },
-        // Android: timing feels crisper than spring (no overshoot on low-end devices)
-        // iOS: spring gives the native feel
-        transitionSpec: Platform.OS === 'android' ? {
-          open:  { animation: 'timing', config: { duration: 280 } },
-          close: { animation: 'timing', config: { duration: 220 } },
-        } : {
-          open: {
-            animation: 'spring',
-            config: {
-              stiffness: 280,
-              damping: 32,
-              mass: 1,
-              overshootClamping: false,
-              restDisplacementThreshold: 0.01,
-              restSpeedThreshold: 0.01,
-            },
+            ],
+            opacity: current.progress.interpolate({
+              inputRange:  [0, 0.15, 1],
+              outputRange: [0, 1, 1],
+              extrapolate: 'clamp',
+            }),
           },
-          close: {
-            animation: 'spring',
-            config: {
-              stiffness: 280,
-              damping: 32,
-              mass: 1,
-              overshootClamping: false,
-              restDisplacementThreshold: 0.01,
-              restSpeedThreshold: 0.01,
+          // Previous screen scales back slightly — depth without status bar bleed
+          ...(next
+            ? {
+                containerStyle: {
+                  transform: [
+                    {
+                      scale: next.progress.interpolate({
+                        inputRange:  [0, 1],
+                        outputRange: [1, 0.96],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                  ],
+                },
+              }
+            : {}),
+        }),
+        // iOS: spring for the native elastic feel
+        // Android: fast timing — spring can feel laggy on mid-range devices
+        transitionSpec: Platform.OS === 'ios'
+          ? {
+              open: {
+                animation: 'spring',
+                config: {
+                  stiffness: 300,
+                  damping: 38,
+                  mass: 1,
+                  overshootClamping: false,
+                  restDisplacementThreshold: 0.001,
+                  restSpeedThreshold: 0.001,
+                },
+              },
+              close: {
+                animation: 'spring',
+                config: {
+                  stiffness: 300,
+                  damping: 38,
+                  mass: 1,
+                  overshootClamping: true,
+                  restDisplacementThreshold: 0.001,
+                  restSpeedThreshold: 0.001,
+                },
+              },
+            }
+          : {
+              open:  { animation: 'timing', config: { duration: 260 } },
+              close: { animation: 'timing', config: { duration: 200 } },
             },
-          },
-        },
       }}>
         {isLoggedIn ? (
           // Authenticated stack
@@ -254,7 +273,8 @@ function RootNavigator() {
             <Stack.Screen name="OrderDetail"     component={OrderDetailScreen as any} />
             <Stack.Screen name="AddBank"         component={AddBankScreen as any} />
             <Stack.Screen name="SelectBank"      component={SelectBankScreen as any} />
-            <Stack.Screen name="WithdrawDetail"  component={WithdrawDetailScreen as any} />
+            <Stack.Screen name="WithdrawDetail"      component={WithdrawDetailScreen as any} />
+            <Stack.Screen name="WithdrawalHistory"   component={WithdrawalHistoryScreen as any} />
             <Stack.Screen name="Withdraw"        component={WithdrawScreen as any} />
             <Stack.Screen name="WithdrawAmount"  component={WithdrawAmountScreen as any} />
             <Stack.Screen name="WithdrawPin"     component={WithdrawPinScreen as any}
@@ -301,22 +321,32 @@ function RootNavigator() {
   )
 }
 
+// Keep native splash visible until JS is ready
+SplashScreen.preventAutoHideAsync().catch(() => {})
+
 function AppContent() {
   const { isLoading } = useAuth()
+  const [splashDone, setSplashDone] = useState(false)
+
+  // While auth is loading, show dark background — no white flash
   if (isLoading) {
+    return <View style={{ flex: 1, backgroundColor: '#0D1F24' }} />
+  }
+
+  // Show animated splash until it finishes
+  if (!splashDone) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, backgroundColor: '#0D1F24' }}>
+        <SplashAnimationScreen onFinish={() => setSplashDone(true)} />
       </View>
     )
   }
+
   return (
     <>
-      {/* expo-status-bar handles iOS */}
-      <StatusBar style="light" backgroundColor="#003C8B" translucent={false} />
-      {/* react-native StatusBar for Android runtime override */}
+      <StatusBar style="light" backgroundColor={colors.primary} translucent={false} />
       {Platform.OS === 'android' && (
-        <RNStatusBar backgroundColor="#000000" barStyle="light-content" translucent={false} />
+        <RNStatusBar backgroundColor={colors.primary} barStyle="light-content" translucent={false} />
       )}
       <RootNavigator />
     </>
@@ -328,11 +358,13 @@ export default function App() {
   useEffect(() => {
     initFirebase().then(() => Analytics.appOpen())
     prefetchCredentials()
+    // Fetch ad config from backend and initialize SDKs
+    fetchAdConfig().then(config => initializeAdSDKs(config)).catch(() => {})
 
     // ── Android system navigation bar ──────────────────────────────────────
     if (Platform.OS === 'android') {
       // Force status bar navy with white icons
-      RNStatusBar.setBackgroundColor('#003C8B', true)
+      RNStatusBar.setBackgroundColor('#0D1F24', true)
       RNStatusBar.setBarStyle('light-content', true)
       // Note: NavigationBar color/button APIs are no-ops in SDK 53+ (edge-to-edge)
       // The system handles nav bar appearance automatically
@@ -353,10 +385,12 @@ export default function App() {
   }, [])
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={{ backgroundColor: '#0D1F24' }}>
       <LoadingContextProvider>
         <AuthProvider>
-          <AppContent />
+          <CountryProvider>
+            <AppContent />
+          </CountryProvider>
         </AuthProvider>
       </LoadingContextProvider>
     </SafeAreaProvider>

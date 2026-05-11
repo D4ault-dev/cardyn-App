@@ -147,7 +147,7 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
           >
             {verifying
               ? <ActivityIndicator color="#fff" />
-              : <Text style={s.continueBtnTxt}>Continue</Text>
+              : <Text style={[s.continueBtnTxt, !canContinue && s.continueBtnTxtOff]}>Continue</Text>
             }
           </TouchableOpacity>
         </View>
@@ -201,6 +201,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.primary, borderRadius: radius.full,
     paddingVertical: spacing[4], alignItems: 'center',
   },
-  continueBtnOff: { backgroundColor: colors.disabled || '#D0D0D0' },
+  continueBtnOff: { backgroundColor: colors.disabled },
   continueBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: colors.primaryText },
+  continueBtnTxtOff: { color: colors.disabledText },
 })

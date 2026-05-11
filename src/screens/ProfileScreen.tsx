@@ -52,6 +52,10 @@ export default function ProfileScreen(props: StackScreenProps<RootStackParams, '
       icon: 'credit-card', label: 'Wallet',
       onPress: () => { close(); setTimeout(() => props.navigation.navigate('Withdraw' as any), 250) },
     },
+    {
+      icon: 'tag', label: 'Coupons',
+      onPress: () => { close(); setTimeout(() => props.navigation.navigate('Coupon' as any), 250) },
+    },
     { icon: 'user', label: 'Account Settings' },
     { icon: 'book-open', label: 'Trading Guidelines' },
     { icon: 'refresh-cw', label: 'Version update', sub: 'V1.0.0' },
@@ -161,9 +165,9 @@ const s = StyleSheet.create({
 
   levelCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFF8F0', borderRadius: radius.lg,
+    backgroundColor: '#E6F7F5', borderRadius: radius.lg,
     marginHorizontal: spacing[4], marginBottom: spacing[4],
-    padding: spacing[4], borderWidth: 1, borderColor: '#FFE0B2',
+    padding: spacing[4], borderWidth: 1, borderColor: '#00C2B4',
   },
   levelBadge: {
     width: 38, height: 38, borderRadius: 19,

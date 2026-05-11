@@ -1,5 +1,5 @@
 /**
- * FUFU CARDS — Typography Scale
+ * Cardyn — Typography Scale
  * Plain numbers — no runtime dependencies, safe to import anywhere.
  * Use ms() from responsive.ts inside StyleSheet.create for scaling.
  */

@@ -1,23 +1,20 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Dimensions, Animated, KeyboardAvoidingView,
-  Platform, ScrollView, Keyboard, Image, ActivityIndicator, Easing,
+  View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
+  StyleSheet, Animated, Platform, Keyboard,
+  ActivityIndicator, Modal,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
-import { colors, spacing } from '../../../theme'
-import { keyboardBehavior, ms, SCREEN_H } from '../../../util/responsive'
+import { colors, spacing, radius } from '../../../theme'
+import { ms, RF } from '../../../util/responsive'
 import { isValidEmail } from '../phoneUtils'
 import { SocialButton } from '../AuthComponents'
-import { li2, s } from '../styles/authStyles'
+import { li2 } from '../styles/authStyles'
 import { Country } from '../../../api/country'
 import { Step } from '../types'
 
-const { width: W } = Dimensions.get('window')
-
 export interface LoginStepProps {
-  // State
   loginInput: string
   loginSubStep: 'account' | 'password'
   password: string
@@ -25,7 +22,6 @@ export interface LoginStepProps {
   loading: boolean
   error: string
   socialLoading: 'google' | 'apple' | null
-  // Animated values
   liHeroHeight: Animated.Value
   liCardOpacity: Animated.Value
   liFooterOpacity: Animated.Value
@@ -34,14 +30,11 @@ export interface LoginStepProps {
   liBtnScale: Animated.Value
   liPwBtnScale: Animated.Value
   fadeAnim: Animated.Value
-  // Country
   selectedCountry: Country
   countries: Country[]
   countriesLoading: boolean
   countryPickerOpen: boolean
-  // Insets
   insetsBottom: number
-  // Setters
   setLoginInput: (v: string) => void
   setPhone: (v: string) => void
   setEmail: (v: string) => void
@@ -50,7 +43,6 @@ export interface LoginStepProps {
   setError: (v: string) => void
   setLoginSubStep: (v: 'account' | 'password') => void
   setCountryPickerOpen: (v: boolean) => void
-  // Handlers
   handleLoginNext: () => Promise<void>
   doLogin: () => Promise<void>
   handleGoogleSignIn: () => Promise<void>
@@ -59,265 +51,330 @@ export interface LoginStepProps {
   setShowHelp: (v: boolean) => void
   goTo: (s: Step) => void
   reset: () => void
+  keyboardUp?: boolean
 }
 
 export function LoginStep({
-  loginInput,
-  loginSubStep,
-  password,
-  showPw,
-  loading,
-  error,
-  socialLoading,
-  liHeroHeight,
-  liCardOpacity,
-  liFooterOpacity,
-  liPwAnim,
-  liPwOpacity,
-  liBtnScale,
-  liPwBtnScale,
-  fadeAnim,
-  selectedCountry,
+  loginInput, password, showPw, loading, error, socialLoading,
+  liHeroHeight, liCardOpacity, liFooterOpacity, liBtnScale, fadeAnim,
   insetsBottom,
-  setLoginInput,
-  setPhone,
-  setEmail,
-  setPassword,
-  setShowPw,
-  setError,
-  setLoginSubStep,
-  handleLoginNext,
-  doLogin,
-  handleGoogleSignIn,
-  handleAppleSignIn,
-  setShowHelp,
-  goTo,
-  reset,
+  setLoginInput, setPhone, setEmail, setPassword, setShowPw, setError,
+  doLogin, handleGoogleSignIn, handleAppleSignIn,
+  setShowHelp, goTo, reset,
 }: LoginStepProps) {
   const isEmailInput = loginInput.includes('@')
   const canNext = isEmailInput
     ? isValidEmail(loginInput)
     : loginInput.replace(/\D/g, '').length >= 7
-  const showPwPanel = loginSubStep === 'password'
-  const isNotFound  = error === 'not_found'
-  const hasError    = !!error && error !== 'not_found'
+  const isNotFound = error === 'not_found'
+  const hasError   = !!error && error !== 'not_found'
+  const canLogin   = canNext && password.length > 0 && !loading
+
+  // Terms modal — shown on first login attempt
+  const [termsVisible, setTermsVisible] = useState(false)
 
   function onBtnPressIn() {
-    Animated.spring(liBtnScale, {
-      toValue: 0.96, useNativeDriver: true, tension: 300, friction: 10,
-    }).start()
+    Animated.spring(liBtnScale, { toValue: 0.96, useNativeDriver: true, tension: 300, friction: 10 }).start()
   }
   function onBtnPressOut() {
-    Animated.spring(liBtnScale, {
-      toValue: 1, useNativeDriver: true, tension: 300, friction: 10,
-    }).start()
+    Animated.spring(liBtnScale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 10 }).start()
   }
-  function onPwBtnPressIn() {
-    Animated.spring(liPwBtnScale, {
-      toValue: 0.96, useNativeDriver: true, tension: 300, friction: 10,
-    }).start()
+
+  function handleLoginPress() {
+    if (!canLogin) return
+    Keyboard.dismiss()
+    setTermsVisible(true)
   }
-  function onPwBtnPressOut() {
-    Animated.spring(liPwBtnScale, {
-      toValue: 1, useNativeDriver: true, tension: 300, friction: 10,
-    }).start()
+
+  function handleAgree() {
+    setTermsVisible(false)
+    doLogin()
+  }
+
+  function handleDisagree() {
+    setTermsVisible(false)
   }
 
   return (
-    <>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={keyboardBehavior}
-        keyboardVerticalOffset={0}
-      >
-        {/* ── Root: full screen, blue bg ── */}
-        <View style={li2.root}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={li2.root}>
 
-          {/* ── Blue background (absolute, full screen) ── */}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
+        {/* Blue background */}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
-          {/* ── Nav row — no back button on login, just Help ── */}
-          <SafeAreaView edges={['top']} style={li2.safeTop}>
-            <View style={li2.navRow}>
-              <View style={{ width: 40 }} />
-              <TouchableOpacity onPress={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }}>
-                <Text style={li2.helpTxt}>Help</Text>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
+        {/* Nav */}
+        <SafeAreaView edges={['top']} style={li2.safeTop}>
+          <View style={li2.navRow}>
+            <View style={{ width: 40 }} />
+            <TouchableOpacity onPress={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }}>
+              <Text style={li2.helpTxt}>Help</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
 
-          {/* ── Hero — shrinks when keyboard opens ── */}
-          <Animated.View style={{ height: liHeroHeight, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
-            <Image
-              source={require('../../../../assets/login-hero.png')}
-              style={{ width: W * 0.72, height: W * 0.72 * (332 / 263) }}
-              resizeMode="contain"
-              fadeDuration={0}
-            />
-          </Animated.View>
+        {/* Hero — "Welcome Back" text instead of image */}
+        <Animated.View
+          style={{ height: liHeroHeight, alignItems: 'flex-start', justifyContent: 'flex-end', paddingHorizontal: spacing[6], paddingBottom: spacing[4] }}
+          pointerEvents="none"
+        >
+          <Text style={li2.heroTitle}>Welcome{'\n'}Back 👋</Text>
+        </Animated.View>
 
-          {/* White fill — covers from card top all the way to screen bottom */}
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, top: SCREEN_H * 0.42, backgroundColor: '#FFFFFF' }} />
-          <Animated.View style={[li2.card, { opacity: liCardOpacity, flex: 1, paddingBottom: Math.max(insetsBottom, 16) + 32 }]}>
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-              contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 24 : 0 }}
-            >
+        {/* White card — flex:1 fills remaining space, content at top, footer at bottom */}
+        <Animated.View style={[li2.card, { opacity: liCardOpacity, flex: 1, marginTop: -ms(4) }]}>
 
-              {/* Account input row */}
-              <View style={[
-                li2.inputRow,
-                isNotFound && li2.inputRowError,
-                showPwPanel && li2.inputRowDone,
-              ]}>
-                <Text style={li2.inputLabel}>Account</Text>
-                <View style={li2.inputDivider} />
-                <TextInput
-                  style={li2.input}
-                  placeholder="Phone/Email"
-                  placeholderTextColor="#BBBBBB"
-                  keyboardType={isEmailInput ? 'email-address' : 'default'}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={loginInput}
-                  editable={!showPwPanel}
-                  onChangeText={t => {
-                    setLoginInput(t)
-                    if (t.includes('@')) { setEmail(t.trim()) } else { setPhone(t.replace(/\D/g, '')) }
-                    setError('')
-                    if (showPwPanel) { setLoginSubStep('account'); setPassword('') }
-                  }}
-                  returnKeyType={showPwPanel ? 'done' : 'next'}
-                  onSubmitEditing={showPwPanel ? doLogin : handleLoginNext}
-                />
-                {loginInput.length > 0 && !showPwPanel && (
-                  <TouchableOpacity onPress={() => { setLoginInput(''); setPhone(''); setEmail(''); setError('') }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <View style={li2.clearBtn}><Feather name="x" size={11} color="#fff" /></View>
-                  </TouchableOpacity>
-                )}
-                {showPwPanel && (
-                  <TouchableOpacity onPress={() => { setLoginSubStep('account'); setPassword(''); setError('') }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Feather name="edit-2" size={14} color={colors.primary} />
-                  </TouchableOpacity>
-                )}
-              </View>
+          {/* Form */}
+          <View style={{ paddingHorizontal: spacing[1], paddingTop: spacing[6] }}>
 
-              {/* Account not found */}
-              {isNotFound && (
-                <Animated.View style={[li2.notFoundRow, { opacity: fadeAnim }]}>
-                  <Feather name="alert-circle" size={13} color="#FF4D4F" />
-                  <Text style={li2.notFoundTxt}>Account not found. </Text>
-                  <TouchableOpacity onPress={() => { reset(); goTo('signup') }} activeOpacity={0.7}>
-                    <Text style={li2.notFoundLink}>Sign up →</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              )}
-
-              {/* Password panel — springs in */}
-              {showPwPanel && (
-                <Animated.View style={{ transform: [{ translateY: liPwAnim }], opacity: liPwOpacity, marginTop: spacing[3] }}>
-                  <View style={[li2.pwRow, hasError && li2.pwRowError]}>
-                    <Feather name="lock" size={16} color={hasError ? '#FF4D4F' : '#AAAAAA'} />
-                    <TextInput
-                      style={li2.pwInput}
-                      placeholder="Password"
-                      placeholderTextColor="#BBBBBB"
-                      secureTextEntry={!showPw}
-                      value={password}
-                      onChangeText={t => { setPassword(t); setError('') }}
-                      autoFocus={false}
-                      ref={r => { if (r && showPwPanel) setTimeout(() => r.focus(), 100) }}
-                      returnKeyType="done"
-                      onSubmitEditing={doLogin}
-                    />
-                    <TouchableOpacity onPress={() => setShowPw(v => !v)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Feather name={showPw ? 'eye-off' : 'eye'} size={16} color="#AAAAAA" />
-                    </TouchableOpacity>
-                  </View>
-                  {hasError && (
-                    <Animated.View style={[li2.errRow, { opacity: fadeAnim }]}>
-                      <Feather name="alert-circle" size={12} color="#FF4D4F" />
-                      <Text style={li2.errTxt}>{error}</Text>
-                    </Animated.View>
-                  )}
-                  <TouchableOpacity style={li2.forgotRow}
-                    onPress={() => { setPassword(''); setError(''); goTo('forgot') }} activeOpacity={0.7}>
-                    <Text style={li2.forgotTxt}>Forgot password?</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              )}
-
-              {/* CTA button */}
-              <Animated.View style={{ transform: [{ scale: showPwPanel ? liPwBtnScale : liBtnScale }], marginTop: spacing[4] }}>
+            {/* Account */}
+            <View style={[li2.inputRow, isNotFound && li2.inputRowError]}>
+              <Text style={li2.inputLabel}>Account</Text>
+              <View style={li2.inputDivider} />
+              <TextInput
+                style={li2.input}
+                placeholder="Phone/Email"
+                placeholderTextColor="#BBBBBB"
+                keyboardType={isEmailInput ? 'email-address' : 'default'}
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={loginInput}
+                onChangeText={t => {
+                  setLoginInput(t)
+                  if (t.includes('@')) { setEmail(t.trim()) } else { setPhone(t.replace(/\D/g, '')) }
+                  setError('')
+                }}
+                returnKeyType="next"
+              />
+              {loginInput.length > 0 && (
                 <TouchableOpacity
-                  style={[li2.btn, (showPwPanel ? (!password || loading) : (!canNext || loading)) && li2.btnOff]}
-                  onPress={showPwPanel ? doLogin : handleLoginNext}
-                  onPressIn={showPwPanel ? onPwBtnPressIn : onBtnPressIn}
-                  onPressOut={showPwPanel ? onPwBtnPressOut : onBtnPressOut}
-                  disabled={showPwPanel ? (!password || loading) : (!canNext || loading)}
-                  activeOpacity={1}
-                >
-                  {loading
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={li2.btnTxt}>{showPwPanel ? 'Log In' : 'Next'}</Text>
-                  }
+                  onPress={() => { setLoginInput(''); setPhone(''); setEmail(''); setError('') }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <View style={li2.clearBtn}><Feather name="x" size={11} color="#fff" /></View>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Account not found */}
+            {isNotFound && (
+              <Animated.View style={[li2.notFoundRow, { opacity: fadeAnim }]}>
+                <Feather name="alert-circle" size={13} color="#FF4D4F" />
+                <Text style={li2.notFoundTxt}>Account not found. </Text>
+                <TouchableOpacity onPress={() => { reset(); goTo('signup') }} activeOpacity={0.7}>
+                  <Text style={li2.notFoundLink}>Sign up →</Text>
                 </TouchableOpacity>
               </Animated.View>
+            )}
 
-              {/* Footer — fades out on focus/keyboard */}
-              <Animated.View style={{ opacity: liFooterOpacity }}>
+            {/* Password */}
+            <View style={[li2.pwRow, { marginBottom: spacing[1] }]}>
+              <Feather name="lock" size={16} color="#AAAAAA" />
+              <TextInput
+                style={li2.pwInput}
+                placeholder="Password"
+                placeholderTextColor="#BBBBBB"
+                secureTextEntry={!showPw}
+                value={password}
+                onChangeText={t => { setPassword(t); setError('') }}
+                returnKeyType="done"
+                onSubmitEditing={handleLoginPress}
+              />
+              <TouchableOpacity onPress={() => setShowPw(v => !v)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Feather name={showPw ? 'eye-off' : 'eye'} size={16} color="#AAAAAA" />
+              </TouchableOpacity>
+            </View>
 
-                {/* Sign up + Retrieve */}
-                <View style={li2.linksRow}>
-                  <TouchableOpacity
-                    onPress={() => { reset(); goTo('signup') }}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={li2.linkTxt}>Sign up</Text>
-                  </TouchableOpacity>
-                  <View style={li2.linkDot} />
-                  <TouchableOpacity
-                    onPress={() => { setPassword(''); setError(''); goTo('forgot') }}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={li2.linkTxt}>Retrieve account</Text>
-                  </TouchableOpacity>
-                </View>
+            {/* Error */}
+            {hasError && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginHorizontal: spacing[2], marginBottom: spacing[1] }}>
+                <Feather name="alert-circle" size={13} color="#FF4D4F" />
+                <Text style={{ fontSize: RF(13), color: '#FF4D4F', flex: 1 }}>{error}</Text>
+              </View>
+            )}
 
-                {/* Social divider */}
-                <View style={li2.dividerRow}>
-                  <View style={li2.dividerLine} />
-                  <Text style={li2.dividerTxt}>or continue with</Text>
-                  <View style={li2.dividerLine} />
-                </View>
+            {/* Forgot password */}
+            <View style={{ alignItems: 'flex-end', marginTop: spacing[2], marginBottom: spacing[2], paddingRight: spacing[4] }}>
+              <TouchableOpacity
+                onPress={() => { setPassword(''); setError(''); goTo('forgot') }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                <Text style={li2.forgotTxt}>Forgot password?</Text>
+              </TouchableOpacity>
+            </View>
 
-                {/* Social buttons */}
-                <View style={{ flexDirection: 'row', gap: spacing[3], marginTop: spacing[3] }}>
-                  <SocialButton provider="google" loading={socialLoading === 'google'} onPress={handleGoogleSignIn} />
-                  {Platform.OS === 'ios' && (
-                    <SocialButton provider="apple" loading={socialLoading === 'apple'} onPress={handleAppleSignIn} />
-                  )}
-                </View>
+            {/* Log In button — opens Terms modal first */}
+            <Animated.View style={{ transform: [{ scale: liBtnScale }], marginTop: spacing[3] }}>
+              <TouchableOpacity
+                style={[li2.btn, !canLogin && li2.btnOff]}
+                onPress={handleLoginPress}
+                onPressIn={onBtnPressIn}
+                onPressOut={onBtnPressOut}
+                disabled={!canLogin}
+                activeOpacity={1}
+              >
+                {loading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={[li2.btnTxt, !canLogin && li2.btnTxtOff]}>Log In</Text>
+                }
+              </TouchableOpacity>
+            </Animated.View>
 
-                {/* Consent */}
-                <Text style={[li2.consent, { marginTop: spacing[3] }]}>
-                  By continuing, you agree to our{' '}
-                  <Text style={li2.consentLink}>Terms & Conditions</Text>
-                  {' '}and{' '}
-                  <Text style={li2.consentLink}>Privacy Policy</Text>
-                </Text>
+          </View>
 
-              </Animated.View>
+          {/* Flexible spacer — keeps footer close to form, not pinned to screen bottom */}
+          <View style={{ flex: 1, maxHeight: ms(40) }} />
 
-            </ScrollView>
+          {/* Footer */}
+          <Animated.View style={{
+            opacity: liFooterOpacity,
+            paddingHorizontal: spacing[1],
+            paddingBottom: Math.max(insetsBottom, 16) + spacing[2],
+            paddingTop: spacing[2],
+          }}>
+            <View style={li2.linksRow}>
+              <TouchableOpacity onPress={() => { reset(); goTo('signup') }} activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={li2.linkTxt}>Create account</Text>
+              </TouchableOpacity>
+              <View style={li2.linkDot} />
+              <TouchableOpacity onPress={() => { setPassword(''); setError(''); goTo('forgot') }} activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={li2.linkTxt}>Reset password</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[li2.dividerRow, { marginVertical: spacing[3] }]}>
+              <View style={li2.dividerLine} />
+              <Text style={li2.dividerTxt}>or continue with</Text>
+              <View style={li2.dividerLine} />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: spacing[3], marginHorizontal: spacing[5], marginBottom: spacing[1] }}>
+              <SocialButton provider="google" loading={socialLoading === 'google'} onPress={handleGoogleSignIn} />
+              {Platform.OS === 'ios' && (
+                <SocialButton provider="apple" loading={socialLoading === 'apple'} onPress={handleAppleSignIn} />
+              )}
+            </View>
           </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
-    </>
+
+        </Animated.View>
+
+        {/* ── Terms & Privacy Modal ── */}
+        <Modal
+          visible={termsVisible}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={handleDisagree}
+        >
+          <View style={tm.overlay}>
+            <View style={tm.card}>
+              <Text style={tm.title}>Service Agreement &{'\n'}Privacy Protection</Text>
+              <Text style={tm.body}>
+                To best protect your legal rights, please read and agree to our{' '}
+                <Text style={tm.link}>Terms & Conditions</Text>
+                {' '}and{' '}
+                <Text style={tm.link}>Privacy Policy</Text>
+                {' '}before continuing.
+              </Text>
+              <View style={tm.btnRow}>
+                <TouchableOpacity style={tm.disagreeBtn} onPress={handleDisagree} activeOpacity={0.8}>
+                  <Text style={tm.disagreeTxt}>Disagree</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={tm.agreeBtn} onPress={handleAgree} activeOpacity={0.85}>
+                  <Text style={tm.agreeTxt}>Agree</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+      </View>
+    </TouchableWithoutFeedback>
   )
 }
+
+const errBox = StyleSheet.create({
+  box: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF1F1',
+    borderRadius: ms(10),
+    borderWidth: 1,
+    borderColor: '#FFD6D6',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    marginHorizontal: spacing[2],
+    marginBottom: spacing[1],
+  },
+  txt: {
+    fontSize: RF(13),
+    color: '#CC0000',
+    flex: 1,
+    lineHeight: ms(18),
+  },
+})
+
+const tm = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[6],
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: ms(20),
+    padding: spacing[6],
+    width: '100%',
+  },
+  title: {
+    fontSize: RF(18),
+    fontWeight: '700',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginBottom: spacing[4],
+    lineHeight: ms(26),
+  },
+  body: {
+    fontSize: RF(14),
+    color: '#555',
+    lineHeight: ms(22),
+    marginBottom: spacing[6],
+  },
+  link: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    gap: spacing[3],
+  },
+  disagreeBtn: {
+    flex: 1,
+    paddingVertical: ms(14),
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    alignItems: 'center',
+  },
+  disagreeTxt: {
+    fontSize: RF(15),
+    fontWeight: '600',
+    color: '#555',
+  },
+  agreeBtn: {
+    flex: 2,
+    paddingVertical: ms(14),
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  agreeTxt: {
+    fontSize: RF(15),
+    fontWeight: '700',
+    color: '#fff',
+  },
+})

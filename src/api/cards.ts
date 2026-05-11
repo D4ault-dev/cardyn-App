@@ -20,7 +20,8 @@ export type CardCategory = {
   id: number
   name: string
   icon: string | null
-  rate: number
+  rate: number          // settlement base rate (used in rateConfigs rows)
+  displayRate: number   // 外显汇率 — shown on homepage card list
   minAmount: number
   maxAmount: number
   country: string
@@ -33,21 +34,33 @@ export type CardCategory = {
 }
 
 // Resolve image URL — replace any server host with the current BASE_URL
+// Also rewrites /profile/ → /files/ which is a public endpoint (no auth required)
 export function resolveImageUrl(icon: string | null): string | null {
   if (!icon) return null
-  const url = icon.replace(/https?:\/\/[^/]+/, BASE_URL)
+  let url = icon.replace(/https?:\/\/[^/]+/, BASE_URL)
   if (!url.startsWith('http')) {
-    return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
+    url = `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
+  }
+  // Rewrite /profile/ to /files/ — public file serving endpoint
+  url = url.replace('/profile/', '/files/')
+  // Encode spaces and special characters in the filename only
+  const lastSlash = url.lastIndexOf('/')
+  if (lastSlash !== -1) {
+    const base = url.slice(0, lastSlash + 1)
+    const filename = url.slice(lastSlash + 1)
+    return base + encodeURIComponent(filename).replace(/%2F/g, '/')
   }
   return url
 }
 
 // ── Cache ──────────────────────────────────────────────────────────────────
 const CACHE_TTL = 5 * 60 * 1000
+// Bump this version string to invalidate all cached card data
+const CACHE_VERSION = 'v3'
 let _cache: Map<string, { data: CardCategory[]; time: number }> = new Map()
 
 export async function fetchCardCategories(forceRefresh = false, country = ''): Promise<CardCategory[]> {
-  const key = country || 'all'
+  const key = `${CACHE_VERSION}:${country || 'all'}`
   const now = Date.now()
   const cached = _cache.get(key)
   const isStale = !cached || (now - cached.time > CACHE_TTL)

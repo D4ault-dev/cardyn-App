@@ -21,8 +21,13 @@ import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client, { BASE_URL } from '../api/client'
 import { currSym, currLabel } from '../util/currency'
+import { fetchCurrencies, buildCurrencyLogoMap } from '../api/currency'
 import { Analytics } from '../util/analytics'
+import { trackAdEvent } from '../util/adManager'
 import { ms, RF } from '../util/responsive'
+import CouponPicker from '../components/CouponPicker'
+import type { Coupon } from '../api/coupon'
+import { useCountry } from '../context/CountryContext'
 
 const CARD_BG = ['#E8F5E9','#FFF3E0','#E3F2FD','#FCE4EC','#F3E5F5','#E0F7FA','#FFF8E1','#E8EAF6']
 
@@ -49,16 +54,22 @@ function TradeButton({ submitting, onPress }: { submitting: boolean; onPress: ()
 
 export default function SellCardScreen(props: StackScreenProps<RootStackParams, 'SellCard'>) {
   const { user } = useAuth()
+  const { countries, selectedCountry } = useCountry()
   const insets = useSafeAreaInsets()
-  const incomingCardId = props.route?.params?.cardId
+  const incomingCardId   = props.route?.params?.cardId
+  const incomingCurrency  = (props.route?.params as any)?.currency  || ''
+  const incomingInputType = (props.route?.params as any)?.inputType || ''
+  const incomingMode      = (props.route?.params as any)?.mode      || ''
+  const incomingCouponId  = (props.route?.params as any)?.couponId  || null
 
   const [cards, setCards]                 = useState<CardCategory[]>([])
-  const [countries, setCountries]         = useState<Country[]>([])
   const [selectedCard, setSelectedCard]   = useState<CardCategory | null>(null)
   const [loading, setLoading]             = useState(true)
   const [submitting, setSubmitting]       = useState(false)
   const [attempted,  setAttempted]        = useState(false)
   const [confirmOpen, setConfirmOpen]     = useState(false)
+  const [couponPickerOpen, setCouponPickerOpen] = useState(false)
+  const [returnToConfirm, setReturnToConfirm]   = useState(false)
 
   // Form
   const [selectedCurrency, setSelectedCurrency]   = useState('')
@@ -74,15 +85,19 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   const [cardImages, setCardImages]               = useState<string[]>([])
   const [uploadingImage, setUploadingImage]       = useState(false)
   const [scannerOpen, setScannerOpen]             = useState(false)
-  const [appliedCoupon, setAppliedCoupon]         = useState<{ code: string; discount: number; title: string } | null>(null)
-  const [couponPickerOpen, setCouponPickerOpen]   = useState(false)
-  const [availableCoupons, setAvailableCoupons]   = useState<any[]>([])
-  const [couponsLoading, setCouponsLoading]       = useState(false)
+  const [appliedCoupon, setAppliedCoupon]         = useState<Coupon | null>(null)
+  const [amountError, setAmountError]             = useState('')
   const [orderNo, setOrderNo]                     = useState('')
   const [imageViewerOpen, setImageViewerOpen]     = useState(false)
   const [imageViewerIdx, setImageViewerIdx]       = useState(0)
   const [imageGuideOpen, setImageGuideOpen]       = useState(false)
   const [cameraPermission, requestCameraPermission] = useCameraPermissions()
+
+  // Currency logos — fetched once and cached
+  const [currencyLogoMap, setCurrencyLogoMap] = useState<Record<string, string | null>>({})
+  useEffect(() => {
+    fetchCurrencies().then(list => setCurrencyLogoMap(buildCurrencyLogoMap(list))).catch(() => {})
+  }, [])
 
   // Photo sheet
   const [photoSheetOpen, setPhotoSheetOpen]       = useState(false)
@@ -113,23 +128,33 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   const [cardSearch, setCardSearch]               = useState('')
 
   useEffect(() => {
-    Promise.all([
-      fetchCardCategories(),
-      fetchCountries(),
-    ]).then(([c, co]) => {
+    // Use cache (force=false) — HomeScreen already fetched these, no need to re-fetch
+    fetchCardCategories(false, selectedCountry?.name || '').then(c => {
       setCards(c)
-      setCountries(co)
-      // Auto-select card only if passed from HomeScreen
+      // Auto-select card only if passed from HomeScreen / CardsScreen
       if (incomingCardId) {
         const found = c.find(card => card.id === incomingCardId)
-        if (found) selectCard(found)
+        if (found) {
+          selectCard(found)
+          if (incomingCurrency)  setSelectedCurrency(incomingCurrency)
+          if (incomingInputType) setSelectedInputType(incomingInputType)
+          if (incomingMode === 'Fast' || incomingMode === 'Slow') setSelectedMode(incomingMode)
+        }
+      }
+      if (incomingCouponId) {
+        import('../api/coupon').then(({ fetchAllCoupons }) => {
+          fetchAllCoupons().then(coupons => {
+            const found = coupons.find(cp => cp.id === incomingCouponId)
+            if (found && !found.expired) setAppliedCoupon(found)
+          }).catch(() => {})
+        })
       }
     }).finally(() => setLoading(false))
-  }, [incomingCardId])
+  }, [incomingCardId, incomingCouponId, selectedCountry?.name])
 
   function selectCard(card: CardCategory) {
     setSelectedCard(card)
-    setSelectedCurrency('')  // user must choose country manually
+    setSelectedCurrency('')
     setSelectedInputType('')
     setSelectedMode(card.defaultMode === 'slow' ? 'Slow' : 'Fast')
     setCardAmount('')
@@ -138,13 +163,53 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     setQuantity(1)
     setCardImages([])
     setAttempted(false)
-    // Analytics — user viewed a card (top of trade funnel)
+    setAmountError('')
     const country = countries.find(c => c.name === card.country) || countries[0]
     Analytics.cardViewed({
       cardId:   card.id,
       cardName: card.name,
       country:  country?.name ?? 'Nigeria',
     })
+  }
+
+  // Called when user picks a type — validates existing amount against new type's rows
+  function selectInputType(type: string, card?: CardCategory | null, currency?: string, mode?: 'Fast' | 'Slow') {
+    const useCard     = card     ?? selectedCard
+    const useCurrency = currency ?? selectedCurrency
+    const useMode     = mode     ?? selectedMode
+
+    setSelectedInputType(type)
+    setTypeModalOpen(false)
+
+    if (!useCard || !useCurrency || !cardAmount) return
+
+    const config = useCard.rateConfigs?.find(r => r.currency === useCurrency)
+    const rows = (config?.rows || []).filter(row => {
+      if (row.mode !== useMode) return false
+      if (row.inputTypes?.length && !row.inputTypes.includes('All') && !row.inputTypes.includes(type)) return false
+      return true
+    })
+
+    if (rows.length === 0) return
+
+    const n = parseFloat(cardAmount) || 0
+    const stillValid = rows.some(row => {
+      if (row.rangeType === 'range') {
+        return n >= (parseFloat(row.min) || 0) && n <= (parseFloat(row.max) || 999999)
+      } else if (row.rangeType === 'multiple') {
+        const base = parseFloat(row.base) || 1
+        return n >= (parseFloat(row.min) || 0) && n <= (parseFloat(row.max) || 999999) && n % base === 0
+      } else if (row.rangeType === 'fixed') {
+        return n === parseFloat(row.value)
+      }
+      return true
+    })
+
+    if (!stillValid) {
+      // Amount is out of range for this type — clear it
+      setCardAmount('')
+      setAmountError('')
+    }
   }
 
   // Sync cardCodes array length with quantity
@@ -158,26 +223,28 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   }, [quantity])
 
   // Get the applicable rate config for selected currency
-  const amountNum      = parseFloat(cardAmount) || 0
+  const amountNum  = parseFloat(cardAmount) || 0
   const rateConfig = selectedCard?.rateConfigs?.find(r => r.currency === selectedCurrency)
 
-  // Find the matching rate row based on mode, input type, and amount
-  const applicableRow = rateConfig?.rows?.find(row => {
-    // Mode match
+  // Find ALL rows matching mode + input type (ignoring amount) for preview
+  const matchingRows = (rateConfig?.rows || []).filter(row => {
     if (row.mode !== selectedMode) return false
-    // Input type match
     if (row.inputTypes?.length && !row.inputTypes.includes('All') && !row.inputTypes.includes(selectedInputType)) {
       return false
     }
-    // Amount range match
+    return true
+  })
+
+  // Find the specific row that matches the entered amount (for actual calculation)
+  const applicableRow = matchingRows.find(row => {
     if (row.rangeType === 'range') {
       const min = parseFloat(row.min) || 0
       const max = parseFloat(row.max) || 999999
       return amountNum >= min && amountNum <= max
     } else if (row.rangeType === 'multiple') {
       const base = parseFloat(row.base) || 1
-      const min = parseFloat(row.min) || 0
-      const max = parseFloat(row.max) || 999999
+      const min  = parseFloat(row.min)  || 0
+      const max  = parseFloat(row.max)  || 999999
       return amountNum >= min && amountNum <= max && amountNum % base === 0
     } else if (row.rangeType === 'fixed') {
       return amountNum === parseFloat(row.value)
@@ -185,16 +252,104 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     return true
   })
 
-  // Use row-specific rate for the selected input type, or fall back to card's base rate
-  const rowRate = applicableRow?.rates?.[selectedInputType] || applicableRow?.rates?.['All'] || ''
+  // Preview row — first matching row regardless of amount (for rate display before amount is entered)
+  const previewRow = applicableRow || matchingRows[0] || null
+
+  // Rate lookup: use applicable row if amount matches, otherwise use preview row for display
+  const activeRow = applicableRow || previewRow
+  const rowRate = activeRow?.rates?.[selectedInputType] || activeRow?.rates?.['All'] || ''
   const effectiveRate = rowRate ? parseFloat(rowRate) : (selectedCard?.rate ?? 0)
-  const cardCountry = countries.find(c => c.name === selectedCard?.country) || countries[0] || null
-  const currencySymbol = cardCountry?.currencySymbol || '₦'
-  const cardRate       = effectiveRate * (cardCountry?.todayRate ?? 1)
-  const salesPrice     = amountNum * cardRate * quantity   // multiply by quantity
+
+  // Use globally selected country (from header switcher) as the rate country.
+  // Falls back to the card's own country, then first in list.
+  const cardCountry = selectedCountry
+    ?? countries.find(c => c.name === selectedCard?.country)
+    ?? countries[0]
+    ?? null
+
+  const currencySymbol = cardCountry?.currencySymbol ?? '₦'
+  // Apply rate mode: multiply (Nigeria) or divide (Ghana)
+  const todayRate = cardCountry?.todayRate ?? 1
+  const cardRate  = cardCountry?.rateMode === 'divide'
+    ? (todayRate > 0 ? effectiveRate / todayRate : effectiveRate)
+    : effectiveRate * todayRate
+  // Only calculate settlement when amount is actually entered and a row matches
+  const salesPrice     = amountNum > 0 && applicableRow ? amountNum * cardRate * quantity : 0
   const vipBonus       = 0
-  const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0
+  const couponDiscount = appliedCoupon
+    ? (appliedCoupon.discountType === 'fixed'
+        ? appliedCoupon.discountValue
+        : (salesPrice * appliedCoupon.discountValue) / 100)
+    : 0
   const settlement     = salesPrice + vipBonus + couponDiscount
+
+  // Derive limits from the applicable row only (for validation display)
+  const rowLimits = applicableRow ? (() => {
+    if (applicableRow.rangeType === 'fixed') {
+      const v = parseFloat(applicableRow.value) || 0
+      return { min: v, max: v, base: 0 }
+    }
+    return {
+      min:  parseFloat(applicableRow.min)  || 0,
+      max:  parseFloat(applicableRow.max)  || 999999,
+      base: applicableRow.rangeType === 'multiple' ? (parseFloat(applicableRow.base) || 1) : 0,
+    }
+  })() : null
+
+  // Build amount placeholder from matching rows for selected type
+  const amountPlaceholder = (() => {
+    if (!selectedInputType || matchingRows.length === 0) return 'Enter card amount'
+    // Collect all valid ranges/values
+    const parts = matchingRows.map((row: any) => {
+      if (row.rangeType === 'fixed')    return `$${row.value}`
+      if (row.rangeType === 'multiple') return `$${row.min}–$${row.max} (×${row.base})`
+      return `$${row.min}–$${row.max}`
+    })
+    return `Amount: ${parts.join(' or ')}`
+  })()
+
+  function handleAmountChange(v: string) {
+    setCardAmount(v)
+    const n = parseFloat(v) || 0
+    if (n === 0) { setAmountError(''); return }
+
+    // Find which row this amount falls into
+    const matchedRow = matchingRows.find(row => {
+      if (row.rangeType === 'range') {
+        const min = parseFloat(row.min) || 0
+        const max = parseFloat(row.max) || 999999
+        return n >= min && n <= max
+      } else if (row.rangeType === 'multiple') {
+        const base = parseFloat(row.base) || 1
+        const min  = parseFloat(row.min)  || 0
+        const max  = parseFloat(row.max)  || 999999
+        return n >= min && n <= max && n % base === 0
+      } else if (row.rangeType === 'fixed') {
+        return n === parseFloat(row.value)
+      }
+      return true
+    })
+
+    if (!matchedRow && matchingRows.length > 0) {
+      // Amount doesn't match any row — show what's available
+      const ranges = matchingRows.map((row: any) => {
+        if (row.rangeType === 'fixed')    return `$${row.value}`
+        if (row.rangeType === 'multiple') return `$${row.min}–$${row.max} (×${row.base})`
+        return `$${row.min}–$${row.max}`
+      }).join(', ')
+      setAmountError(`Amount doesn't match any rate. Available: ${ranges}`)
+    } else if (matchedRow?.rangeType === 'multiple') {
+      const base = parseFloat(matchedRow.base) || 1
+      const n2 = parseFloat(v) || 0
+      if (n2 % base !== 0) {
+        setAmountError(`Must be a multiple of ${base}`)
+      } else {
+        setAmountError('')
+      }
+    } else {
+      setAmountError('')
+    }
+  }
 
   // For Code type: ALL slots must be filled
   const allCodesFilled = selectedInputType === 'Code'
@@ -228,7 +383,18 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   function handleBarCodeScanned({ data }: { data: string }) {
     setScannerOpen(false)
-    setCardCode(prev => prev ? `${prev}\n${data}` : data)
+    // Fix: write to the correct state depending on input type
+    if (selectedInputType === 'Code') {
+      // Fill the first empty slot in the codes array
+      setCardCodes(prev => {
+        const next = [...prev]
+        const emptyIdx = next.findIndex(c => !c.trim())
+        if (emptyIdx >= 0) next[emptyIdx] = data
+        return next
+      })
+    } else {
+      setCardCode(prev => prev ? `${prev}\n${data}` : data)
+    }
   }
 
   async function pickFromLibrary() {
@@ -272,7 +438,6 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   async function uploadImageAsset(asset: ImagePicker.ImagePickerAsset) {
     const localUri = asset.uri
-    setCardImages(prev => [...prev, localUri])
     setUploadingImage(true)
     try {
       const formData = new FormData()
@@ -283,42 +448,27 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
       } as any)
       const uploadRes = await client.post('/common/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 20000,
+        timeout: 30000,
       })
       const serverUrl = uploadRes.data?.url || uploadRes.data?.data?.url || uploadRes.data?.fileName
       if (serverUrl) {
+        // Rewrite any localhost/127.0.0.1 references to the actual BASE_URL
         const resolvedUrl = serverUrl
           .replace(/https?:\/\/localhost:\d+/, BASE_URL)
           .replace(/https?:\/\/127\.0\.0\.1:\d+/, BASE_URL)
-        setCardImages(prev => prev.map(u => (u === localUri ? resolvedUrl : u)))
+        // Only add to state AFTER server confirms — never keep broken local URIs
+        setCardImages(prev => [...prev, resolvedUrl])
+      } else {
+        Alert.alert('Upload Failed', 'Image could not be uploaded. Please try again.')
       }
-    } catch { /* keep local URI */ }
+    } catch (e: any) {
+      Alert.alert('Upload Failed', e?.message || 'Could not upload image. Check your connection and try again.')
+    }
     setUploadingImage(false)
   }
 
-  function applyCouponData(d: any) {
-    const discount = d.discountType === 'fixed'
-      ? d.discountValue
-      : (salesPrice * d.discountValue) / 100
-    setAppliedCoupon({ code: d.code, discount, title: d.title })
-    setCouponPickerOpen(false)
-    // Reopen summary after a short delay
-    
-  }
-
-  async function openCouponPicker() {
-    // Close summary first, then open coupon picker
-    
+  function openCouponPicker() {
     setCouponPickerOpen(true)
-    setCouponsLoading(true)
-    try {
-      const res = await client.get('/tuka/coupon/public')
-      setAvailableCoupons(res.data?.data || [])
-    } catch {
-      setAvailableCoupons([])
-    } finally {
-      setCouponsLoading(false)
-    }
   }
 
   async function handleSubmit() {
@@ -328,6 +478,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
       const res = await client.post('/tuka/order/submit', {
         categoryId:   selectedCard.id,
         categoryName: selectedCard.name,
+        country:      cardCountry?.name ?? selectedCountry?.name ?? 'Nigeria',
         cardCurrency: selectedCurrency,
         inputType:    selectedInputType,
         cardAmount:   amountNum,
@@ -349,9 +500,15 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
         cardName: selectedCard.name,
         amount:   amountNum,
         payout:   settlement,
-        currency: cardCountry?.currencyName ?? 'NGN',
-        country:  cardCountry?.name ?? 'Nigeria',
+        currency: cardCountry?.currencyName ?? selectedCountry?.currencyName ?? 'NGN',
+        country:  cardCountry?.name ?? selectedCountry?.name ?? 'Nigeria',
         mode:     selectedMode,
+      })
+      // Ad network purchase conversion
+      trackAdEvent('Purchase', {
+        value:    settlement,
+        currency: cardCountry?.currencyName ?? selectedCountry?.currencyName ?? 'NGN',
+        orderId:  String(no),
       })
     } catch (e: any) {
       Alert.alert('Submission Failed', e.message || 'Failed to submit order. Please try again.')
@@ -453,7 +610,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                 cardAmount: amountNum,
                 quantity: quantity,
                 rate: cardRate,
-                ngnAmount: salesPrice,
+                localAmount: salesPrice,
                 couponDiscount: couponDiscount || 0,
                 cardCode: cardCodes.filter(c => c.trim()).join('\n'),
                 cardImage: cardImages.join(','),
@@ -568,8 +725,19 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
               <View style={{ flex: 1 }}>
                 <Text style={s.rowLabel}>Country</Text>
                 <TouchableOpacity style={s.rowDropdown} onPress={() => setCountryModalOpen(true)} activeOpacity={0.8}>
+                  {selectedCurrency && currencyLogoMap[selectedCurrency] ? (
+                    <Image
+                      source={{ uri: currencyLogoMap[selectedCurrency]! }}
+                      style={s.rowDropdownImg}
+                      resizeMode="cover"
+                    />
+                  ) : selectedCurrency ? (
+                    <View style={[s.rowDropdownImg, { backgroundColor: CARD_BG[1], alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={{ fontSize: ms(10), fontWeight: '700', color: colors.muted }}>{selectedCurrency.slice(0, 2)}</Text>
+                    </View>
+                  ) : null}
                   <Text style={[selectedCurrency ? s.rowDropdownVal : s.rowDropdownPlaceholder, { flex: 1 }]} numberOfLines={1}>
-                    {selectedCurrency ? currLabel(selectedCurrency) : 'Country'}
+                    {selectedCurrency || 'Country'}
                   </Text>
                   <Feather name="chevron-down" size={16} color={colors.muted} />
                 </TouchableOpacity>
@@ -580,13 +748,29 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
             <View style={s.balanceField}>
               <TextInput
                 style={s.balanceInput}
-                placeholder="Please enter the card balance"
+                placeholder={amountPlaceholder}
                 placeholderTextColor={colors.subtle}
                 keyboardType="decimal-pad"
                 value={cardAmount}
-                onChangeText={setCardAmount}
+                onChangeText={handleAmountChange}
               />
             </View>
+
+            {/* Show matched row rate when amount is entered */}
+            {applicableRow && amountNum > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: -spacing[2], marginBottom: spacing[3] }}>
+                <Feather name="check-circle" size={14} color={colors.success} />
+                <Text style={{ fontSize: typography.size.sm, color: colors.success, fontWeight: typography.weight.semibold }}>
+                  Rate: {currencySymbol}{cardRate.toLocaleString('en-NG', { minimumFractionDigits: 2 })} per {selectedCurrency || '$'}1
+                </Text>
+              </View>
+            )}
+
+            {!!amountError && (
+              <Text style={{ fontSize: typography.size.sm, color: colors.error, marginTop: -spacing[2], marginBottom: spacing[3], paddingHorizontal: spacing[1] }}>
+                {amountError}
+              </Text>
+            )}
 
             {/* Payout preview removed */}
 
@@ -784,7 +968,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
           >
             {submitting
               ? <ActivityIndicator color="#fff" />
-              : <Text style={s.sellBtnTxt}>
+              : <Text style={[s.sellBtnTxt, !canSubmit && s.sellBtnTxtOff]}>
                   {selectedInputType === 'Code' && !allFilled && codesFilledCount === 0
                     ? 'Enter codes to sell'
                     : selectedInputType === 'Code' && !allFilled
@@ -796,58 +980,6 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
         </View>
 
       </SafeAreaView>
-
-      {/* ── Coupon Picker Modal ── */}
-      <Modal visible={couponPickerOpen} transparent animationType="slide" statusBarTranslucent>
-        <View style={{ ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1}
-            onPress={() => setCouponPickerOpen(false)} />
-          <View style={ss.cpSheet}>
-            <View style={ss.cpHandle} />
-            <View style={ss.cpHeader}>
-              <TouchableOpacity onPress={() => setCouponPickerOpen(false)} style={ss.cpBack} activeOpacity={0.7}>
-                <Feather name="chevron-left" size={20} color={colors.dark} />
-              </TouchableOpacity>
-              <Text style={ss.cpTitle}>Coupon</Text>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity onPress={() => setCouponPickerOpen(false)} style={ss.cpClose} activeOpacity={0.7}>
-                <Feather name="x" size={20} color={colors.dark} />
-              </TouchableOpacity>
-            </View>
-            {couponsLoading ? (
-              <View style={{ padding: spacing[10], alignItems: 'center' }}>
-                <Spinner size="large" />
-              </View>
-            ) : (
-              <ScrollView contentContainerStyle={{ padding: spacing[4], paddingBottom: spacing[4] }} showsVerticalScrollIndicator={false}>
-                {availableCoupons.length === 0 ? (
-                  <View style={{ padding: spacing[8], alignItems: 'center', gap: spacing[3] }}>
-                    <Text style={{ fontSize: RF(36) }}>🎟</Text>
-                    <Text style={{ fontSize: typography.size.base, color: colors.muted }}>No coupons available</Text>
-                  </View>
-                ) : availableCoupons.map((c: any) => {
-                  const amtLabel = c.discountType === 'fixed' ? `₦${c.discountValue.toLocaleString()}` : `${c.discountValue}%`
-                  return (
-                    <TouchableOpacity key={c.id} style={ss.cpItem} onPress={() => applyCouponData(c)} activeOpacity={0.85}>
-                      <View style={ss.cpLeft}><Text style={ss.cpAmt}>{amtLabel}</Text><Text style={ss.cpOff}>OFF</Text></View>
-                      <View style={ss.cpNotchTop} /><View style={ss.cpNotchBottom} />
-                      <View style={ss.cpRight}>
-                        <Text style={ss.cpItemTitle} numberOfLines={1}>{c.title}</Text>
-                        <Text style={ss.cpItemSub}>{c.minOrderAmount > 0 ? `Available for ₦${c.minOrderAmount.toLocaleString()} order` : 'No minimum order'}</Text>
-                        {c.endDate ? <Text style={ss.cpItemSub}>Valid until {c.endDate.slice(0, 16)}</Text> : null}
-                      </View>
-                    </TouchableOpacity>
-                  )
-                })}
-              </ScrollView>
-            )}
-            <TouchableOpacity style={ss.cpDontUse} onPress={() => { setAppliedCoupon(null); setCouponPickerOpen(false) }} activeOpacity={0.7}>
-              <Text style={ss.cpDontUseTxt}>Don't use</Text>
-              <View style={ss.cpDontUseDot} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* ── Confirm Trade Modal — redesigned ── */}
       <BottomSheet visible={confirmOpen} onClose={() => setConfirmOpen(false)}>
@@ -875,38 +1007,95 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
             {/* Details grid */}
             <View style={cm.rows}>
               {[
-                { label: 'Card',    value: selectedCard?.name || '—' },
-                { label: 'Amount',  value: `${currSym(selectedCurrency)}${amountNum.toFixed(2)} × ${quantity}` },
-                { label: 'Rate',    value: `${fmt(cardRate, currencySymbol)} / ${currSym(selectedCurrency)}1` },
-                { label: 'Type',    value: selectedInputType || '—' },
-                { label: 'Speed',   value: selectedMode },
+                { label: 'Category',         value: selectedCard?.name || '—' },
+                { label: 'Sales Price',       value: fmt(salesPrice, currencySymbol) },
+                { label: 'Settlement Amount', value: fmt(settlement, currencySymbol), green: true },
               ].map((item, i, arr) => (
                 <View key={item.label} style={[cm.row, i < arr.length - 1 && cm.rowBorder]}>
                   <Text style={cm.rowLbl}>{item.label}</Text>
-                  <Text style={cm.rowVal}>{item.value}</Text>
+                  <Text style={[cm.rowVal, (item as any).green && cm.rowValGreen]}>{item.value}</Text>
                 </View>
               ))}
+
+              {/* Coupon row */}
+              <TouchableOpacity
+                style={[cm.row, cm.couponRow]}
+                onPress={() => {
+                  // Close confirm modal first, then open coupon picker
+                  // On confirm, we'll reopen confirm modal
+                  setReturnToConfirm(true)
+                  setConfirmOpen(false)
+                  setTimeout(() => setCouponPickerOpen(true), 320)
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={cm.couponIcon}>
+                  <Feather name="tag" size={14} color={colors.accent} />
+                </View>
+                <Text style={cm.couponLbl}>Coupon</Text>
+                <Text style={cm.couponVal}>
+                  {appliedCoupon
+                    ? `+${fmt(couponDiscount, currencySymbol)} applied`
+                    : 'Select coupon'
+                  }
+                </Text>
+                <Feather name="chevron-right" size={16} color={colors.accent} />
+              </TouchableOpacity>
             </View>
 
-            {/* Buttons */}
-            <View style={cm.btnRow}>
-              <TouchableOpacity style={cm.cancelBtn} onPress={() => setConfirmOpen(false)} activeOpacity={0.8}>
-                <Text style={cm.cancelTxt}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[cm.confirmBtn, submitting && { opacity: 0.7 }]}
-                disabled={submitting}
-                onPress={async () => { setConfirmOpen(false); await handleSubmit() }}
-                activeOpacity={0.85}
-              >
-                {submitting
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={cm.confirmTxt}>Confirm & Sell</Text>
-                }
-              </TouchableOpacity>
-            </View>
+            {/* Submit button — full width black pill */}
+            <TouchableOpacity
+              style={[cm.submitBtn, submitting && { opacity: 0.7 }]}
+              disabled={submitting}
+              onPress={async () => { setConfirmOpen(false); await handleSubmit() }}
+              activeOpacity={0.85}
+            >
+              {submitting
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={cm.submitTxt}>Submit</Text>
+              }
+            </TouchableOpacity>
         </View>
+
       </BottomSheet>
+
+      {/* ── Coupon Picker Modal — separate full modal ── */}
+      <Modal
+        visible={couponPickerOpen}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => {
+          setCouponPickerOpen(false)
+          if (returnToConfirm) {
+            setReturnToConfirm(false)
+            setTimeout(() => setConfirmOpen(true), 320)
+          }
+        }}
+      >
+        <CouponPicker
+          visible={couponPickerOpen}
+          salesPrice={salesPrice}
+          selectedCoupon={appliedCoupon}
+          currencySymbol={currencySymbol}
+          country={cardCountry?.name || selectedCountry?.name}
+          onConfirm={(coupon) => {
+            setAppliedCoupon(coupon)
+            setCouponPickerOpen(false)
+            if (returnToConfirm) {
+              setReturnToConfirm(false)
+              setTimeout(() => setConfirmOpen(true), 320)
+            }
+          }}
+          onClose={() => {
+            setCouponPickerOpen(false)
+            if (returnToConfirm) {
+              setReturnToConfirm(false)
+              setTimeout(() => setConfirmOpen(true), 320)
+            }
+          }}
+        />
+      </Modal>
 
       {/* ── Card Picker Modal ── */}
       <Modal visible={cardModalOpen} transparent animationType="slide" statusBarTranslucent>
@@ -980,8 +1169,19 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                     style={[s.gridItem, selectedCurrency === code && s.gridItemOn]}
                     onPress={() => { setSelectedCurrency(code); setCountryModalOpen(false) }}
                     activeOpacity={0.8}>
+                    {currencyLogoMap[code] ? (
+                      <Image
+                        source={{ uri: currencyLogoMap[code]! }}
+                        style={{ width: ms(28), height: ms(28), borderRadius: ms(6), marginBottom: spacing[1] }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={{ width: ms(28), height: ms(28), borderRadius: ms(6), backgroundColor: CARD_BG[1], alignItems: 'center', justifyContent: 'center', marginBottom: spacing[1] }}>
+                        <Text style={{ fontSize: ms(10), fontWeight: '700', color: colors.muted }}>{code.slice(0, 2)}</Text>
+                      </View>
+                    )}
                     <Text style={[s.gridItemTxt, selectedCurrency === code && s.gridItemTxtOn]}>
-                      {currLabel(code)}
+                      {code}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -1010,7 +1210,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                 {(selectedCard?.inputTypes || []).map(t => (
                   <TouchableOpacity key={t}
                     style={[s.gridItem, selectedInputType === t && s.gridItemOn]}
-                    onPress={() => { setSelectedInputType(t); setTypeModalOpen(false) }}
+                    onPress={() => { selectInputType(t) }}
                     activeOpacity={0.8}>
                     <Text style={[s.gridItemTxt, selectedInputType === t && s.gridItemTxtOn]}>
                       {t}
@@ -1363,6 +1563,7 @@ const s = StyleSheet.create({
   },
   sellBtnOff: { backgroundColor: colors.accentLight },
   sellBtnTxt: { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: '#fff' },
+  sellBtnTxtOff: { color: colors.accent },
   sellHint: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[2],
     backgroundColor: colors.warningLight, borderRadius: radius.md,
@@ -1517,6 +1718,11 @@ const s = StyleSheet.create({
     fontWeight: typography.weight.extrabold,
     color: colors.dark,
     letterSpacing: -1,
+  },
+  settlementRate: {
+    fontSize: typography.size.sm as any,
+    color: colors.muted,
+    marginTop: spacing[1],
   },
 
   // Split pill button
@@ -1946,6 +2152,38 @@ const cm = StyleSheet.create({
   },
   rowLbl: { fontSize: typography.size.base, color: colors.muted },
   rowVal: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: colors.dark, maxWidth: '60%', textAlign: 'right' },
+  rowValGreen: { color: '#22C55E' },
+
+  // Coupon row
+  couponRow: {
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border,
+    paddingVertical: spacing[4],
+  },
+  couponIcon: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#FFF3E0',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: spacing[2],
+  },
+  couponLbl: { fontSize: typography.size.base, color: colors.dark, flex: 1 },
+  couponVal: { fontSize: typography.size.sm, color: colors.accent, fontWeight: typography.weight.semibold, marginRight: spacing[1] },
+
+  // Warning note
+  noteRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2],
+    backgroundColor: '#E6F7F5', borderRadius: radius.lg,
+    padding: spacing[3], marginBottom: spacing[4],
+  },
+  noteTxt: { flex: 1, fontSize: typography.size.xs, color: colors.muted, lineHeight: 18 },
+
+  // Submit button
+  submitBtn: {
+    backgroundColor: '#1A191E', borderRadius: 100,
+    paddingVertical: spacing[4] + 2, alignItems: 'center',
+    marginTop: spacing[2],
+  },
+  submitTxt: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: '#fff' },
+
   btnRow: { flexDirection: 'row', gap: spacing[3] },
   cancelBtn: {
     flex: 1, borderWidth: 2, borderColor: colors.dark,

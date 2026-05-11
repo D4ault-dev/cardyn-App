@@ -1,5 +1,5 @@
 /**
- * FUFU CARDS — Spacing & Radius
+ * Cardyn — Spacing & Radius
  * Plain numbers — no runtime dependencies, safe to import anywhere.
  * Use sw() from responsive.ts inside StyleSheet.create for scaling.
  */

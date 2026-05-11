@@ -1,5 +1,5 @@
 import { Platform, StyleSheet, Dimensions } from 'react-native'
-import { colors, typography, spacing, radius } from '../../../theme'
+import { colors, typography, spacing, radius, fw } from '../../../theme'
 import { ms, SCREEN_H } from '../../../util/responsive'
 
 const { width: W } = Dimensions.get('window')
@@ -18,7 +18,7 @@ export const suc = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   title: {
-    fontSize: typography.size['3xl'], fontWeight: typography.weight.extrabold,
+    fontSize: typography.size['3xl'], fontWeight: fw('extrabold') as any,
     color: colors.dark, textAlign: 'center', marginBottom: spacing[3],
   },
   sub: {
@@ -39,7 +39,7 @@ export const lh = StyleSheet.create({
   },
   logo: { width: ms(88), height: ms(88) },
   brandName: {
-    fontSize: typography.size['4xl'], fontWeight: typography.weight.extrabold,
+    fontSize: typography.size['4xl'], fontWeight: fw('extrabold') as any,
     color: '#FFFFFF', letterSpacing: 2, marginBottom: spacing[2], textAlign: 'center',
   },
   tagline: {
@@ -52,7 +52,7 @@ export const lh = StyleSheet.create({
 // ── Login screen v2 styles ────────────────────────────────────────────────────
 export const li2 = StyleSheet.create({
   // Root layout
-  root: { flex: 1, backgroundColor: '#FFFFFF', flexDirection: 'column' },
+  root: { flex: 1, backgroundColor: colors.primary, flexDirection: 'column' },
   safeTop: { zIndex: 20 },
   
   // Navigation
@@ -61,27 +61,27 @@ export const li2 = StyleSheet.create({
     paddingHorizontal: spacing[5], paddingTop: spacing[3], paddingBottom: spacing[2],
   },
   helpTxt: {
-    fontSize: typography.size.md, fontWeight: typography.weight.semibold,
+    fontSize: typography.size.md, fontWeight: fw('semibold') as any,
     color: 'rgba(255,255,255,0.95)', paddingHorizontal: spacing[3], paddingVertical: spacing[2],
   },
   
-  // Card container
+  // Card container — no paddingTop, form View handles its own top padding
   card: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: ms(32),
-    borderTopRightRadius: ms(32),
-    paddingHorizontal: spacing[6],
-    paddingTop: spacing[6],
+    borderTopLeftRadius: ms(24),
+    borderTopRightRadius: ms(24),
+    paddingHorizontal: 0,
+    paddingTop: 0,
     elevation: 0, shadowOpacity: 0,
   },
   
-  // Input field base styles
+  // Input field base styles — no horizontal padding, outer form View controls margins
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#F8F9FA', borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: ms(14),
-    marginBottom: spacing[3],
+    backgroundColor: '#F8F9FA', borderRadius: radius.full,
+    paddingHorizontal: spacing[3], paddingVertical: ms(14),
+    marginBottom: spacing[2], marginHorizontal: spacing[2],
     borderWidth: 1.5, borderColor: 'transparent',
     minHeight: ms(56),
   },
@@ -90,13 +90,13 @@ export const li2 = StyleSheet.create({
   inputRowDone: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
   
   inputLabel: {
-    fontSize: typography.size.md, fontWeight: typography.weight.semibold,
-    color: colors.dark, marginRight: spacing[3], minWidth: 60,
+    fontSize: typography.size.lg, fontWeight: fw('semibold') as any,
+    color: colors.dark, marginRight: spacing[3], minWidth: 68,
   },
   inputDivider: { width: 1, height: ms(20), backgroundColor: colors.border, marginRight: spacing[3] },
   input: {
-    flex: 1, fontSize: typography.size.md, color: colors.dark,
-    paddingVertical: 0, fontWeight: typography.weight.medium,
+    flex: 1, fontSize: typography.size.lg, color: colors.dark,
+    paddingVertical: 0, fontWeight: fw('medium') as any,
   },
   inputPlaceholder: { color: '#9CA3AF' },
   
@@ -115,21 +115,22 @@ export const li2 = StyleSheet.create({
     backgroundColor: '#FFF5F5', borderRadius: radius.md, paddingVertical: spacing[2],
   },
   notFoundTxt: { fontSize: typography.size.sm, color: colors.error, flex: 1 },
-  notFoundLink: { fontSize: typography.size.sm, fontWeight: typography.weight.bold, color: colors.primary },
+  notFoundLink: { fontSize: typography.size.sm, fontWeight: fw('bold') as any, color: colors.primary },
   
   // Password input row
   pwRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#F8F9FA', borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: ms(14),
+    backgroundColor: '#F8F9FA', borderRadius: radius.full,
+    paddingHorizontal: spacing[3], paddingVertical: ms(14),
+    marginBottom: spacing[2], marginHorizontal: spacing[2],
     borderWidth: 1.5, borderColor: 'transparent', gap: spacing[3],
     minHeight: ms(56),
   },
   pwRowFocused: { borderColor: colors.primary, backgroundColor: '#FFFFFF', elevation: 2, shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
   pwRowError: { borderColor: colors.error, backgroundColor: '#FFF5F5' },
   pwInput: {
-    flex: 1, fontSize: typography.size.md, color: colors.dark,
-    paddingVertical: 0, fontWeight: typography.weight.medium,
+    flex: 1, fontSize: typography.size.lg, color: colors.dark,
+    paddingVertical: 0, fontWeight: fw('medium') as any,
   },
   
   // Error messages
@@ -140,41 +141,41 @@ export const li2 = StyleSheet.create({
   errTxt: { fontSize: typography.size.sm, color: colors.error, flex: 1 },
   
   // Forgot password link
-  forgotRow: { alignItems: 'flex-end', marginTop: spacing[2], paddingBottom: spacing[1] },
+  forgotRow: { alignItems: 'flex-end', marginTop: spacing[1] },
   forgotTxt: {
-    fontSize: typography.size.sm, fontWeight: typography.weight.semibold,
-    color: colors.secondary, paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    fontSize: typography.size.sm, fontWeight: fw('semibold') as any,
+    color: colors.secondary,
   },
   
   // Primary button
   btn: {
     backgroundColor: colors.primary, borderRadius: radius.full,
     paddingVertical: ms(16), alignItems: 'center', justifyContent: 'center',
-    marginTop: spacing[4], marginBottom: spacing[4],
+    marginTop: spacing[2], marginBottom: spacing[2], marginHorizontal: spacing[2],
     minHeight: ms(52), flexDirection: 'row', gap: spacing[2],
   },
   btnOff: { backgroundColor: colors.disabled, elevation: 0 },
   btnActive: { elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12 },
-  btnTxt: { fontSize: typography.size.lg, fontWeight: typography.weight.bold, color: '#FFFFFF' },
-  btnTxtOff: { color: 'rgba(255,255,255,0.7)' },
+  btnTxt: { fontSize: typography.size.xl, fontWeight: fw('bold') as any, color: '#FFFFFF' },
+  btnTxtOff: { color: colors.disabledText },
   
   // Links row (Sign up / Retrieve)
   linksRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: spacing[4], marginTop: spacing[2], marginBottom: spacing[4],
+    gap: spacing[4], marginTop: spacing[1], marginBottom: spacing[2],
   },
   linkTxt: {
-    fontSize: typography.size.base, fontWeight: typography.weight.semibold,
-    color: colors.secondary, paddingHorizontal: spacing[2], paddingVertical: spacing[2],
+    fontSize: typography.size.base, fontWeight: fw('semibold') as any,
+    color: colors.secondary, paddingHorizontal: spacing[2], paddingVertical: spacing[1],
   },
   linkDot: { width: ms(4), height: ms(4), borderRadius: ms(2), backgroundColor: colors.border },
   
   // Divider with text
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing[3] },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing[2] },
   dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   dividerTxt: {
     fontSize: typography.size.xs, color: colors.subtle,
-    marginHorizontal: spacing[4], fontWeight: typography.weight.medium,
+    marginHorizontal: spacing[4], fontWeight: fw('medium') as any,
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
   
@@ -186,13 +187,26 @@ export const li2 = StyleSheet.create({
     fontSize: typography.size.xs, color: colors.disabledText,
     textAlign: 'center', lineHeight: ms(18), paddingHorizontal: spacing[4],
   },
-  consentLink: { color: colors.secondary, fontWeight: typography.weight.semibold },
+  consentLink: { color: colors.secondary, fontWeight: fw('semibold') as any },
   
   // Animated container helpers
   animatedContainer: { overflow: 'hidden' },
   
   // Focus animation helper
   focusTransition: { borderColor: colors.primary, backgroundColor: '#FFFFFF' },
+
+  // Hero text wrap — used by SignupStep and ForgotStep
+  heroWrap: {
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[2],
+  },
+  heroTitle: {
+    fontSize: typography.size['4xl'],
+    fontWeight: fw('extrabold') as any,
+    color: '#FFFFFF',
+    lineHeight: ms(46),
+  },
 })
 
 // ── Shared step styles ────────────────────────────────────────────────────────
@@ -208,17 +222,17 @@ export const s = StyleSheet.create({
   },
   progressTrack: { height: 2, backgroundColor: '#F0F0F0', marginHorizontal: spacing[5], borderRadius: 1 },
   progressFill: { height: 2, backgroundColor: colors.primary, borderRadius: 1 },
-  stepContent: { paddingHorizontal: spacing[6], paddingTop: spacing[8] },
+  stepContent: { paddingHorizontal: spacing[6], paddingTop: spacing[5] },
   stepTitle: {
-    fontSize: typography.size['3xl'], fontWeight: typography.weight.extrabold,
+    fontSize: typography.size['3xl'], fontWeight: fw('extrabold') as any,
     color: colors.dark, lineHeight: ms(32), marginBottom: spacing[2],
   },
   stepSub: {
     fontSize: typography.size.base, color: colors.muted,
-    lineHeight: ms(21), marginBottom: spacing[8],
+    lineHeight: ms(21), marginBottom: spacing[4],
   },
   fieldLabel: {
-    fontSize: typography.size.xs, fontWeight: typography.weight.semibold,
+    fontSize: typography.size.xs, fontWeight: fw('semibold') as any,
     color: colors.subtle, marginBottom: spacing[2],
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
@@ -227,18 +241,18 @@ export const s = StyleSheet.create({
     backgroundColor: '#F7F7F7', borderRadius: radius.lg,
     borderWidth: 1.5, borderColor: '#F0F0F0',
     paddingHorizontal: spacing[4], paddingVertical: ms(16),
-    gap: spacing[3], marginBottom: spacing[4],
+    gap: spacing[3], marginBottom: spacing[2],
   },
   inputCardTxt: { flex: 1, fontSize: typography.size.lg, color: colors.dark, paddingVertical: 0 },
   flagSection: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingRight: spacing[2] },
   vDivider: { width: 1, height: ms(22), backgroundColor: colors.border },
-  prefix: { fontSize: typography.size.lg, fontWeight: typography.weight.semibold, color: colors.body },
+  prefix: { fontSize: typography.size.lg, fontWeight: fw('semibold') as any, color: colors.body },
   otpRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[6] },
   otpBox: {
     flex: 1, height: ms(60), borderRadius: radius.lg,
     backgroundColor: '#F7F7F7', borderWidth: 1.5, borderColor: '#F0F0F0',
     textAlign: 'center', fontSize: typography.size['3xl'],
-    fontWeight: typography.weight.bold, color: colors.dark,
+    fontWeight: fw('bold') as any, color: colors.dark,
   },
   otpBoxFocused: { borderColor: colors.primary, backgroundColor: '#FFFFFF' },
   otpBoxOn: { backgroundColor: colors.primaryLight, borderColor: colors.primary, color: colors.primary },
@@ -248,21 +262,21 @@ export const s = StyleSheet.create({
     paddingVertical: spacing[2], paddingHorizontal: spacing[4],
     backgroundColor: colors.primaryLight, borderRadius: radius.full,
   },
-  resendBtnTxt: { fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: colors.primary },
+  resendBtnTxt: { fontSize: typography.size.sm, fontWeight: fw('semibold') as any, color: colors.primary },
   resendCountTxt: { fontSize: typography.size.sm, color: colors.subtle },
   consentTxt: { fontSize: typography.size.xs, color: colors.disabledText, lineHeight: ms(17), textAlign: 'center' },
-  termsLink: { color: colors.secondary, fontWeight: typography.weight.semibold },
+  termsLink: { color: colors.secondary, fontWeight: fw('semibold') as any },
   primaryBtn: {
     backgroundColor: colors.primary, borderRadius: radius.lg,
     paddingVertical: ms(16), alignItems: 'center' as const,
   },
   primaryBtnOff: { backgroundColor: colors.disabled },
-  primaryBtnTxt: { fontSize: typography.size.lg, fontWeight: typography.weight.bold, color: '#FFFFFF' },
+  primaryBtnTxt: { fontSize: typography.size.lg, fontWeight: fw('bold') as any, color: '#FFFFFF' },
   primaryBtnTxtOff: { color: colors.disabledText },
   bottomPad: { paddingHorizontal: spacing[6], paddingBottom: spacing[8], paddingTop: spacing[2] },
-  switchRow: { alignItems: 'center', paddingVertical: spacing[5] },
-  switchTxt: { fontSize: typography.size.base, fontWeight: typography.weight.medium, color: colors.subtle },
-  switchLink: { color: colors.secondary, fontWeight: typography.weight.bold },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing[3] },
+  switchTxt: { fontSize: typography.size.base, fontWeight: fw('medium') as any, color: colors.subtle },
+  switchLink: { color: colors.secondary, fontWeight: fw('bold') as any },
   errTxt: { fontSize: typography.size.sm, color: colors.error, marginBottom: spacing[2] },
   pwTopWrap: { paddingTop: spacing[2] },
   pwTopBar: {
@@ -274,7 +288,7 @@ export const s = StyleSheet.create({
     backgroundColor: colors.primaryLight, borderRadius: radius.full,
     paddingHorizontal: spacing[3], paddingVertical: ms(6),
   },
-  phonePillTxt: { fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: colors.primary },
+  phonePillTxt: { fontSize: typography.size.sm, fontWeight: fw('semibold') as any, color: colors.primary },
   pwCard: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: ms(28), borderTopRightRadius: ms(28),
@@ -287,10 +301,10 @@ export const s = StyleSheet.create({
     borderRadius: ms(2), alignSelf: 'center', marginBottom: spacing[5],
   },
   pwTitle: {
-    fontSize: typography.size['2xl'], fontWeight: typography.weight.extrabold,
+    fontSize: typography.size['2xl'], fontWeight: fw('extrabold') as any,
     color: colors.dark, marginBottom: spacing[1], textAlign: 'center',
   },
-  pwSub: { fontSize: typography.size.sm, color: colors.subtle, marginBottom: spacing[6], textAlign: 'center' },
+  pwSub: { fontSize: typography.size.sm, color: colors.subtle, marginBottom: spacing[3], textAlign: 'center' },
   pwInputBox: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#F7F7F7', borderRadius: radius.lg,
@@ -301,24 +315,24 @@ export const s = StyleSheet.create({
   pwErrRow: { flexDirection: 'row', alignItems: 'center', gap: ms(5), marginBottom: spacing[2] },
   pwErrTxt: { fontSize: typography.size.sm, color: colors.error },
   forgotRow: { alignItems: 'center', paddingTop: spacing[5] },
-  forgotTxt: { fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: colors.secondary },
+  forgotTxt: { fontSize: typography.size.base, fontWeight: fw('semibold') as any, color: colors.secondary },
   bioCenter: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: spacing[6], paddingBottom: spacing[16],
   },
   bioOuter: { width: ms(160), height: ms(160), borderRadius: ms(80), backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  bioMiddle: { width: ms(118), height: ms(118), borderRadius: ms(59), backgroundColor: '#A8D5C5', alignItems: 'center', justifyContent: 'center' },
+  bioMiddle: { width: ms(118), height: ms(118), borderRadius: ms(59), backgroundColor: '#00C2B4', alignItems: 'center', justifyContent: 'center' },
   bioInner: { width: ms(84), height: ms(84), borderRadius: ms(42), backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   bioTitle: {
-    fontSize: typography.size['3xl'], fontWeight: typography.weight.extrabold,
+    fontSize: typography.size['3xl'], fontWeight: fw('extrabold') as any,
     color: colors.dark, textAlign: 'center', marginTop: spacing[8], marginBottom: spacing[3],
   },
   bioSub: { fontSize: typography.size.base, color: colors.muted, textAlign: 'center', lineHeight: ms(21) },
   bioBtns: { flexDirection: 'row', gap: spacing[3], paddingHorizontal: spacing[5], paddingBottom: spacing[10] },
   bioSkipBtn: { flex: 1, paddingVertical: ms(16), borderRadius: radius.lg, backgroundColor: '#F5F5F5', alignItems: 'center' },
-  bioSkipTxt: { fontSize: typography.size.md, fontWeight: typography.weight.bold, color: colors.muted },
+  bioSkipTxt: { fontSize: typography.size.md, fontWeight: fw('bold') as any, color: colors.muted },
   bioEnableBtn: { flex: 1, paddingVertical: ms(16), borderRadius: radius.lg, backgroundColor: colors.primary, alignItems: 'center' },
-  bioEnableTxt: { fontSize: typography.size.md, fontWeight: typography.weight.bold, color: '#FFFFFF' },
+  bioEnableTxt: { fontSize: typography.size.md, fontWeight: fw('bold') as any, color: '#FFFFFF' },
 })
 
 // ── Onboarding styles ─────────────────────────────────────────────────────────
@@ -327,13 +341,13 @@ export const ob = StyleSheet.create({
     position: 'absolute', top: spacing[3], right: spacing[5],
     zIndex: 10, paddingVertical: spacing[2], paddingHorizontal: spacing[3],
   },
-  skipTxt: { fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: colors.primary },
+  skipTxt: { fontSize: typography.size.base, fontWeight: fw('semibold') as any, color: colors.primary },
   illus: { width: W, height: SCREEN_H * 0.42, overflow: 'hidden' },
   illusCircleOuter: { width: W, height: SCREEN_H * 0.42 },
   illusCircleInner: { width: W, height: SCREEN_H * 0.42 },
   textWrap: { paddingHorizontal: spacing[6], paddingTop: spacing[5], alignItems: 'center' },
   title: {
-    fontSize: typography.size['3xl'], fontWeight: typography.weight.extrabold,
+    fontSize: typography.size['3xl'], fontWeight: fw('extrabold') as any,
     color: colors.dark, lineHeight: ms(34), marginBottom: spacing[2], textAlign: 'center',
   },
   subtitle: { fontSize: typography.size.base, color: colors.muted, lineHeight: ms(22), textAlign: 'center' },
@@ -345,7 +359,7 @@ export const ob = StyleSheet.create({
     backgroundColor: colors.accent, borderRadius: radius.lg,
     paddingVertical: ms(16), alignItems: 'center', marginBottom: spacing[3],
   },
-  startTxt: { fontSize: typography.size.lg, fontWeight: typography.weight.bold, color: '#FFFFFF', letterSpacing: 0.5 },
+  startTxt: { fontSize: typography.size.lg, fontWeight: fw('bold') as any, color: '#FFFFFF', letterSpacing: 0.5 },
   loginBtn: { backgroundColor: '#F5F5F5', borderRadius: radius.lg, paddingVertical: ms(16), alignItems: 'center' },
-  loginTxt: { fontSize: typography.size.lg, fontWeight: typography.weight.semibold, color: colors.body },
+  loginTxt: { fontSize: typography.size.lg, fontWeight: fw('semibold') as any, color: colors.body },
 })

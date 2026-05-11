@@ -13,6 +13,7 @@ import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, spacing, radius, typography } from '../theme'
 import client from '../api/client'
 import { submitWithdrawal } from '../api/wallet'
+import { useCountry } from '../context/CountryContext'
 
 const PIN_LENGTH = 4
 
@@ -28,6 +29,7 @@ function maskAccountNumber(acc: string): string {
 
 export default function WithdrawPinScreen(props: StackScreenProps<RootStackParams, 'WithdrawPin'>) {
   const { bank, amount, fee, receive } = (props.route.params as any) || {}
+  const { selectedCountry } = useCountry()
   const [pin, setPin]         = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
@@ -56,6 +58,7 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
         bankName: bank.bankName,
         accountName: bank.accountName,
         accountNo: bank.accountNumber,
+        country: selectedCountry?.name || 'Nigeria',
       })
       // Navigate to success — go back to Withdraw and show alert
       props.navigation.navigate('Withdraw' as any)

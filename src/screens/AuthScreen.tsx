@@ -2,9 +2,11 @@ import React, { useState, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   Animated, KeyboardAvoidingView,
-  Platform, Keyboard, Alert,
-  ActivityIndicator, Easing
+  Platform, Keyboard, Alert, Linking,
+  ActivityIndicator, Easing, Dimensions,
 } from 'react-native'
+
+const SCREEN_W = Dimensions.get('window').width
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { StackScreenProps } from '@react-navigation/stack'
 import storage from '../util/storage'
@@ -72,6 +74,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
   const slideAnim = useRef(new Animated.Value(40)).current
   const fadeAnim  = useRef(new Animated.Value(0)).current
   const liCardOpacity = useRef(new Animated.Value(0)).current
+  const stepContentOpacity = useRef(new Animated.Value(1)).current
   const liBtnScale    = useRef(new Animated.Value(1)).current
   const liLinksAnim   = useRef(new Animated.Value(0)).current
   const liPwAnim      = useRef(new Animated.Value(32)).current
@@ -79,7 +82,10 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
   const liPwBtnScale  = useRef(new Animated.Value(1)).current
   const [liKeyboardUp, setLiKeyboardUp] = useState(false)
   const liFooterOpacity = useRef(new Animated.Value(1)).current
-  const liHeroHeight  = useRef(new Animated.Value(SCREEN_H * 0.32)).current
+  // Hero height: card should always get ~58% of screen
+  // Cap hero so it doesn't grow too large on tall Android screens
+  const HERO_H = Math.min(SCREEN_H * 0.22, SCREEN_H - SCREEN_H * 0.68 - 60)
+  const liHeroHeight  = useRef(new Animated.Value(HERO_H)).current
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
@@ -101,12 +107,25 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
     }).catch(() => setOnboardingChecked(true))
   }, [])
 
+  // Step order for directional transitions
+  const STEP_ORDER: Step[] = ['landing', 'login', 'signup', 'signup_otp', 'signup_password', 'biometric_setup', 'forgot', 'forgot_otp', 'forgot_newpassword', 'password_success']
+  const prevStepRef = useRef<Step>('landing')
+
   useEffect(() => {
-    slideAnim.setValue(40); fadeAnim.setValue(0)
-    Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 300, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 300, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-    ]).start()
+    const prevIdx = STEP_ORDER.indexOf(prevStepRef.current)
+    const nextIdx = STEP_ORDER.indexOf(step)
+    const dir = nextIdx >= prevIdx ? 1 : -1  // 1 = forward (right→left), -1 = back (left→right)
+    prevStepRef.current = step
+
+    // Pure slide — no fade, just a smooth horizontal push like native iOS navigation
+    slideAnim.setValue(dir * SCREEN_W)  // start fully off-screen
+    fadeAnim.setValue(1)                // always fully visible
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      tension: 68,
+      friction: 14,
+      useNativeDriver: true,
+    }).start()
   }, [step])
 
   useEffect(() => {
@@ -129,7 +148,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
     liPwAnim.setValue(32); liPwOpacity.setValue(0)
     liCardOpacity.setValue(0); liLinksAnim.setValue(0)
     liFooterOpacity.setValue(1)
-    liHeroHeight.setValue(SCREEN_H * 0.32)
+    liHeroHeight.setValue(HERO_H)
     Animated.parallel([
       Animated.timing(liCardOpacity, { toValue: 1, duration: 320, easing: Easing.out(Easing.ease), useNativeDriver: true }),
       Animated.sequence([
@@ -168,7 +187,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setLiKeyboardUp(false)
-        Animated.spring(liHeroHeight, { toValue: SCREEN_H * 0.32, useNativeDriver: false, tension: 55, friction: 14 }).start()
+        Animated.spring(liHeroHeight, { toValue: HERO_H, useNativeDriver: false, tension: 55, friction: 14 }).start()
       }
     )
     return () => { show.remove(); hide.remove() }
@@ -196,7 +215,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
         const enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
         if (enabled !== 'true' || !biometricAvailable) return
         const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Log in to FUFU CARDS',
+          promptMessage: 'Log in to Cardyn',
           fallbackLabel: 'Use Password',
           cancelLabel: 'Cancel',
         })
@@ -258,9 +277,19 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
     }
   }
 
-  function goTo(s: Step) { setError(''); setOtp(['','','','','','']); setStep(s) }
+  function goTo(s: Step) {
+    setError('')
+    setOtp(['','','','','',''])
+    setStep(s)
+  }
+
+  // Store the full international phone used for OTP so resend uses the same format
+  const [otpFullPhone, setOtpFullPhone] = useState('')
+  // Store the verified OTP value so it can be passed to resetPassword after goTo clears otp array
+  const [verifiedOtp, setVerifiedOtp] = useState('')
 
   async function sendOtpToPhone(phoneNumber: string): Promise<boolean> {
+    setOtpFullPhone(phoneNumber) // save full format for resend
     const result = await sendOtp(phoneNumber)
     if (!result) { setError('Failed to send OTP. Please try again.'); return false }
     setOtpPinId(result.pinId)
@@ -276,6 +305,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
       setError('Invalid code. Please try again.')
       Analytics.otpFailed(selectedCountry.name)
     } else {
+      setVerifiedOtp(pin) // save for resetPassword after goTo clears otp array
       Analytics.otpVerified(selectedCountry.name)
     }
     return ok
@@ -344,7 +374,14 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
             storage.setItem('@tuka_last_phone', raw).catch(() => {})
             showPasswordPanel()
           }
-        } catch { showPasswordPanel() }
+        } catch (e: any) {
+          const msg: string = e?.message || ''
+          if (msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
+            setError('Connection failed. Check your internet and try again.')
+          } else {
+            showPasswordPanel()
+          }
+        }
       }
     } finally { setLoading(false) }
   }
@@ -357,7 +394,24 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
       await login(username, password)
       const alreadyEnabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
       if (!alreadyEnabled && biometricAvailable) { setPendingUsername(username); goTo('biometric_setup') }
-    } catch (e: any) { setError(e.message || 'Incorrect password. Please try again.') }
+    } catch (e: any) {
+      const msg: string = e?.message || ''
+      const bizCode = e?.bizCode
+      const httpStatus = e?.httpStatus
+      if (bizCode === 429 || msg.includes('Too many')) {
+        setError('Too many failed attempts. Please try again later.')
+      } else if (bizCode === 403 || msg.includes('disabled') || msg.includes('suspended')) {
+        setError('Your account has been disabled. Please contact support.')
+      } else if (bizCode === 401 || msg.includes('Incorrect') || msg.includes('not match') || httpStatus === 401) {
+        setError('Incorrect phone number or password.')
+      } else if (msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
+        setError('Connection failed. Check your internet and try again.')
+      } else if (msg && msg !== 'Request failed') {
+        setError(msg)
+      } else {
+        setError('Login failed. Please check your details and try again.')
+      }
+    }
     finally { setLoading(false) }
   }
 
@@ -365,24 +419,30 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
 
   if (!onboardingChecked) return null
 
+  // Wrap all step content in a transition view — slide + fade on step change
+  const transitionStyle = {
+    flex: 1,
+    transform: [{ translateX: slideAnim }],
+  }
+
   if (step === 'landing') {
     return (
-      <>
-        <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
+      <Animated.View style={transitionStyle}>
+        <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} onChatSupport={() => Linking.openURL('https://wa.me/2340000000000?text=Hi%2C%20I%20need%20help%20with%20my%20Cardyn%20account').catch(() => {})} />
         <OnboardingStep
           fadeAnim={fadeAnim}
           selectedCountry={selectedCountry}
           onGoToSignup={() => { reset(); goTo('signup') }}
           onGoToLogin={() => { reset(); goTo('login') }}
         />
-      </>
+      </Animated.View>
     )
   }
 
   if (step === 'login') {
     return (
-      <>
-        <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
+      <Animated.View style={transitionStyle}>
+        <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} onChatSupport={() => Linking.openURL('https://wa.me/2340000000000?text=Hi%2C%20I%20need%20help%20with%20my%20Cardyn%20account').catch(() => {})} />
         <CountryPickerModal
           visible={countryPickerOpen} countries={countries} selected={selectedCountry}
           onSelect={c => { setSelectedCountry(c); setCountryPickerOpen(false) }}
@@ -425,13 +485,15 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
           setShowHelp={setShowHelp}
           goTo={goTo}
           reset={reset}
+          keyboardUp={liKeyboardUp}
         />
-      </>
+      </Animated.View>
     )
   }
 
   if (step === 'signup' || step === 'signup_otp' || step === 'signup_password') {
     return (
+      <Animated.View style={transitionStyle}>
       <SignupStep
         step={step}
         name={name}
@@ -474,6 +536,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
         setCountdown={setCountdown}
         setLoginMethod={setLoginMethod}
         sendOtpToPhone={sendOtpToPhone}
+        otpFullPhone={otpFullPhone}
         verifyOtpCode={verifyOtpCode}
         handleGoogleSignIn={handleGoogleSignIn}
         handleAppleSignIn={handleAppleSignIn}
@@ -483,13 +546,14 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
         biometricAvailable={biometricAvailable}
         setPendingUsername={setPendingUsername}
       />
+      </Animated.View>
     )
   }
 
   if (step === 'forgot' || step === 'forgot_otp' || step === 'forgot_newpassword' || step === 'password_success') {
     return (
-      <>
-        <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
+      <Animated.View style={transitionStyle}>
+        <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} onChatSupport={() => Linking.openURL('https://wa.me/2340000000000?text=Hi%2C%20I%20need%20help%20with%20my%20Cardyn%20account').catch(() => {})} />
         <ForgotStep
           step={step}
           phone={phone}
@@ -530,16 +594,20 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
           setCountdown={setCountdown}
           setLoginInput={setLoginInput}
           sendOtpToPhone={sendOtpToPhone}
+          otpFullPhone={otpFullPhone}
+          otpPinId={otpPinId}
+          verifiedOtp={verifiedOtp}
           verifyOtpCode={verifyOtpCode}
           resetPassword={resetPassword}
           goTo={goTo}
         />
-      </>
+      </Animated.View>
     )
   }
 
   if (step === 'biometric_setup') {
     return (
+      <Animated.View style={transitionStyle}>
       <BiometricStep
         fadeAnim={fadeAnim}
         slideAnim={slideAnim}
@@ -547,6 +615,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
         password={password}
         enableBiometric={enableBiometric}
       />
+      </Animated.View>
     )
   }
 

@@ -17,3 +17,11 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+
+# Environment files — never commit real API URLs or secrets
+.env.local
+.env.production.local
+.env
+android/local.properties
+android/app/google-services.json
+ios/GoogleService-Info.plist

@@ -14,6 +14,7 @@ import { currSym, currLabel } from '../util/currency'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { FadeScreen } from '../components/FadeScreen'
 import { ms } from '../util/responsive'
+import { useCountry } from '../context/CountryContext'
 
 const CARD_BG = ['#E8F5E9','#FFF3E0','#E3F2FD','#FCE4EC','#F3E5F5','#E0F7FA','#FFF8E1','#E8EAF6']
 
@@ -21,7 +22,8 @@ const CARD_BG = ['#E8F5E9','#FFF3E0','#E3F2FD','#FCE4EC','#F3E5F5','#E0F7FA','#F
 function RateTable({
   card, country, mode, onSell,
 }: {
-  card: CardCategory; country: Country | null; mode: 'Fast' | 'Slow'; onSell: () => void
+  card: CardCategory; country: Country | null; mode: 'Fast' | 'Slow'
+  onSell: (currency: string, inputType: string, mode: 'Fast' | 'Slow') => void
 }) {
   const [currency, setCurrency] = useState(card.currencies?.[0] || 'USD')
 
@@ -31,7 +33,12 @@ function RateTable({
 
   function getRate(row: any, type: string): number {
     const r = row.rates?.[type] || row.rates?.['All'] || ''
-    return (r ? parseFloat(r) : (card.rate ?? 0)) * (country?.todayRate ?? 1)
+    const baseRate = r ? parseFloat(r) : (card.rate ?? 0)
+    const todayRate = country?.todayRate ?? 1
+    if (country?.rateMode === 'divide') {
+      return todayRate > 0 ? baseRate / todayRate : baseRate
+    }
+    return baseRate * todayRate
   }
 
   function rangeLabel(row: any): [string, string] {
@@ -69,7 +76,12 @@ function RateTable({
           const types = row.inputTypes?.length ? row.inputTypes : ['All']
           const [val, type] = rangeLabel(row)
           return (
-            <TouchableOpacity key={i} style={t.rateCard} onPress={onSell} activeOpacity={0.8}>
+            <TouchableOpacity
+              key={i}
+              style={t.rateCard}
+              // Pass currency + first type of this row + mode so SellCard pre-fills
+              onPress={() => onSell(currency, types[0], mode)}
+              activeOpacity={0.8}>
               <View style={{ flex: 1.3 }}>
                 <Text style={t.rangeVal}>{val}</Text>
                 <Text style={t.rangeType}>{type}</Text>
@@ -97,27 +109,31 @@ function RateTable({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
   const [cards, setCards]           = useState<CardCategory[]>([])
-  const [countries, setCountries]   = useState<Country[]>([])
   const [loading, setLoading]       = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [mode, setMode]             = useState<'Fast' | 'Slow'>('Fast')
+
+  // Global country from context
+  const { selectedCountry, countries } = useCountry()
 
   // Accept selectedCardId passed back from CardPickerScreen
   const incomingId = (props.route?.params as any)?.selectedCardId
 
   const load = useCallback(async (force = false) => {
     try {
-      const [c, co] = await Promise.all([fetchCardCategories(force), fetchCountries(force)])
+      const c = await fetchCardCategories(force, selectedCountry?.name || '')
       setCards(c)
-      setCountries(co)
       // Default to first card
-      if (c.length > 0) setSelectedId(prev => prev ?? c[0].id)
+      if (c.length > 0) setSelectedId(c[0].id)  // reset to first card of new country
     } catch { /* keep */ }
     finally { setLoading(false); setRefreshing(false) }
-  }, [])
+  }, [selectedCountry?.name])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    setLoading(true)
+    load(true)
+  }, [selectedCountry?.name])
 
   // When CardPickerScreen navigates back with a selection
   useEffect(() => {
@@ -127,11 +143,11 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
   const onRefresh = () => { setRefreshing(true); load(true) }
 
   const getCountry = (card: CardCategory) =>
-    countries.find(c => c.name === card.country) || countries[0] || null
+    countries.find(c => c.name === card.country) || selectedCountry || countries[0] || null
 
-  const selectedCard    = cards.find(c => c.id === selectedId) || null
-  const selectedCountry = selectedCard ? getCountry(selectedCard) : null
-  const imgUrl          = resolveImageUrl(selectedCard?.icon ?? null)
+  const selectedCard        = cards.find(c => c.id === selectedId) || null
+  const selectedCardCountry = selectedCard ? getCountry(selectedCard) : (selectedCountry || null)
+  const imgUrl              = resolveImageUrl(selectedCard?.icon ?? null)
 
   const swipeHandlers = useDrawerSwipe()
 
@@ -208,9 +224,16 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
         ) : (
           <RateTable
             card={selectedCard}
-            country={selectedCountry}
+            country={selectedCardCountry}
             mode={mode}
-            onSell={() => props.navigation.navigate('SellCard' as any, { cardId: selectedCard.id })}
+            onSell={(currency, inputType, rowMode) =>
+              props.navigation.navigate('SellCard' as any, {
+                cardId: selectedCard.id,
+                currency,
+                inputType,
+                mode: rowMode,
+              })
+            }
           />
         )}
       </ScrollView>

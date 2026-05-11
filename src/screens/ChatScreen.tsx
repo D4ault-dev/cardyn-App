@@ -153,7 +153,7 @@ function Bubble({ msg, myUserId, onQuickReply, quickRepliesUsed, onImagePress, s
               ? <Image source={{ uri: avatarUri }} style={b.avatarImg} />
               : isAI
                 ? <View style={b.avatarGrad}><Text style={{ fontSize: RF(14) }}>🤖</Text></View>
-                : <LinearGradient colors={['#1A7A5E', '#0D5C45']} style={b.avatarGrad}>
+                : <LinearGradient colors={['#0D1F24', '#1A3040']} style={b.avatarGrad}>
                     <Feather name="headphones" size={12} color="#fff" />
                   </LinearGradient>
           )}
@@ -241,23 +241,23 @@ export default function ChatScreen(props: Props) {
   }, [])
 
   useEffect(() => {
-    initChat()
-    return () => pollerRef.current?.stop()
-  }, [])
+    let cancelled = false
 
-  async function initChat() {
-    setLoading(true)
-    try {
-      const sess = await getOrCreateSession({ orderId, orderNo })
-      setSession(sess)
-      const msgs = await getMessages(sess.sessionId)
-      setMessages(msgs)
-      setQuickRepliesUsed(msgs.some(m => m.senderType === 'user'))
-      scrollToBottom()
-      const lastId = msgs.length ? msgs[msgs.length - 1].id : 0
-      const poller = new ChatPoller(sess.sessionId, lastId, (result: PollResult) => {
-        if (result.messages.length > 0) {
-          const incoming = result.messages
+    async function initChat() {
+      setLoading(true)
+      try {
+        const sess = await getOrCreateSession({ orderId, orderNo })
+        if (cancelled) return
+        setSession(sess)
+        const msgs = await getMessages(sess.sessionId)
+        if (cancelled) return
+        setMessages(msgs)
+        setQuickRepliesUsed(msgs.some(m => m.senderType === 'user'))
+        scrollToBottom()
+        const lastId = msgs.length ? msgs[msgs.length - 1].id : 0
+        const poller = new ChatPoller(sess.sessionId, lastId, (result: PollResult) => {
+          if (result.messages.length > 0) {
+            const incoming = result.messages
           // Show typing indicator for agent messages before displaying them
           const hasAgent = incoming.some(m => m.senderType === 'agent')
           if (hasAgent) {
@@ -301,16 +301,27 @@ export default function ChatScreen(props: Props) {
         })
       })
       poller.start()
-      pollerRef.current = poller
+      if (cancelled) {
+        poller.stop() // component unmounted before async completed
+      } else {
+        pollerRef.current = poller
+      }
     } catch {}
-    finally { setLoading(false) }
-  }
+    finally { if (!cancelled) setLoading(false) }
+    }
+
+    initChat()
+    return () => {
+      cancelled = true
+      pollerRef.current?.stop()
+    }
+  }, [])
 
   async function handleSend(text = input.trim()) {
     if (!text || !session || sending) return
     setInput(''); setSending(true)
     const optimistic: ChatMessage = {
-      id: Date.now(), sessionId: session.sessionId,
+      id: Date.now() + Math.floor(Math.random() * 1000), sessionId: session.sessionId,
       senderId: myUserId, senderType: 'user', senderName: 'You',
       content: text, msgType: 'text',
       createTime: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -348,7 +359,7 @@ export default function ChatScreen(props: Props) {
     if (!session) return
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access'); return }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 })
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
     setSending(true)
@@ -371,7 +382,7 @@ export default function ChatScreen(props: Props) {
   }
 
   const isOnline   = session?.status === 'claimed'
-  const statusDot  = isOnline ? '#22c55e' : session?.status === 'closed' ? '#ef4444' : '#f59e0b'
+  const statusDot  = isOnline ? '#00C2B4' : session?.status === 'closed' ? '#ef4444' : '#f59e0b'
   const statusText = isOnline
     ? `${session?.agentName || 'Agent'} · Online`
     : session?.status === 'closed' ? 'Conversation closed' : 'Connecting...'
@@ -381,7 +392,7 @@ export default function ChatScreen(props: Props) {
       <StatusBar barStyle="light-content" />
 
       {/* ── Gradient header ── */}
-      <LinearGradient colors={['#1A7A5E', '#0D5C45']} style={[s.header, { paddingTop: insets.top + 6 }]}>
+      <LinearGradient colors={['#0D1F24', '#1A3040']} style={[s.header, { paddingTop: insets.top + 6 }]}>
         <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
           <Feather name="chevron-left" size={26} color="#fff" />
         </TouchableOpacity>
@@ -587,7 +598,7 @@ const s = StyleSheet.create({
   headerInfo:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   avatarWrap:  { position: 'relative' },
   headerAvatar:{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)' },
-  onlineDot:   { position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: 5.5, borderWidth: 2, borderColor: '#0D5C45' },
+  onlineDot:   { position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: 5.5, borderWidth: 2, borderColor: '#0D1F24' },
   headerTitle: { fontSize: RF(16), fontWeight: '700', color: '#fff' },
   statusRow:   { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   statusDot:   { width: 6, height: 6, borderRadius: 3 },

@@ -6,41 +6,25 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug"
-      },
-      "ios": {
-        "simulator": false
-      },
-      "env": {
-        "APP_ENV": "development"
-      }
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "APP_ENV": "preview"
-      }
+      "channel": "preview"
     },
     "production": {
+      "channel": "production",
       "android": {
-        "buildType": "app-bundle"
-      },
-      "env": {
-        "APP_ENV": "production"
+        "buildType": "apk"
       }
     }
   },
-  "submit": {
+  "update": {
     "production": {
-      "android": {
-        "serviceAccountKeyPath": "./google-play-key.json",
-        "track": "internal"
-      }
+      "channel": "production"
     }
+  },
+  "submit": {
+    "production": {}
   }
 }

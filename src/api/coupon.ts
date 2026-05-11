@@ -8,51 +8,54 @@ export type Coupon = {
   discountType: 'fixed' | 'percent'
   discountValue: number
   minOrderAmount: number
+  endDate: string | null   // 'YYYY-MM-DD'
   color: string
   expired: boolean
 }
 
-export async function fetchAllCoupons(): Promise<Coupon[]> {
-  try {
-    const res = await client.get('/tuka/coupon/public')
-    const list: any[] = res.data?.data || []
-    return list.map(d => ({
-      id:            d.id,
-      code:          d.code,
-      title:         d.title,
-      description:   d.description || null,
-      discountType:  d.discountType,
-      discountValue: d.discountValue,
-      minOrderAmount:d.minOrderAmount || 0,
-      color:         d.color || '#1A7A5E',
-      expired:       false,
-    }))
-  } catch {
-    return []
+function mapCoupon(d: any): Coupon {
+  return {
+    id:             d.id,
+    code:           d.code,
+    title:          d.title,
+    description:    d.description || null,
+    discountType:   d.discountType,
+    discountValue:  d.discountValue,
+    minOrderAmount: d.minOrderAmount || 0,
+    endDate:        d.endDate || null,
+    color:          d.color || '#00C2B4',
+    expired:        d.expired || false,
   }
 }
 
+// All public coupons filtered by country (for CouponPicker at checkout)
+export async function fetchAllCoupons(country?: string): Promise<Coupon[]> {
+  try {
+    const params: any = {}
+    if (country) params.country = country
+    const res = await client.get('/tuka/coupon/public', { params })
+    return (res.data?.data || []).map(mapCoupon)
+  } catch { return [] }
+}
+
+// Single coupon by code
 export async function fetchCoupon(code: string): Promise<Coupon | null> {
   try {
     const res = await client.get(`/tuka/coupon/public/${code}`)
     const d = res.data?.data
-    if (!d) return null
-    return {
-      id:            d.id,
-      code:          d.code,
-      title:         d.title,
-      description:   d.description || null,
-      discountType:  d.discountType,
-      discountValue: d.discountValue,
-      minOrderAmount:d.minOrderAmount,
-      color:         d.color || '#1A7A5E',
-      expired:       d.expired || false,
-    }
-  } catch {
-    return null
-  }
+    return d ? mapCoupon(d) : null
+  } catch { return null }
 }
 
+// User's claimed coupons (for CouponScreen + SellCard picker)
+export async function fetchMyCoupons(): Promise<Coupon[]> {
+  try {
+    const res = await client.get('/tuka/coupon/my')
+    return (res.data?.data || []).map(mapCoupon)
+  } catch { return [] }
+}
+
+// Claim a coupon by code
 export async function claimCoupon(code: string): Promise<{ creditAmount: number; code: string }> {
   const res = await client.post('/tuka/coupon/claim', { code })
   return res.data?.data

@@ -2,7 +2,7 @@ import { RF } from '../util/responsive'
 import React, { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Animated, Image,
+  ScrollView, Animated, Image, Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
@@ -16,7 +16,9 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 function resolveAvatar(path: string | null): string | null {
   if (!path) return null
   if (path.startsWith('http')) return path
-  return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`
+  // Rewrite /profile/ paths to /files/ endpoint
+  const cleaned = path.replace('/profile/', '/files/')
+  return `${BASE_URL}${cleaned.startsWith('/') ? '' : '/'}${cleaned}`
 }
 
 export function AppDrawer() {
@@ -43,8 +45,22 @@ export function AppDrawer() {
   }
 
   function handleLogout() {
-    close()
-    setTimeout(logout, 250)
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: () => {
+            close()
+            setTimeout(logout, 250)
+          },
+        },
+      ],
+      { cancelable: true }
+    )
   }
 
   const u        = user.isPresent() ? user.getOrThrow() : null
@@ -54,6 +70,7 @@ export function AppDrawer() {
 
   const menuItems = [
     { icon: 'grid'           as const, label: 'Wallet',            onPress: () => navigate('Withdraw') },
+    { icon: 'tag'            as const, label: 'Coupons',            onPress: () => navigate('Coupon') },
     { icon: 'award'          as const, label: 'Leaderboard',        onPress: () => navigate('Leaderboard') },
     { icon: 'shield'         as const, label: 'Security & Privacy', onPress: () => navigate('SecuritySettings') },
     { icon: 'settings'       as const, label: 'Settings',           onPress: () => navigate('AccountSettings') },
@@ -82,9 +99,16 @@ export function AppDrawer() {
           <View style={d.profileSection}>
             <View style={d.avatarWrap}>
               {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={d.avatarImg} resizeMode="cover" />
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={d.avatarImg}
+                  resizeMode="cover"
+                  onError={() => setAvatar(null)}
+                />
               ) : (
-                <Image source={require('../../assets/default-avatar.png')} style={d.avatarImg} resizeMode="cover" />
+                <View style={d.avatarFallback}>
+                  <Text style={d.avatarInitials}>{initials || '?'}</Text>
+                </View>
               )}
               {/* Edit badge */}
               <TouchableOpacity

@@ -1,13 +1,13 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Animated, KeyboardAvoidingView, ScrollView,
+  View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
+  StyleSheet, Animated, KeyboardAvoidingView, ScrollView, Platform,
   Keyboard, ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing } from '../../../theme'
-import { keyboardBehavior, ms } from '../../../util/responsive'
+import { keyboardBehavior, ms, SCREEN_H } from '../../../util/responsive'
 import { prefixWithPlus, sanitizePhone, isValidPhone, getExpectedDigits, getFullPhone, maskPhone } from '../phoneUtils'
 import { StepHeader, CountryPickerModal } from '../AuthComponents'
 import { li2, s, suc } from '../styles/authStyles'
@@ -61,8 +61,11 @@ export interface ForgotStepProps {
   setLoginInput: (v: string) => void
   // Handlers
   sendOtpToPhone: (phone: string) => Promise<boolean>
+  otpFullPhone?: string
+  otpPinId?: string
+  verifiedOtp?: string
   verifyOtpCode: (pin: string) => Promise<boolean>
-  resetPassword: (phone: string, password: string) => Promise<void>
+  resetPassword: (phone: string, password: string, pinId?: string, otp?: string) => Promise<void>
   goTo: (s: Step) => void
 }
 
@@ -77,6 +80,9 @@ export function ForgotStep(props: ForgotStepProps) {
     setSelectedCountry, setShowHelp, setCanResend, setCountdown, setLoginInput,
     sendOtpToPhone, verifyOtpCode, resetPassword, goTo,
   } = props
+  const otpFullPhone = props.otpFullPhone
+  const otpPinId = props.otpPinId
+  const verifiedOtp = props.verifiedOtp
 
   const sanitizeLocalPhone = (v: string) => sanitizePhone(v, selectedCountry)
   const getExpectedLocalDigits = () => getExpectedDigits(selectedCountry)
@@ -98,6 +104,21 @@ export function ForgotStep(props: ForgotStepProps) {
     if (e.nativeEvent.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus()
   }
 
+  // Animated spacer — shrinks when keyboard opens (same as login/signup)
+  const spacerHeight = useRef(new Animated.Value(SCREEN_H * 0.18)).current
+  useEffect(() => {
+    if (step !== 'forgot' && step !== 'forgot_newpassword') return
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => Animated.spring(spacerHeight, { toValue: SCREEN_H * 0.02, useNativeDriver: false, tension: 60, friction: 14 }).start()
+    )
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => Animated.spring(spacerHeight, { toValue: SCREEN_H * 0.18, useNativeDriver: false, tension: 55, friction: 14 }).start()
+    )
+    return () => { show.remove(); hide.remove() }
+  }, [step])
+
   // ── FORGOT — enter phone ─────────────────────────────────────────────────
   if (step === 'forgot') {
     const normalizedPhone = sanitizeLocalPhone(phone)
@@ -111,7 +132,9 @@ export function ForgotStep(props: ForgotStepProps) {
           onSelect={c => { setSelectedCountry(c); setCountryPickerOpen(false) }}
           onClose={() => setCountryPickerOpen(false)} loading={countriesLoading}
         />
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{ flex: 1 }}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
           <View style={li2.root}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
@@ -128,62 +151,68 @@ export function ForgotStep(props: ForgotStepProps) {
             </SafeAreaView>
 
             <View style={li2.heroWrap} pointerEvents="none">
-              <Text style={li2.heroTitle}>Retrieve{'\n'}Account</Text>
+              <Text style={li2.heroTitle}>Reset{'\n'}Password</Text>
             </View>
 
-            <View style={{ flex: 1 }} />
+            {/* Animated spacer — shrinks when keyboard opens */}
+            <Animated.View style={{ height: spacerHeight }} />
 
             <View style={{ backgroundColor: '#FFFFFF', position: 'absolute', bottom: 0, left: 0, right: 0, height: Math.max(insetsBottom, 16) + 100 }} />
-            <Animated.View style={[li2.card, { opacity: liCardOpacity, paddingBottom: Math.max(insetsBottom, 16) + 32 }]}>
-              <Text style={[s.pwSub, { textAlign: 'left', marginBottom: spacing[4] }]}>
-                Enter your registered phone number to receive a verification code.
-              </Text>
+            <Animated.View style={[li2.card, { opacity: liCardOpacity, paddingBottom: Math.max(insetsBottom, 16) + spacing[4] }]}>
 
-              <View style={s.inputCard}>
+              <View style={[li2.inputRow, { marginTop: spacing[5] }]}>
                 <TouchableOpacity style={s.flagSection} onPress={openCountryPicker} activeOpacity={0.7}>
-                  <Text style={s.prefix}>{prefixWithPlus(selectedCountry.phonePrefix)}</Text>
-                  <Feather name="chevron-down" size={14} color={colors.muted} />
+                  <Text style={[li2.inputLabel, { minWidth: 0, marginRight: 0 }]}>{prefixWithPlus(selectedCountry.phonePrefix)}</Text>
+                  <Feather name="chevron-down" size={13} color={colors.muted} />
                 </TouchableOpacity>
-                <View style={s.vDivider} />
-                <TextInput style={s.inputCardTxt} placeholder="Phone number"
-                  placeholderTextColor={colors.subtle} keyboardType="phone-pad"
+                <View style={li2.inputDivider} />
+                <TextInput style={li2.input} placeholder="Phone number"
+                  placeholderTextColor="#BBBBBB" keyboardType="phone-pad"
                   maxLength={getExpectedLocalDigits() ?? 14}
-                  value={phone} autoFocus
+                  value={phone}
                   onChangeText={t => { setPhone(sanitizeLocalPhone(t)); setError('') }} />
               </View>
 
               {!!error && (
-                <View style={li2.errRow}>
-                  <Feather name="alert-circle" size={13} color="#FF4D4F" />
-                  <Text style={li2.errTxt}>{error}</Text>
+                <View style={fInlineErr.box}>
+                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
+                  <Text style={fInlineErr.txt}>{error}</Text>
                 </View>
               )}
 
               <TouchableOpacity
-                style={[li2.btn, (!canNext || loading) && li2.btnOff, { marginTop: spacing[4], marginBottom: spacing[8] }]}
+                style={[li2.btn, (!canNext || loading) && li2.btnOff]}
                 onPress={async () => {
                   if (!canNext) { setError(getPhoneValidationMessage()); return }
                   setLoading(true); setError('')
                   try {
                     const { default: api } = await import('../../../api/client')
                     const res = await api.get('/tuka/user/checkPhone', { params: { phone: fullPhone } })
-                    if (res.data?.msg === 'available') { setError('No account found with this phone number'); return }
+                    if (res.data?.msg === 'available') { setError('No account found with this number. Check and try again.'); return }
                     const sent = await sendOtpToPhone(fullPhone)
                     if (sent) { setPhone(normalizedPhone); goTo('forgot_otp') }
-                  } catch {
-                    const sent = await sendOtpToPhone(fullPhone)
-                    if (sent) { setPhone(normalizedPhone); goTo('forgot_otp') }
+                  } catch (e: any) {
+                    const msg: string = e?.message || ''
+                    if (msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
+                      setError('Connection failed. Check your internet and try again.')
+                    } else {
+                      // Try anyway — phone check failed but OTP might still work
+                      const sent = await sendOtpToPhone(fullPhone)
+                      if (sent) { setPhone(normalizedPhone); goTo('forgot_otp') }
+                    }
                   } finally { setLoading(false) }
                 }}
                 activeOpacity={0.85}>
                 {loading
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={li2.btnTxt}>Send Code</Text>
+                  : <Text style={[li2.btnTxt, (!canNext || loading) && li2.btnTxtOff]}>Send Code</Text>
                 }
               </TouchableOpacity>
             </Animated.View>
           </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
+        </TouchableWithoutFeedback>
       </>
     )
   }
@@ -237,7 +266,7 @@ export function ForgotStep(props: ForgotStepProps) {
                       setOtp(['','','','','',''])
                       setCanResend(false)
                       setCountdown(60)
-                      await sendOtpToPhone(phone)
+                      await sendOtpToPhone(otpFullPhone || phone)
                     }}
                     activeOpacity={0.8}>
                     <Feather name="refresh-cw" size={14} color={colors.primary} />
@@ -281,11 +310,18 @@ export function ForgotStep(props: ForgotStepProps) {
     )
   }
 
-  // ── FORGOT NEW PASSWORD ───────────────────────────────────────────────────
+  // ── FORGOT NEW PASSWORD — matches signup password strength requirements ──────
   if (step === 'forgot_newpassword') {
-    const isValid = password.length >= 6 && password === confirmPw
+    const hasUpper  = /[A-Z]/.test(password)
+    const hasLower  = /[a-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+    const hasLength = password.length >= 8
+    const isValid   = hasLength && hasUpper && hasLower && hasNumber && password === confirmPw
+    const showHints = password.length > 0
     return (
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={{ flex: 1 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
         <View style={li2.root}>
           <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
@@ -305,64 +341,102 @@ export function ForgotStep(props: ForgotStepProps) {
             <Text style={li2.heroTitle}>Set New{'\n'}Password</Text>
           </View>
 
-          <View style={{ flex: 1 }} />
+          {/* Animated spacer — shrinks when keyboard opens */}
+          <Animated.View style={{ height: spacerHeight }} />
 
           <View style={{ backgroundColor: '#FFFFFF', position: 'absolute', bottom: 0, left: 0, right: 0, height: Math.max(insetsBottom, 16) + 100 }} />
-          <Animated.View style={[li2.card, { opacity: liCardOpacity, paddingBottom: Math.max(insetsBottom, 16) + 32 }]}>
+          <Animated.View style={[li2.card, { opacity: liCardOpacity, paddingBottom: Math.max(insetsBottom, 16) + spacing[4] }]}>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
 
-              <Text style={s.fieldLabel}>New Password</Text>
-              <View style={s.inputCard}>
-                <Feather name="lock" size={18} color={colors.subtle} />
-                <TextInput style={s.inputCardTxt} placeholder="At least 6 characters"
-                  placeholderTextColor={colors.subtle} secureTextEntry={!showPw}
+              {/* New Password */}
+              <View style={li2.pwRow}>
+                <Feather name="lock" size={16} color="#AAAAAA" />
+                <TextInput style={li2.pwInput} placeholder="New Password (min 8 chars)"
+                  placeholderTextColor="#BBBBBB" secureTextEntry={!showPw}
                   value={password} onChangeText={t => { setPassword(t); setError('') }}
-                  autoFocus returnKeyType="next" />
+                  returnKeyType="next" />
                 <TouchableOpacity onPress={() => setShowPw(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Feather name={showPw ? 'eye-off' : 'eye'} size={18} color={colors.subtle} />
+                  <Feather name={showPw ? 'eye-off' : 'eye'} size={16} color="#AAAAAA" />
                 </TouchableOpacity>
               </View>
 
-              <Text style={s.fieldLabel}>Confirm Password</Text>
-              <View style={[s.inputCard, confirmPw.length > 0 && password !== confirmPw && { borderColor: colors.error }]}>
-                <Feather name="lock" size={18} color={colors.subtle} />
-                <TextInput style={s.inputCardTxt} placeholder="Re-enter password"
-                  placeholderTextColor={colors.subtle} secureTextEntry={!showConfirmPw}
+              {/* Password strength hints */}
+              {showHints && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginHorizontal: spacing[2], marginBottom: spacing[2] }}>
+                  {[
+                    { label: '8+ chars', ok: hasLength },
+                    { label: 'Uppercase', ok: hasUpper },
+                    { label: 'Lowercase', ok: hasLower },
+                    { label: 'Number', ok: hasNumber },
+                  ].map(h => (
+                    <View key={h.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 3,
+                      backgroundColor: h.ok ? '#E8F8F0' : '#F5F5F5',
+                      borderRadius: msF(20), paddingHorizontal: spacing[2], paddingVertical: 3 }}>
+                      <Feather name={h.ok ? 'check' : 'x'} size={11} color={h.ok ? '#22C55E' : '#AAAAAA'} />
+                      <Text style={{ fontSize: msF(11), color: h.ok ? '#22C55E' : '#AAAAAA', fontWeight: '500' }}>{h.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Confirm Password */}
+              <View style={[li2.pwRow, confirmPw.length > 0 && password !== confirmPw && li2.pwRowError]}>
+                <Feather name="lock" size={16} color={confirmPw.length > 0 && password !== confirmPw ? '#FF4D4F' : '#AAAAAA'} />
+                <TextInput style={li2.pwInput} placeholder="Confirm Password"
+                  placeholderTextColor="#BBBBBB" secureTextEntry={!showConfirmPw}
                   value={confirmPw} onChangeText={t => { setConfirmPw(t); setError('') }}
                   returnKeyType="done" />
                 <TouchableOpacity onPress={() => setShowConfirmPw(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Feather name={showConfirmPw ? 'eye-off' : 'eye'} size={18} color={colors.subtle} />
+                  <Feather name={showConfirmPw ? 'eye-off' : 'eye'} size={16} color="#AAAAAA" />
                 </TouchableOpacity>
               </View>
 
               {confirmPw.length > 0 && password !== confirmPw && (
-                <Text style={s.errTxt}>Passwords do not match</Text>
+                <View style={fInlineErr.box}>
+                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
+                  <Text style={fInlineErr.txt}>Passwords do not match</Text>
+                </View>
               )}
-              {!!error && <Text style={s.errTxt}>{error}</Text>}
+              {!!error && (
+                <View style={fInlineErr.box}>
+                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
+                  <Text style={fInlineErr.txt}>{error}</Text>
+                </View>
+              )}
 
               <TouchableOpacity
-                style={[li2.btn, (!isValid || loading) && li2.btnOff, { marginTop: spacing[5], marginBottom: spacing[8] }]}
+                style={[li2.btn, (!isValid || loading) && li2.btnOff]}
                 onPress={async () => {
                   if (!isValid) return
                   setLoading(true)
                   try {
-                    await resetPassword(phone, password)
+                    // Use verifiedOtp (saved before goTo cleared the otp array)
+                    await resetPassword(phone, password, otpPinId, verifiedOtp || otp.join(''))
                     setConfirmPw('')
                     setError('')
                     goTo('password_success')
-                  } catch (e: any) { setError(e.message || 'Failed to reset password') }
+                  } catch (e: any) {
+                    const msg: string = e?.message || ''
+                    if (msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
+                      setError('Connection failed. Check your internet and try again.')
+                    } else {
+                      setError(msg || 'Failed to reset password. Please try again.')
+                    }
+                  }
                   finally { setLoading(false) }
                 }}
                 disabled={!isValid || loading} activeOpacity={0.85}>
                 {loading
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={li2.btnTxt}>Update Password</Text>
+                  : <Text style={[li2.btnTxt, (!isValid || loading) && li2.btnTxtOff]}>Update Password</Text>
                 }
               </TouchableOpacity>
             </ScrollView>
           </Animated.View>
         </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
+      </TouchableWithoutFeedback>
     )
   }
 
@@ -404,3 +478,29 @@ export function ForgotStep(props: ForgotStepProps) {
 
   return null
 }
+
+// ── Inline error styles ───────────────────────────────────────────────────────
+import { ms as msF } from '../../../util/responsive'
+import { typography as typo } from '../../../theme'
+
+const fInlineErr = StyleSheet.create({
+  box: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF1F1',
+    borderRadius: msF(10),
+    borderWidth: 1,
+    borderColor: '#FFD6D6',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    marginHorizontal: spacing[2],
+    marginBottom: spacing[2],
+  },
+  txt: {
+    fontSize: typo.size.sm,
+    color: '#CC0000',
+    flex: 1,
+    lineHeight: msF(18),
+  },
+})

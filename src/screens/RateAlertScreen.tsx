@@ -1,4 +1,4 @@
-import { RF } from '../util/responsive'
+import { RF, ms } from '../util/responsive'
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
@@ -7,41 +7,28 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
-import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { Spinner } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchCountries, Country } from '../api/country'
 import client from '../api/client'
 import { BottomSheet } from '../components/BottomSheet'
-// Colors now from theme
+import { currLabel } from '../util/currency'
+import { useCountry } from '../context/CountryContext'
+
 import { colors as _c } from '../theme'
 const GREEN = _c.primary
 const GREEN_LIGHT = _c.primaryLight
 
-const CURRENCY_FLAGS: Record<string, string> = {
-  USD: '🇺🇸', AUD: '🇦🇺', EUR: '🇪🇺', GBP: '🇬🇧',
-  CAD: '🇨🇦', NZD: '🇳🇿', BRL: '🇧🇷', SGD: '🇸🇬',
-  HKD: '🇭🇰', JPY: '🇯🇵', CNY: '🇨🇳', INR: '🇮🇳',
-  MYR: '🇲🇾', PHP: '🇵🇭', KRW: '🇰🇷', CHF: '🇨🇭',
-  SEK: '🇸🇪', NOK: '🇳🇴', DKK: '🇩🇰', ZAR: '🇿🇦',
-  MXN: '🇲🇽', TRY: '🇹🇷', THB: '🇹🇭', IDR: '🇮🇩',
-  VND: '🇻🇳', PLN: '🇵🇱', AED: '🇦🇪', SAR: '🇸🇦',
-  TWD: '🇹🇼', RUB: '🇷🇺',
-}
-
 const CARD_BG = ['#EEF4FF','#FFF4E6','#F0FFF4','#FFF0F6','#F0F9FF','#FFFBEB','#F5F0FF','#F0FFFA']
-
-function flagFor(code: string) {
-  return CURRENCY_FLAGS[code?.toUpperCase()] || '🏳️'
-}
 
 export default function RateAlertScreen(props: StackScreenProps<RootStackParams, 'RateAlert'>) {
   const insets = useSafeAreaInsets()
   const params = (props.route?.params as any) || {}
+  const { countries, selectedCountry } = useCountry()
 
-  const [cards, setCards]         = useState<CardCategory[]>([])
-  const [countries, setCountries] = useState<Country[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [cards, setCards]           = useState<CardCategory[]>([])
+  const [loading, setLoading]       = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   const [selectedCard, setSelectedCard]   = useState<CardCategory | null>(null)
@@ -51,36 +38,40 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
   const [faceValue, setFaceValue]         = useState<string>(params.faceValue || '')
   const [targetRate, setTargetRate]       = useState<string>('')
 
-  const [cardPickerOpen, setCardPickerOpen]         = useState(false)
-  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false)
-  const [faceValuePickerOpen, setFaceValuePickerOpen] = useState(false)
-  const [typePickerOpen, setTypePickerOpen]         = useState(false)
-  const [cardSearch, setCardSearch]       = useState('')
+  const [cardPickerOpen, setCardPickerOpen]           = useState(false)
+  const [currencyPickerOpen, setCurrencyPickerOpen]   = useState(false)
+  const [ratePickerOpen, setRatePickerOpen]           = useState(false)
+  const [typePickerOpen, setTypePickerOpen]           = useState(false)
+  const [cardSearch, setCardSearch]                   = useState('')
 
   useEffect(() => {
-    Promise.all([fetchCardCategories(), fetchCountries()]).then(([c, co]) => {
+    setLoading(true)
+    fetchCardCategories(true, selectedCountry?.name || '').then(c => {
       setCards(c)
-      setCountries(co)
       const initial = params.cardId ? c.find((x: CardCategory) => x.id === params.cardId) : c[0]
       if (initial) {
         setSelectedCard(initial)
         setSelectedMode(initial.defaultMode === 'slow' ? 'Slow' : 'Fast')
-        if (!selectedType) setSelectedType('')
+        if (!params.inputType)  setSelectedType(initial.inputTypes?.[0] || '')
+        if (!params.currency)   setSelectedCurrency(initial.currencies?.[0] || '')
       }
     }).finally(() => setLoading(false))
-  }, [])
+  }, [selectedCountry?.name])
 
   function initCard(card: CardCategory) {
     setSelectedCard(card)
-    setSelectedType('')
+    // Auto-select first type — All is valid if admin selected it
+    setSelectedType(card.inputTypes?.[0] || '')
     setSelectedMode(card.defaultMode === 'slow' ? 'Slow' : 'Fast')
-    setSelectedCurrency('')
+    // Auto-select first currency
+    setSelectedCurrency(card.currencies?.[0] || '')
     setFaceValue('')
   }
 
-  const cardCountry = selectedCard
-    ? countries.find(c => c.name === selectedCard.country) || countries[0] || null
-    : null
+  const cardCountry = selectedCountry
+    ?? (selectedCard ? countries.find(c => c.name === selectedCard.country) : null)
+    ?? countries[0]
+    ?? null
 
   // Trade terms from card's configInfo
   const tradeTerms = selectedCard?.configInfo?.length
@@ -104,6 +95,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
 
   function getRate(): number {
     if (!selectedRow) return params.rate || 0
+    // Admin stores base rate, multiply by country's todayRate to get NGN
     const r = selectedRow.rates?.[selectedType] || selectedRow.rates?.['All'] || ''
     if (!r) return 0
     return parseFloat(r) * (cardCountry?.todayRate ?? 1)
@@ -201,18 +193,20 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
         {/* Currency dropdown */}
         <TouchableOpacity style={s.dropdown} onPress={() => setCurrencyPickerOpen(true)} activeOpacity={0.8}>
           <Text style={selectedCurrency ? s.dropdownVal : s.dropdownPlaceholder}>
-            {selectedCurrency ? `${flagFor(selectedCurrency)}  ${selectedCurrency}` : 'Select Currency'}
+            {selectedCurrency || 'Select Currency'}
           </Text>
           <Feather name="chevron-down" size={18} color={colors.muted} />
         </TouchableOpacity>
 
-        {/* Face value dropdown */}
+        {/* Select Rate dropdown */}
         <TouchableOpacity
           style={[s.dropdown, !selectedCurrency && s.dropdownDisabled]}
-          onPress={() => selectedCurrency && setFaceValuePickerOpen(true)}
+          onPress={() => selectedCurrency && setRatePickerOpen(true)}
           activeOpacity={0.8}>
           <Text style={faceValue ? s.dropdownVal : s.dropdownPlaceholder}>
-            {faceValue || (selectedCurrency ? 'Select Face Value' : 'Select currency first')}
+            {faceValue
+              ? `${selectedCurrency} ${faceValue}  ·  ${cardCountry?.currencySymbol || '₦'}${currentRate > 0 ? currentRate.toFixed(2) : '—'} per ${selectedCurrency}1`
+              : selectedCurrency ? 'Select Rate' : 'Select currency first'}
           </Text>
           <Feather name="chevron-down" size={18} color={colors.muted} />
         </TouchableOpacity>
@@ -234,7 +228,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
         <View style={s.rateBanner}>
           <Feather name="trending-up" size={16} color={GREEN} />
           <Text style={s.rateBannerTxt}>
-            Current Rate: ₦{currentRate > 0
+            Current Rate: {cardCountry?.currencySymbol || '₦'}{currentRate > 0
               ? currentRate.toLocaleString('en-NG', { minimumFractionDigits: 2 })
               : '0.00'}
           </Text>
@@ -251,15 +245,15 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
           disabled={!canSubmit || submitting}>
           {submitting
             ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={s.submitBtnTxt}>Set Rate Alert</Text>
+            : <Text style={[s.submitBtnTxt, (!canSubmit || submitting) && s.submitBtnTxtOff]}>Set Rate Alert</Text>
           }
         </TouchableOpacity>
       </View>
 
-      {/* Type picker — same 3-column grid as RateCalculatorScreen */}
+      {/* Type picker — show all types admin configured */}
       <BottomSheet visible={typePickerOpen} onClose={() => setTypePickerOpen(false)} heightFraction={0.42}>
         <View style={s.sheetHeader}>
-          <Text style={s.sheetTitle}>Type</Text>
+          <Text style={s.sheetTitle}>Select Type</Text>
           <TouchableOpacity onPress={() => setTypePickerOpen(false)}
             style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.dark, alignItems: 'center', justifyContent: 'center' }}>
             <Feather name="x" size={18} color="#fff" />
@@ -267,7 +261,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
         </View>
         <ScrollView contentContainerStyle={{ padding: spacing[5] }}>
           <View style={s.gridThree}>
-            {(selectedCard?.inputTypes || []).map(t => (
+            {(selectedCard?.inputTypes || []).map((t: string) => (
               <TouchableOpacity key={t}
                 style={[s.gridItem, selectedType === t && s.gridItemOn]}
                 onPress={() => { setSelectedType(t); setFaceValue(''); setTypePickerOpen(false) }}
@@ -279,7 +273,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
         </ScrollView>
       </BottomSheet>
 
-      {/* Card picker — smooth BottomSheet */}
+      {/* Card picker */}
       <BottomSheet visible={cardPickerOpen} onClose={() => { setCardPickerOpen(false); setCardSearch('') }} heightFraction={0.72}>
         <View style={s.sheetHeader}>
           <Text style={s.sheetTitle}>Select Card</Text>
@@ -292,11 +286,11 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
           <TextInput style={s.searchInput} placeholder="Search gift cards..." placeholderTextColor={colors.subtle} value={cardSearch} onChangeText={setCardSearch} autoCorrect={false} />
         </View>
         <FlatList
-          data={cards.filter(c => c.name.toLowerCase().includes(cardSearch.toLowerCase()))}
-          keyExtractor={c => String(c.id)}
+          data={cards.filter((c: CardCategory) => c.name.toLowerCase().includes(cardSearch.toLowerCase()))}
+          keyExtractor={(c: CardCategory) => String(c.id)}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: spacing[8] }}
-          renderItem={({ item, index }) => {
+          renderItem={({ item, index }: { item: CardCategory; index: number }) => {
             const url = resolveImageUrl(item.icon)
             const bg = CARD_BG[index % CARD_BG.length]
             const active = selectedCard?.id === item.id
@@ -311,58 +305,130 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
         />
       </BottomSheet>
 
-      {/* Currency picker — smooth BottomSheet */}
-      <BottomSheet visible={currencyPickerOpen} onClose={() => setCurrencyPickerOpen(false)} heightFraction={0.5}>
-        <View style={s.sheetHeader}>
-          <Text style={s.sheetTitle}>Select Currency</Text>
-          <TouchableOpacity onPress={() => setCurrencyPickerOpen(false)} style={s.sheetClose}><Feather name="x" size={18} color={colors.dark} /></TouchableOpacity>
-        </View>
-        <FlatList
-          data={selectedCard?.currencies || []}
-          keyExtractor={c => c}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: spacing[8] }}
-          renderItem={({ item }) => {
-            const active = selectedCurrency === item
-            return (
-              <TouchableOpacity style={[s.pickerRow, active && s.pickerRowOn]} onPress={() => { setSelectedCurrency(item); setFaceValue(''); setCurrencyPickerOpen(false) }} activeOpacity={0.7}>
-                <Text style={s.flagEmoji}>{flagFor(item)}</Text>
-                <Text style={[s.pickerName, active && { color: GREEN }]}>{item}</Text>
-                {active && <Feather name="check-circle" size={18} color={GREEN} />}
+      {/* Currency picker — 3-column grid Modal */}
+      <Modal visible={currencyPickerOpen} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.overlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setCurrencyPickerOpen(false)} />
+          <View style={[s.sheet, { height: '50%' }]}>
+            <View style={s.sheetHandle} />
+            <View style={s.sheetHeader}>
+              <Text style={s.sheetTitle}>Select Currency</Text>
+              <TouchableOpacity onPress={() => setCurrencyPickerOpen(false)}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.dark, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="x" size={18} color="#fff" />
               </TouchableOpacity>
-            )
-          }}
-        />
-      </BottomSheet>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: spacing[5] }}>
+              <View style={s.gridThree}>
+                {(selectedCard?.currencies || []).map((code: string) => (
+                  <TouchableOpacity key={code}
+                    style={[s.gridItem, selectedCurrency === code && s.gridItemOn]}
+                    onPress={() => { setSelectedCurrency(code); setFaceValue(''); setCurrencyPickerOpen(false) }}
+                    activeOpacity={0.8}>
+                    <Text style={[s.gridItemTxt, selectedCurrency === code && s.gridItemTxtOn]}>
+                      {currLabel(code)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
-      {/* Face value picker — smooth BottomSheet */}
-      <BottomSheet visible={faceValuePickerOpen} onClose={() => setFaceValuePickerOpen(false)} heightFraction={0.62}>
-        <View style={s.sheetHeader}>
-          <Text style={s.sheetTitle}>Select Face Value</Text>
-          <TouchableOpacity onPress={() => setFaceValuePickerOpen(false)} style={s.sheetClose}><Feather name="x" size={18} color={colors.dark} /></TouchableOpacity>
-        </View>
-        <FlatList
-          data={faceValueRows}
-          keyExtractor={(_, i) => String(i)}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: spacing[8] }}
-          renderItem={({ item }) => {
-            const label = rowLabel(item)
-            const active = faceValue === label
-            const rowR = getRowRate(item)
-            const tags: string[] = [...(item.inputTypes?.length && !item.inputTypes.includes('All') ? item.inputTypes : []), selectedMode === 'Fast' ? 'Fast card' : 'Slow card', item.rangeType === 'multiple' ? `Accepts Multiples of ${item.base}` : ''].filter(Boolean)
-            return (
-              <TouchableOpacity style={[s.fvRow, active && s.pickerRowOn]} onPress={() => { setFaceValue(label); setFaceValuePickerOpen(false) }} activeOpacity={0.7}>
-                <View style={s.fvLeft}>
-                  <View style={s.fvTopRow}><Text style={s.flagEmoji}>{flagFor(selectedCurrency)}</Text><Text style={[s.pickerName, active && { color: GREEN }]}>{label}</Text></View>
-                  {tags.length > 0 && <View style={s.tagRow}>{tags.map(tag => <View key={tag} style={s.tag}><Text style={s.tagTxt}>{tag}</Text></View>)}</View>}
-                </View>
-                <Text style={s.fvRate}>Rate: {rowR > 0 ? rowR.toLocaleString('en-NG', { minimumFractionDigits: 2 }) : '—'}</Text>
+      {/* Rate picker Modal — CardsScreen rate table design */}
+      <Modal visible={ratePickerOpen} transparent animationType="slide" statusBarTranslucent>
+        <View style={s.overlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setRatePickerOpen(false)} />
+          <View style={[s.sheet, { maxHeight: '75%' }]}>
+            <View style={s.sheetHandle} />
+            <View style={s.sheetHeader}>
+              <Text style={s.sheetTitle}>Select Rate</Text>
+              <TouchableOpacity onPress={() => setRatePickerOpen(false)}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.dark, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="x" size={18} color="#fff" />
               </TouchableOpacity>
-            )
-          }}
-        />
-      </BottomSheet>
+            </View>
+
+            {/* Fast / Slow toggle */}
+            {rateConfig && (() => {
+              const hasFast = rateConfig.rows.some((r: any) => r.mode === 'Fast')
+              const hasSlow = rateConfig.rows.some((r: any) => r.mode === 'Slow')
+              if (!hasFast || !hasSlow) return null
+              return (
+                <View style={[s.modeRow, { marginHorizontal: spacing[4], marginTop: spacing[3] }]}>
+                  {(['Fast', 'Slow'] as const).map(m => (
+                    <TouchableOpacity key={m}
+                      style={[s.modeBtn, selectedMode === m && s.modeBtnOn]}
+                      onPress={() => { setSelectedMode(m); setFaceValue('') }}
+                      activeOpacity={0.8}>
+                      <Feather name={m === 'Fast' ? 'zap' : 'clock'} size={14}
+                        color={selectedMode === m ? '#fff' : colors.muted} style={{ marginRight: 4 }} />
+                      <Text style={[s.modeBtnTxt, selectedMode === m && s.modeBtnTxtOn]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )
+            })()}
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing[8] }}>
+              {/* Table header */}
+              <View style={[s.rateTableHead, { marginHorizontal: spacing[4], marginTop: spacing[3], borderRadius: radius.lg }]}>
+                <Text style={[s.rateHeadTxt, { flex: 1.3 }]}>Card Value</Text>
+                <Text style={[s.rateHeadTxt, { flex: 1.2 }]}>Type</Text>
+                <Text style={[s.rateHeadTxt, { flex: 1.5, textAlign: 'right' }]}>Rate ({cardCountry?.currencySymbol || '₦'})</Text>
+              </View>
+
+              <View style={[s.rateTableWrap, { marginHorizontal: spacing[4], marginTop: spacing[2] }]}>
+                {faceValueRows.length === 0 ? (
+                  <View style={{ padding: spacing[8], alignItems: 'center' }}>
+                    <Text style={{ fontSize: ms(typography.size.base), color: colors.muted }}>
+                      No rates for {selectedCurrency} · {selectedMode}
+                    </Text>
+                  </View>
+                ) : faceValueRows.map((row: any, i: number) => {
+                  const label = rowLabel(row)
+                  const active = faceValue === label
+                  const showTypes = row.inputTypes?.length ? row.inputTypes : ['All']
+                  const [val, rangeType] = (() => {
+                    if (row.rangeType === 'fixed')    return [`${row.value}`, 'fixed']
+                    if (row.rangeType === 'multiple') return [`${row.base}(${row.min}~${row.max})`, 'multiple']
+                    return [`${row.min}-${row.max}`, 'range']
+                  })()
+                  return (
+                    <TouchableOpacity key={i}
+                      style={[s.rateCard, active && s.rateCardOn]}
+                      onPress={() => { setFaceValue(label); setRatePickerOpen(false) }}
+                      activeOpacity={0.8}>
+                      <View style={{ flex: 1.3 }}>
+                        <Text style={[s.rateRangeVal, active && { color: colors.primary }]}>{val}</Text>
+                        <Text style={s.rateRangeType}>{rangeType}</Text>
+                      </View>
+                      <View style={{ flex: 1.2 }}>
+                        {showTypes.map((tp: string, j: number) => (
+                          <Text key={j} style={[s.rateTypeVal, active && { color: colors.primary }]}>{tp}</Text>
+                        ))}
+                      </View>
+                      <View style={{ flex: 1.5, alignItems: 'flex-end' }}>
+                        {showTypes.map((tp: string, j: number) => {
+                          const r = row.rates?.[selectedType] || row.rates?.[tp] || row.rates?.['All'] || ''
+                          const rateVal = r ? parseFloat(r) * (cardCountry?.todayRate ?? 1) : 0
+                          return (
+                            <Text key={j} style={[s.rateRateVal, active && { color: colors.primaryDark }]}>
+                              {selectedCurrency}1 ≈ {rateVal > 0 ? rateVal.toFixed(2) : '—'}
+                            </Text>
+                          )
+                        })}
+                      </View>
+                      {active && <View style={s.rateCardCheck}><Feather name="check-circle" size={16} color={colors.primary} /></View>}
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -454,6 +520,7 @@ const s = StyleSheet.create({
   },
   submitBtnOff: { backgroundColor: colors.disabled },
   submitBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: '#fff' },
+  submitBtnTxtOff: { color: colors.disabledText },
 
   overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
   sheet: {
@@ -492,20 +559,57 @@ const s = StyleSheet.create({
   pickerRowOn:  { backgroundColor: GREEN_LIGHT },
   pickerIcon:   { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
   pickerName:   { flex: 1, fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.dark },
-  flagEmoji:    { fontSize: RF(22) },
 
-  fvRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing[5], paddingVertical: spacing[3],
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+  // 3-column grid
+  gridThree: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
+  gridItem: {
+    width: '30%', height: 52,
+    backgroundColor: colors.background, borderRadius: radius.md,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: colors.border,
   },
-  fvLeft:   { flex: 1 },
+  gridItemOn:    { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+  gridItemTxt:   { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.dark },
+  gridItemTxtOn: { color: colors.primary },
+
+  // Fast/Slow mode toggle
+  modeRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[3] },
+  modeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: spacing[3], borderRadius: radius.lg,
+    borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  modeBtnOn:    { backgroundColor: GREEN, borderColor: GREEN },
+  modeBtnTxt:   { fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: colors.muted },
+  modeBtnTxtOn: { color: '#fff' },
+
+  // Rate table (CardsScreen design)
+  rateTableWrap: {
+    backgroundColor: colors.surface, borderRadius: radius.xl,
+    borderWidth: 1, borderColor: colors.border, overflow: 'hidden', ...shadow.sm,
+  },
+  rateTableHead: {
+    flexDirection: 'row', paddingVertical: spacing[3], paddingHorizontal: spacing[4],
+    borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.background,
+  },
+  rateHeadTxt: { fontSize: ms(typography.size.sm), fontWeight: typography.weight.extrabold, color: colors.primary },
+  rateCard: {
+    flexDirection: 'row', paddingHorizontal: spacing[4], paddingVertical: spacing[4],
+    borderBottomWidth: 1, borderBottomColor: colors.border, alignItems: 'center',
+  },
+  rateCardOn:    { backgroundColor: GREEN_LIGHT },
+  rateCardCheck: { marginLeft: spacing[2] },
+  rateRangeVal:  { fontSize: ms(typography.size.base), fontWeight: typography.weight.extrabold, color: colors.dark },
+  rateRangeType: { fontSize: ms(typography.size.xs), color: colors.muted, marginTop: 2 },
+  rateTypeVal:   { fontSize: ms(typography.size.base), color: colors.muted, lineHeight: ms(24), fontWeight: typography.weight.semibold },
+  rateRateVal:   { fontSize: ms(typography.size.base), fontWeight: typography.weight.extrabold, color: colors.primaryDark, lineHeight: ms(24) },
+
+  // Old face value picker styles (kept for reference, unused)
+  fvRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[5], paddingVertical: spacing[3], borderBottomWidth: 1, borderBottomColor: colors.border },
+  fvLeft: { flex: 1 },
   fvTopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[1] },
-  fvRate:   { fontSize: typography.size.sm, color: GREEN, fontWeight: typography.weight.bold },
-  tagRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1], marginTop: spacing[1] },
-  tag: {
-    backgroundColor: GREEN_LIGHT, borderRadius: radius.full,
-    paddingHorizontal: spacing[2], paddingVertical: 2,
-  },
+  fvRate: { fontSize: typography.size.sm, color: GREEN, fontWeight: typography.weight.bold },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1], marginTop: spacing[1] },
+  tag: { backgroundColor: GREEN_LIGHT, borderRadius: radius.full, paddingHorizontal: spacing[2], paddingVertical: 2 },
   tagTxt: { fontSize: RF(11), color: GREEN, fontWeight: typography.weight.medium },
 })

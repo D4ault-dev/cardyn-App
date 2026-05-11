@@ -23,9 +23,11 @@ export type Transaction = {
 }
 
 // ── Fetch authenticated user's wallet ──────────────────────────────────────
-export async function fetchWalletInfo(): Promise<WalletInfo> {
+export async function fetchWalletInfo(country?: string): Promise<WalletInfo> {
   try {
-    const res = await client.get('/tuka/wallet/my')
+    const params: any = {}
+    if (country) params.country = country
+    const res = await client.get('/tuka/wallet/my', { params })
     const d = res.data?.data || res.data || {}
     return {
       balance:        d.balance        || 0,
@@ -111,14 +113,17 @@ export async function submitWithdrawal(data: {
   bankName: string
   accountName: string
   accountNo: string
+  country?: string
 }): Promise<string> {
   const res = await client.post('/tuka/withdrawal/submit', data)
   return res.data?.data || ''
 }
 
-export async function fetchMyWithdrawals(): Promise<Withdrawal[]> {
+export async function fetchMyWithdrawals(country?: string): Promise<Withdrawal[]> {
   try {
-    const res = await client.get('/tuka/withdrawal/my', { params: { pageNum: 1, pageSize: 50 } })
+    const params: any = { pageNum: 1, pageSize: 50 }
+    if (country) params.country = country
+    const res = await client.get('/tuka/withdrawal/my', { params })
     return res.data.rows || []
   } catch { return [] }
 }

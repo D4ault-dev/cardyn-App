@@ -11,6 +11,7 @@ import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { colors, typography, spacing, radius, shadow } from '../theme'
+import { useCountry } from '../context/CountryContext'
 
 function fmt(n: number | undefined | null) {
   return (typeof n === 'number' && !isNaN(n) ? n : 0)
@@ -25,11 +26,14 @@ function maskAccountNumber(acc: string): string {
 
 export default function WithdrawAmountScreen(props: StackScreenProps<RootStackParams, 'WithdrawAmount'>) {
   const { bank, balance, fee } = (props.route.params as any) || {}
+  const { selectedCountry } = useCountry()
+  const sym = selectedCountry?.currencySymbol ?? '₦'
   const [amount, setAmount] = useState('')
 
   const parsed   = parseFloat(amount) || 0
   const receive  = Math.max(0, parsed - (fee || 50))
-  const canNext  = parsed > (fee || 50) && parsed <= (balance || 0)
+  const MIN_WITHDRAW = 5000
+  const canNext  = parsed >= MIN_WITHDRAW && parsed <= (balance || 0)
 
   function handleNext() {
     if (!canNext) return
@@ -76,12 +80,16 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
           {/* Available balance */}
           <View style={s.balRow}>
             <Text style={s.balLbl}>Available Balance</Text>
-            <Text style={s.balVal}>₦{fmt(balance)}</Text>
+            <Text style={s.balVal}>{sym}{fmt(balance)}</Text>
+          </View>
+          <View style={s.minRow}>
+            <Feather name="info" size={12} color={colors.muted} />
+            <Text style={s.minTxt}>Minimum withdrawal: {sym}5,000.00</Text>
           </View>
 
           {/* Amount input */}
           <View style={s.inputCard}>
-            <Text style={s.inputPrefix}>₦</Text>
+            <Text style={s.inputPrefix}>{sym}</Text>
             <TextInput
               style={s.input}
               placeholder="0.00"
@@ -104,15 +112,15 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
             <View style={s.feeBox}>
               <View style={s.feeRow}>
                 <Text style={s.feeLbl}>Amount</Text>
-                <Text style={s.feeVal}>₦{fmt(parsed)}</Text>
+                <Text style={s.feeVal}>{sym}{fmt(parsed)}</Text>
               </View>
               <View style={s.feeRow}>
                 <Text style={s.feeLbl}>Transaction Fee</Text>
-                <Text style={[s.feeVal, { color: colors.error }]}>−₦{fmt(fee || 50)}</Text>
+                <Text style={[s.feeVal, { color: colors.error }]}>−{sym}{fmt(fee || 50)}</Text>
               </View>
               <View style={[s.feeRow, s.feeTotal]}>
                 <Text style={s.feeTotalLbl}>You Receive</Text>
-                <Text style={s.feeTotalVal}>₦{fmt(receive)}</Text>
+                <Text style={s.feeTotalVal}>{sym}{fmt(receive)}</Text>
               </View>
             </View>
           )}
@@ -124,7 +132,7 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
               <Text style={s.hintTxt}>
                 {parsed > (balance || 0)
                   ? 'Amount exceeds your balance'
-                  : `Minimum withdrawal must exceed the ₦${fmt(fee || 50)} fee`}
+                  : `Minimum withdrawal is ${sym}${fmt(MIN_WITHDRAW)}`}
               </Text>
             </View>
           )}
@@ -179,6 +187,8 @@ const s = StyleSheet.create({
   feeTotalVal:{ fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.primary },
   hintRow:    { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] },
   hintTxt:    { fontSize: typography.size.sm, color: colors.error, flex: 1 },
+  minRow:     { flexDirection: 'row', alignItems: 'center', gap: spacing[1], marginBottom: spacing[4], marginTop: -spacing[2] },
+  minTxt:     { fontSize: typography.size.xs, color: colors.muted },
   footer:     { padding: spacing[5], backgroundColor: 'transparent' },
   nextBtn:    { backgroundColor: colors.accent, borderRadius: radius.full, paddingVertical: 16, alignItems: 'center' },
   nextBtnOff: { backgroundColor: colors.disabled },

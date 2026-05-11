@@ -4,10 +4,12 @@
   <dict>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
+    <key>CFBundleAllowMixedLocalizations</key>
+    <true/>
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Tuka</string>
+    <string>Cardyn</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -27,8 +29,14 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>tuka</string>
-          <string>com.tuka.giftcard</string>
+          <string>cardyn</string>
+          <string>com.cardyn.app</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>exp+cardyn</string>
         </array>
       </dict>
     </array>
@@ -42,17 +50,25 @@
     <dict>
       <key>NSAllowsArbitraryLoads</key>
       <false/>
-      <key>NSAllowsLocalNetworking</key>
-      <true/>
+      <key>NSExceptionDomains</key>
+      <dict>
+        <key>api.cardyn.net</key>
+        <dict>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <false/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+        </dict>
+      </dict>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow FUFU CARDS to take photos of your gift cards and scan card codes.</string>
+    <string>Allow Cardyn to take photos of your gift cards and scan card codes.</string>
     <key>NSFaceIDUsageDescription</key>
-    <string>Allow FUFU CARDS to use Face ID for secure biometric login.</string>
+    <string>Allow Cardyn to use Face ID for secure biometric login.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow FUFU CARDS to access your photos to upload gift card images.</string>
+    <string>Allow Cardyn to access your photos to upload gift card images.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>

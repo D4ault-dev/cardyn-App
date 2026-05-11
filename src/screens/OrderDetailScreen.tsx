@@ -10,6 +10,7 @@ import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
+import { useCountry } from '../context/CountryContext'
 
 const { width: W } = Dimensions.get('window')
 
@@ -56,7 +57,11 @@ function currSymbol(code: string) {
 
 export default function OrderDetailScreen(props: StackScreenProps<RootStackParams, 'OrderDetail'>) {
   const insets = useSafeAreaInsets()
+  const { selectedCountry } = useCountry()
   const o = JSON.parse(props.route.params.order)
+
+  // Use selected country's symbol, fallback to order's stored currency symbol
+  const localSym = selectedCountry?.currencySymbol ?? '₦'
 
   const [imgViewerOpen, setImgViewerOpen] = useState(false)
   const [imgViewerIdx, setImgViewerIdx]   = useState(0)
@@ -187,14 +192,14 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
           {/* Sales Price */}
           <View style={s.row}>
             <Text style={s.rowLbl}>Sales Price</Text>
-            <Text style={[s.rowVal, s.green]}>₦{fmt(o.ngnAmount)}</Text>
+            <Text style={[s.rowVal, s.green]}>{localSym}{fmt(o.ngnAmount ?? o.localAmount)}</Text>
           </View>
 
           {/* Coupon Discount — show only if applied */}
           {o.couponDiscount ? (
             <View style={s.row}>
               <Text style={s.rowLbl}>Coupon Discount</Text>
-              <Text style={[s.rowVal, s.green]}>+₦{fmt(o.couponDiscount)}</Text>
+              <Text style={[s.rowVal, s.green]}>+{localSym}{fmt(o.couponDiscount)}</Text>
             </View>
           ) : null}
 
@@ -202,7 +207,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
           <View style={s.row}>
             <Text style={s.rowLbl}>Settlement Amount</Text>
             <Text style={[s.rowVal, s.green]}>
-              ₦{fmt((o.ngnAmount || 0) + (o.couponDiscount || 0))}
+              {localSym}{fmt((o.ngnAmount ?? o.localAmount ?? 0) + (o.couponDiscount || 0))}
             </Text>
           </View>
 

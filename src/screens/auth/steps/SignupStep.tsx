@@ -1,13 +1,13 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Animated, KeyboardAvoidingView, Platform, ScrollView,
-  Keyboard, Alert, ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
+  StyleSheet, Animated, KeyboardAvoidingView, Platform, ScrollView,
+  Keyboard, ActivityIndicator, Modal,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
-import { colors, typography, spacing } from '../../../theme'
-import { keyboardBehavior, ms } from '../../../util/responsive'
+import { colors, typography, spacing, radius } from '../../../theme'
+import { keyboardBehavior, ms, SCREEN_H, RF } from '../../../util/responsive'
 import { prefixWithPlus, sanitizePhone, isValidPhone, getExpectedDigits, getFullPhone, maskPhone } from '../phoneUtils'
 import { SocialButton, SocialDivider, StepHeader, HelpModal, CountryPickerModal } from '../AuthComponents'
 import { li2, s } from '../styles/authStyles'
@@ -64,6 +64,7 @@ export interface SignupStepProps {
   setLoginMethod: (v: 'phone' | 'email') => void
   // Handlers
   sendOtpToPhone: (phone: string) => Promise<boolean>
+  otpFullPhone?: string
   verifyOtpCode: (pin: string) => Promise<boolean>
   handleGoogleSignIn: () => Promise<void>
   handleAppleSignIn: () => Promise<void>
@@ -86,6 +87,7 @@ export function SignupStep(props: SignupStepProps) {
     sendOtpToPhone, verifyOtpCode, handleGoogleSignIn, handleAppleSignIn,
     signup, goTo, reset, biometricAvailable, setPendingUsername,
   } = props
+  const otpFullPhone = props.otpFullPhone
 
   const sanitizeLocalPhone = (v: string) => sanitizePhone(v, selectedCountry)
   const getExpectedLocalDigits = () => getExpectedDigits(selectedCountry)
@@ -109,6 +111,33 @@ export function SignupStep(props: SignupStepProps) {
     if (e.nativeEvent.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus()
   }
 
+  // Animated spacer for signup step — shrinks when keyboard opens
+  const spacerHeight = useRef(new Animated.Value(SCREEN_H * 0.10)).current
+  useEffect(() => {
+    if (step !== 'signup') return
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => Animated.spring(spacerHeight, { toValue: SCREEN_H * 0.02, useNativeDriver: false, tension: 60, friction: 14 }).start()
+    )
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => Animated.spring(spacerHeight, { toValue: SCREEN_H * 0.10, useNativeDriver: false, tension: 55, friction: 14 }).start()
+    )
+    return () => { show.remove(); hide.remove() }
+  }, [step])
+
+  // Terms modal state — shown only if user hasn't agreed before
+  const [termsVisible, setTermsVisible] = useState(false)
+  const [termsChecked, setTermsChecked] = useState(false)
+
+  // Check if user already agreed to terms on this device
+  useEffect(() => {
+    storage.getItem('@cardyn_terms_agreed').then(val => {
+      setTermsChecked(true)
+      // If already agreed, skip the modal entirely
+    }).catch(() => setTermsChecked(true))
+  }, [])
+
   // ── SIGNUP — name + phone + terms ─────────────────────────────────────────
   if (step === 'signup') {
     const normalizedPhone = sanitizeLocalPhone(phone)
@@ -127,11 +156,7 @@ export function SignupStep(props: SignupStepProps) {
           if (res.data?.msg === 'exists') {
             setPhone(normalizedPhone)
             setLoginMethod('phone')
-            Alert.alert(
-              'Account Found',
-              `${formatPhoneForDisplay(normalizedPhone)} is already registered. Taking you to login.`,
-              [{ text: 'OK', onPress: () => goTo('login_password') }]
-            )
+            setError('phone_exists')
             return
           }
           const sent = await sendOtpToPhone(fullPhone)
@@ -149,6 +174,19 @@ export function SignupStep(props: SignupStepProps) {
       } finally { setLoading(false) }
     }
 
+    function handleNextPress() {
+      if (!canNext || loading) return
+      Keyboard.dismiss()
+      // Check if user already agreed to terms — if so, skip modal
+      storage.getItem('@cardyn_terms_agreed').then(agreed => {
+        if (agreed === 'true') {
+          handleSignupNext()
+        } else {
+          setTermsVisible(true)
+        }
+      }).catch(() => setTermsVisible(true))
+    }
+
     return (
       <>
         <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
@@ -160,9 +198,10 @@ export function SignupStep(props: SignupStepProps) {
           onClose={() => setCountryPickerOpen(false)}
           loading={countriesLoading}
         />
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{ flex: 1 }}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
           <View style={li2.root}>
-            {/* Blue background */}
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
             {/* Nav */}
@@ -176,82 +215,140 @@ export function SignupStep(props: SignupStepProps) {
                   <Text style={li2.helpTxt}>Help</Text>
                 </TouchableOpacity>
               </View>
-              {/* Progress bar */}
               <View style={[s.progressTrack, { marginHorizontal: spacing[5] }]}>
                 <View style={[s.progressFill, { width: '25%' }]} />
               </View>
             </SafeAreaView>
 
-            {/* Hero */}
+            {/* Hero title */}
             <View style={li2.heroWrap} pointerEvents="none">
               <Text style={li2.heroTitle}>Create Your{'\n'}Account</Text>
             </View>
 
-            <View style={{ flex: 1 }} />
+            {/* Animated spacer — shrinks when keyboard opens */}
+            <Animated.View style={{ height: spacerHeight }} />
 
-            {/* White fill extends below card to cover nav bar area */}
+            {/* White fill for nav bar area */}
             <View style={{ backgroundColor: '#FFFFFF', position: 'absolute', bottom: 0, left: 0, right: 0, height: Math.max(insetsBottom, 16) + 100 }} />
-            {/* White card */}
-            <Animated.View style={[li2.card, { opacity: liCardOpacity, paddingBottom: Math.max(insetsBottom, 16) + 32 }]}>
-              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-                bounces={false}>
 
-                <Text style={s.fieldLabel}>Full Name</Text>
-                <View style={s.inputCard}>
-                  <Feather name="user" size={18} color={colors.subtle} />
-                  <TextInput style={s.inputCardTxt} placeholder="Your full name"
-                    placeholderTextColor={colors.subtle} autoCapitalize="words"
+            {/* White card */}
+            <Animated.View style={[li2.card, { opacity: liCardOpacity, paddingBottom: Math.max(insetsBottom, 16) + spacing[4] }]}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+
+                {/* Card header */}
+                <View style={{ paddingHorizontal: spacing[4], paddingTop: spacing[5], paddingBottom: spacing[2] }}>
+                  <Text style={{ fontSize: ms(18), fontWeight: '700', color: colors.dark }}>Your details</Text>
+                  <Text style={{ fontSize: ms(13), color: colors.muted, marginTop: 4 }}>Enter your name and phone number to get started.</Text>
+                </View>
+
+                {/* Full Name */}
+                <View style={[li2.inputRow, { marginTop: spacing[5] }]}>
+                  <Feather name="user" size={16} color="#AAAAAA" style={{ marginRight: spacing[1] }} />
+                  <View style={li2.inputDivider} />
+                  <TextInput style={li2.input} placeholder="Full Name"
+                    placeholderTextColor="#BBBBBB" autoCapitalize="words"
                     value={name} onChangeText={t => { setName(t); setError('') }} returnKeyType="next" />
                 </View>
 
-                <Text style={s.fieldLabel}>Phone Number</Text>
-                <View style={s.inputCard}>
+                {/* Phone Number */}
+                <View style={li2.inputRow}>
                   <TouchableOpacity style={s.flagSection} onPress={openCountryPicker} activeOpacity={0.7}>
-                    <Text style={s.prefix}>{prefixWithPlus(selectedCountry.phonePrefix)}</Text>
-                    <Feather name="chevron-down" size={14} color={colors.muted} />
+                    <Text style={[li2.inputLabel, { minWidth: 0, marginRight: 0 }]}>{prefixWithPlus(selectedCountry.phonePrefix)}</Text>
+                    <Feather name="chevron-down" size={13} color={colors.muted} />
                   </TouchableOpacity>
-                  <View style={s.vDivider} />
-                  <TextInput style={s.inputCardTxt} placeholder="Phone Number"
-                    placeholderTextColor={colors.subtle} keyboardType="phone-pad"
+                  <View style={li2.inputDivider} />
+                  <TextInput style={li2.input} placeholder="Phone Number"
+                    placeholderTextColor="#BBBBBB" keyboardType="phone-pad"
                     maxLength={getExpectedLocalDigits() ?? 14}
                     value={phone} onChangeText={t => { setPhone(sanitizeLocalPhone(t)); setError('') }} />
                 </View>
 
-                {!!error && <Text style={s.errTxt}>{error}</Text>}
+                {error === 'phone_exists' ? (
+                  <View style={inlineErr.box}>
+                    <Feather name="alert-circle" size={14} color="#FF4D4F" />
+                    <Text style={inlineErr.txt}>This number is already registered. </Text>
+                    <TouchableOpacity onPress={() => { reset(); goTo('login') }} activeOpacity={0.7}>
+                      <Text style={inlineErr.link}>Log in →</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : !!error ? (
+                  <View style={inlineErr.box}>
+                    <Feather name="alert-circle" size={14} color="#FF4D4F" />
+                    <Text style={inlineErr.txt}>{error}</Text>
+                  </View>
+                ) : null}
 
                 <TouchableOpacity
-                  style={[li2.btn, (!canNext || loading) && li2.btnOff, { marginTop: spacing[3] }]}
-                  onPress={handleSignupNext}
+                  style={[li2.btn, (!canNext || loading) && li2.btnOff]}
+                  onPress={handleNextPress}
                   disabled={!canNext || loading}
                   activeOpacity={0.85}>
-                  <Text style={li2.btnTxt}>{loading ? <ActivityIndicator size="small" color="#fff" /> : 'Next'}</Text>
+                  {loading
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={[li2.btnTxt, (!canNext || loading) && li2.btnTxtOff]}>Next</Text>
+                  }
                 </TouchableOpacity>
 
-                <TouchableOpacity style={s.switchRow} onPress={() => { reset(); goTo('login') }}>
-                  <Text style={s.switchTxt}>Already have an account? <Text style={s.switchLink}>Log In</Text></Text>
-                </TouchableOpacity>
+                <View style={s.switchRow}>
+                  <Text style={s.switchTxt}>Already have an account? </Text>
+                  <TouchableOpacity onPress={() => { reset(); goTo('login') }} activeOpacity={0.7}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Text style={s.switchLink}>Log In</Text>
+                  </TouchableOpacity>
+                </View>
 
                 <SocialDivider />
-                <View style={s.socialRowWrap}>
+                <View style={[s.socialRowWrap, { marginHorizontal: spacing[2] }]}>
                   <SocialButton provider="google" loading={socialLoading === 'google'} onPress={handleGoogleSignIn} />
                   {Platform.OS === 'ios' && (
                     <SocialButton provider="apple" loading={socialLoading === 'apple'} onPress={handleAppleSignIn} />
                   )}
                 </View>
-                <View style={{ paddingHorizontal: spacing[2], paddingBottom: spacing[4] }}>
-                  <Text style={s.consentTxt}>
-                    By continuing, you agree to our <Text style={s.termsLink}>Terms & Conditions</Text> and <Text style={s.termsLink}>Privacy Policy</Text>
-                  </Text>
-                </View>
               </ScrollView>
             </Animated.View>
           </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
+        </TouchableWithoutFeedback>
+
+        {/* ── Terms & Privacy Modal ── */}
+        <Modal
+          visible={termsVisible}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setTermsVisible(false)}
+        >
+          <View style={sgTm.overlay}>
+            <View style={sgTm.card}>
+              <Text style={sgTm.title}>Service Agreement &{'\n'}Privacy Protection</Text>
+              <Text style={sgTm.body}>
+                To best protect your legal rights, please read and agree to our{' '}
+                <Text style={sgTm.link}>Terms & Conditions</Text>
+                {' '}and{' '}
+                <Text style={sgTm.link}>Privacy Policy</Text>
+                {' '}before creating your account.
+              </Text>
+              <View style={sgTm.btnRow}>
+                <TouchableOpacity style={sgTm.disagreeBtn} onPress={() => setTermsVisible(false)} activeOpacity={0.8}>
+                  <Text style={sgTm.disagreeTxt}>Disagree</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={sgTm.agreeBtn} onPress={() => {
+                  // Persist agreement so modal never shows again on this device
+                  storage.setItem('@cardyn_terms_agreed', 'true').catch(() => {})
+                  setTermsVisible(false)
+                  handleSignupNext()
+                }} activeOpacity={0.85}>
+                  <Text style={sgTm.agreeTxt}>Agree</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
       </>
     )
   }
-
-  // ── SIGNUP OTP ────────────────────────────────────────────────────────────
   if (step === 'signup_otp') {
     const otpFilled = otpValue.length === 6
     return (
@@ -300,7 +397,8 @@ export function SignupStep(props: SignupStepProps) {
                       setOtp(['','','','','',''])
                       setCanResend(false)
                       setCountdown(60)
-                      await sendOtpToPhone(phone)
+                      // Use the full international phone format saved during first send
+                      await sendOtpToPhone(otpFullPhone || phone)
                     }}
                     activeOpacity={0.8}>
                     <Feather name="refresh-cw" size={14} color={colors.primary} />
@@ -347,7 +445,14 @@ export function SignupStep(props: SignupStepProps) {
 
   // ── SIGNUP PASSWORD ───────────────────────────────────────────────────────
   if (step === 'signup_password') {
-    const isValid = password.length >= 6 && password === confirmPw
+    const hasUpper = /[A-Z]/.test(password)
+    const hasLower = /[a-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+    const hasLength = password.length >= 8
+    const isValid = hasLength && hasUpper && hasLower && hasNumber && password === confirmPw
+
+    // Show strength hints only after user starts typing
+    const showHints = password.length > 0
     return (
       <>
         <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
@@ -356,41 +461,76 @@ export function SignupStep(props: SignupStepProps) {
             <StepHeader onBack={() => goTo('signup_otp')} progress={0.85}
               onHelp={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }} />
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: spacing[6], paddingTop: spacing[5], paddingBottom: spacing[10] }}>
+              contentContainerStyle={{ paddingHorizontal: spacing[2], paddingTop: spacing[4], paddingBottom: spacing[8] }}>
 
-              <Text style={s.stepTitle}>Set Your Password</Text>
-              <Text style={s.stepSub}>Choose a strong password to secure your account.</Text>
+              <Text style={[s.stepTitle, { marginHorizontal: spacing[2] }]}>Set Your Password</Text>
+              <Text style={[s.stepSub, { marginHorizontal: spacing[2] }]}>Choose a strong password to secure your account.</Text>
 
-              <Text style={s.fieldLabel}>Password</Text>
-              <View style={s.inputCard}>
-                <Feather name="lock" size={18} color={colors.subtle} />
-                <TextInput style={s.inputCardTxt} placeholder="At least 6 characters"
-                  placeholderTextColor={colors.subtle} secureTextEntry={!showPw}
+              {/* Password */}
+              <View style={li2.pwRow}>
+                <Feather name="lock" size={16} color="#AAAAAA" />
+                <TextInput style={li2.pwInput} placeholder="At least 8 characters"
+                  placeholderTextColor="#BBBBBB" secureTextEntry={!showPw}
                   value={password} onChangeText={t => { setPassword(t); setError('') }} returnKeyType="next" />
                 <TouchableOpacity onPress={() => setShowPw(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Feather name={showPw ? 'eye-off' : 'eye'} size={18} color={colors.subtle} />
+                  <Feather name={showPw ? 'eye-off' : 'eye'} size={16} color="#AAAAAA" />
                 </TouchableOpacity>
               </View>
 
-              <Text style={s.fieldLabel}>Confirm Password</Text>
-              <View style={[s.inputCard, confirmPw.length > 0 && password !== confirmPw && { borderColor: colors.error }]}>
-                <Feather name="lock" size={18} color={colors.subtle} />
-                <TextInput style={s.inputCardTxt} placeholder="Re-enter password"
-                  placeholderTextColor={colors.subtle} secureTextEntry={!showConfirmPw}
+              {/* Password strength hints */}
+              {showHints && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginHorizontal: spacing[2], marginBottom: spacing[2] }}>
+                  {[
+                    { label: '8+ chars', ok: hasLength },
+                    { label: 'Uppercase', ok: hasUpper },
+                    { label: 'Lowercase', ok: hasLower },
+                    { label: 'Number', ok: hasNumber },
+                  ].map(h => (
+                    <View key={h.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 3,
+                      backgroundColor: h.ok ? '#E8F8F0' : '#F5F5F5',
+                      borderRadius: ms(20), paddingHorizontal: spacing[2], paddingVertical: 3 }}>
+                      <Feather name={h.ok ? 'check' : 'x'} size={11} color={h.ok ? '#22C55E' : '#AAAAAA'} />
+                      <Text style={{ fontSize: ms(11), color: h.ok ? '#22C55E' : '#AAAAAA', fontWeight: '500' }}>{h.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Confirm Password */}
+              <View style={[li2.pwRow, confirmPw.length > 0 && password !== confirmPw && li2.pwRowError]}>
+                <Feather name="lock" size={16} color={confirmPw.length > 0 && password !== confirmPw ? '#FF4D4F' : '#AAAAAA'} />
+                <TextInput style={li2.pwInput} placeholder="Re-enter password"
+                  placeholderTextColor="#BBBBBB" secureTextEntry={!showConfirmPw}
                   value={confirmPw} onChangeText={t => { setConfirmPw(t); setError('') }}
                   returnKeyType="done" />
                 <TouchableOpacity onPress={() => setShowConfirmPw(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Feather name={showConfirmPw ? 'eye-off' : 'eye'} size={18} color={colors.subtle} />
+                  <Feather name={showConfirmPw ? 'eye-off' : 'eye'} size={16} color="#AAAAAA" />
                 </TouchableOpacity>
               </View>
-              {confirmPw.length > 0 && password !== confirmPw && (
-                <Text style={s.errTxt}>Passwords do not match</Text>
-              )}
 
-              {!!error && <Text style={s.errTxt}>{error}</Text>}
+              {confirmPw.length > 0 && password !== confirmPw && (
+                <View style={inlineErr.box}>
+                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
+                  <Text style={inlineErr.txt}>Passwords do not match</Text>
+                </View>
+              )}
+              {error === 'phone_exists_pw' ? (
+                <View style={inlineErr.box}>
+                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
+                  <Text style={inlineErr.txt}>This number is already registered. </Text>
+                  <TouchableOpacity onPress={() => { setLoginMethod('phone'); setPassword(''); goTo('login') }} activeOpacity={0.7}>
+                    <Text style={inlineErr.link}>Log in →</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : !!error ? (
+                <View style={inlineErr.box}>
+                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
+                  <Text style={inlineErr.txt}>{error}</Text>
+                </View>
+              ) : null}
 
               <TouchableOpacity
-                style={[s.primaryBtn, (!isValid || loading) && s.primaryBtnOff, { marginTop: spacing[5] }]}
+                style={[li2.btn, (!isValid || loading) && li2.btnOff]}
                 onPress={async () => {
                   if (!isValid) return
                   setLoading(true)
@@ -414,24 +554,20 @@ export function SignupStep(props: SignupStepProps) {
                   } catch (e: any) {
                     const msg: string = e.message || ''
                     if (msg.includes('already registered') || msg.includes('已存在') || msg.includes('exists')) {
-                      Alert.alert(
-                        'Account Already Exists',
-                        `${formatPhoneForDisplay(phone)} is already registered. Please log in instead.`,
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Log In', style: 'default', onPress: () => { setLoginMethod('phone'); setPassword(''); goTo('login_password') } },
-                        ]
-                      )
+                      setError('phone_exists_pw')
+                    } else if (msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
+                      setError('Check your internet connection and try again.')
                     } else {
-                      setError(msg || 'Registration failed')
+                      setError(msg || 'Registration failed. Please try again.')
                     }
                   }
                   finally { setLoading(false) }
                 }}
                 disabled={!isValid || loading} activeOpacity={0.85}>
-                <Text style={[s.primaryBtnTxt, (!isValid || loading) && s.primaryBtnTxtOff]}>
-                  {loading ? 'Creating Account...' : 'Create Account'}
-                </Text>
+                {loading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={[li2.btnTxt, (!isValid || loading) && li2.btnTxtOff]}>Create Account</Text>
+                }
               </TouchableOpacity>
             </ScrollView>
           </KeyboardAvoidingView>
@@ -442,3 +578,95 @@ export function SignupStep(props: SignupStepProps) {
 
   return null
 }
+
+// ── Inline error styles ───────────────────────────────────────────────────────
+const inlineErr = StyleSheet.create({
+  box: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF1F1',
+    borderRadius: ms(10),
+    borderWidth: 1,
+    borderColor: '#FFD6D6',
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    marginHorizontal: spacing[2],
+    marginBottom: spacing[2],
+  },
+  txt: {
+    fontSize: typography.size.sm,
+    color: '#CC0000',
+    flex: 1,
+    lineHeight: ms(18),
+  },
+  link: {
+    fontSize: typography.size.sm,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+})
+
+// ── Terms modal styles (signup) ───────────────────────────────────────────────
+const sgTm = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[6],
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: ms(20),
+    padding: spacing[6],
+    width: '100%',
+  },
+  title: {
+    fontSize: RF(18),
+    fontWeight: '700',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginBottom: spacing[4],
+    lineHeight: ms(26),
+  },
+  body: {
+    fontSize: RF(14),
+    color: '#555',
+    lineHeight: ms(22),
+    marginBottom: spacing[6],
+  },
+  link: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    gap: spacing[3],
+  },
+  disagreeBtn: {
+    flex: 1,
+    paddingVertical: ms(14),
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    alignItems: 'center',
+  },
+  disagreeTxt: {
+    fontSize: RF(15),
+    fontWeight: '600',
+    color: '#555',
+  },
+  agreeBtn: {
+    flex: 2,
+    paddingVertical: ms(14),
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  agreeTxt: {
+    fontSize: RF(15),
+    fontWeight: '700',
+    color: '#fff',
+  },
+})

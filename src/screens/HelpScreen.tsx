@@ -11,7 +11,7 @@ import { colors, typography, spacing, radius } from '../theme'
 
 // ── FAQ data ──────────────────────────────────────────────────────────────────
 const TOPICS = [
-  { id: 't1', question: 'How do I create a FUFU CARDS account?' },
+  { id: 't1', question: 'How do I create a Cardyn account?' },
 ]
 
 const FAQS = [

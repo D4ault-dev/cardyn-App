@@ -155,18 +155,57 @@ const lr = StyleSheet.create({
 // ── Invitation Row ────────────────────────────────────────────────────────────
 function InvRow({ item, isMe }: { item: InvitationEntry; isMe: boolean }) {
   const phone = item.phone || item.displayName
+  const medal = item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : null
   return (
-    <View style={[lr.row, isMe && lr.rowMe]}>
-      <Text style={[lr.rank, isMe && lr.rankMe]}>{item.rank}</Text>
-      <Avatar name={item.displayName} size={42} avatarUrl={item.avatar} isMe={isMe} />
-      <View style={lr.info}>
-        <Text style={[lr.name, isMe && lr.nameMe]}>{maskPhone(item.displayName, phone)}</Text>
-        <Text style={[lr.sub, isMe && lr.subMe]}>{item.totalInvites} invites</Text>
+    <View style={[inv.row, isMe && inv.rowMe]}>
+      {/* Rank */}
+      <View style={inv.rankWrap}>
+        {medal
+          ? <Text style={{ fontSize: 20 }}>{medal}</Text>
+          : <Text style={[inv.rankTxt, isMe && { color: colors.primary }]}>{item.rank}</Text>
+        }
       </View>
-      <Text style={[lr.amt, isMe && lr.amtMe]}>{item.totalInvites} 👥</Text>
+      {/* Avatar */}
+      <Avatar name={item.displayName} size={42} avatarUrl={item.avatar} isMe={isMe} />
+      {/* Info */}
+      <View style={{ flex: 1, marginLeft: spacing[3] }}>
+        <Text style={[inv.name, isMe && { color: colors.primary }]} numberOfLines={1}>
+          {maskPhone(item.displayName, phone)}
+          {isMe && <Text style={{ fontSize: 11, color: colors.primary }}> (You)</Text>}
+        </Text>
+        <Text style={inv.sub}>{item.totalInvites} friend{item.totalInvites !== 1 ? 's' : ''} invited</Text>
+      </View>
+      {/* Count badge */}
+      <View style={[inv.badge, isMe && inv.badgeMe]}>
+        <Text style={[inv.badgeTxt, isMe && inv.badgeTxtMe]}>{item.totalInvites}</Text>
+        <Text style={[inv.badgeLbl, isMe && inv.badgeTxtMe]}>invites</Text>
+      </View>
     </View>
   )
 }
+
+const inv = StyleSheet.create({
+  row: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
+    backgroundColor: '#fff',
+  },
+  rowMe: { backgroundColor: '#F0FFF8' },
+  rankWrap: { width: 32, alignItems: 'center', marginRight: spacing[2] },
+  rankTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#C0C4CC' },
+  name: { fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: '#1A1A1A' },
+  sub:  { fontSize: typography.size.xs, color: '#999', marginTop: 2 },
+  badge: {
+    backgroundColor: '#F5F5F5', borderRadius: radius.lg,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[1],
+    alignItems: 'center', minWidth: 52,
+  },
+  badgeMe: { backgroundColor: colors.primaryLight },
+  badgeTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#333' },
+  badgeTxtMe: { color: colors.primary },
+  badgeLbl: { fontSize: 10, color: '#999', marginTop: 1 },
+})
 
 // ── Cycle Picker ──────────────────────────────────────────────────────────────
 function CyclePicker({ visible, cycles, selectedId, onSelect, onClose }: {
@@ -217,28 +256,30 @@ function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation
   myUserId: number | null; invEntries: InvitationEntry[]
   refreshing: boolean; onRefresh: () => void; navigation: any
 }) {
+  const insets = useSafeAreaInsets()
   const [inviteCode,   setInviteCode]   = useState('')
   const [referralLink, setReferralLink] = useState('')
   const [totalInvites, setTotalInvites] = useState(0)
   const [tradedCount,  setTradedCount]  = useState(0)
-  const [bonus,        setBonus]        = useState(30)
+  const [bonus,        setBonus]        = useState(500)
   const [copied,       setCopied]       = useState(false)
   const [loading,      setLoading]      = useState(true)
 
   useEffect(() => {
-    client.get('/tuka/user/referrals').then(res => {
+    // Use the new referral API endpoint
+    client.get('/tuka/referral/my').then(res => {
       const d = res.data?.data
       if (d) {
         setInviteCode(d.inviteCode || '')
-        setReferralLink(d.referralLink || `https://fufucards.app/ref/${d.inviteCode}`)
-        setTotalInvites(d.totalInvites || 0)
-        setTradedCount(d.tradedCount || 0)
-        setBonus(d.referralBonus || 30)
+        setReferralLink(d.referralLink || `https://cardyn.net/ref/${d.inviteCode}`)
+        setTotalInvites(d.signupCount   || 0)
+        setTradedCount(d.rewardsPaidCount || 0)
+        setBonus(d.rewardAmount || d.referralBonus || 500) // read from API, not hardcoded
       }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  const shareUrl = referralLink || `https://fufucards.app/ref/${inviteCode}`
+  const shareUrl = referralLink || `https://cardyn.net/ref/${inviteCode}`
 
   async function handleCopy() {
     await ExpoClipboard.setStringAsync(shareUrl)
@@ -248,9 +289,9 @@ function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation
   async function handleShare() {
     try {
       await Share.share({
-        message: `Join FUFU CARDS — sell gift cards instantly!\n\nUse my invite code: ${inviteCode}\n\n${shareUrl}`,
+        message: `Join Cardyn — sell gift cards instantly!\n\nUse my invite code: ${inviteCode}\n\n${shareUrl}`,
         url: shareUrl,
-        title: 'Join FUFU CARDS',
+        title: 'Join Cardyn',
       })
     } catch {}
   }
@@ -284,7 +325,7 @@ function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation
             </View>
             <View style={it.statDivider} />
             <View style={it.statItem}>
-              <Text style={[it.statNum, { color: colors.primary }]}>+{bonus} pts</Text>
+              <Text style={[it.statNum, { color: colors.primary }]}>₦{bonus.toLocaleString()}</Text>
               <Text style={it.statLbl}>Per invite</Text>
             </View>
           </View>
@@ -323,38 +364,36 @@ function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation
             </TouchableOpacity>
           </View>
 
-          {/* ── How it works ── */}
-          <View style={it.card}>
-            <Text style={it.cardTitle}>How it works</Text>
-            {[
-              { step: '1', text: 'Share your invite code or link with friends' },
-              { step: '2', text: 'They sign up using your code' },
-              { step: `3`, text: `You earn +${bonus} pts when they complete their first trade` },
-            ].map((item) => (
-              <View key={item.step} style={it.stepRow}>
-                <View style={it.stepBadge}>
-                  <Text style={it.stepNum}>{item.step}</Text>
-                </View>
-                <Text style={it.stepText}>{item.text}</Text>
-              </View>
-            ))}
-          </View>
-
+          {/* ── Invitation Leaderboard ── */}
           {invEntries.length > 0 && (
-            <Text style={it.sectionTitle}>Invitation Leaderboard</Text>
+            <View style={it.leaderCard}>
+              <Text style={it.cardTitle}>Invitation Leaderboard</Text>
+            </View>
           )}
         </View>
       }
       ListEmptyComponent={
-        <View style={s.emptyWrap}>
-          <Feather name="users" size={48} color={colors.border} />
-          <Text style={s.emptyTitle}>No invitations yet</Text>
-          <TouchableOpacity style={s.unlockBtn} onPress={handleShare}>
-            <Text style={s.unlockBtnTxt}>Invite Friends</Text>
-          </TouchableOpacity>
+        <View style={{ marginHorizontal: spacing[4], marginTop: spacing[2] }}>
+          <View style={[it.card, { alignItems: 'center', paddingVertical: spacing[8] }]}>
+            <Feather name="users" size={44} color={colors.border} />
+            <Text style={{ fontSize: typography.size.lg, fontWeight: typography.weight.bold, color: colors.dark, marginTop: spacing[4], marginBottom: spacing[2] }}>
+              No invitations yet
+            </Text>
+            <Text style={{ fontSize: typography.size.sm, color: colors.muted, textAlign: 'center', marginBottom: spacing[5] }}>
+              Share your code and earn ₦{bonus.toLocaleString()} when friends complete their first trade
+            </Text>
+            <TouchableOpacity style={it.shareBtn} onPress={handleShare} activeOpacity={0.85}>
+              <Feather name="share-2" size={16} color="#fff" style={{ marginRight: spacing[2] }} />
+              <Text style={it.shareBtnTxt}>Invite Friends</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       }
-      renderItem={({ item }) => <InvRow item={item} isMe={item.userId === myUserId} />}
+      renderItem={({ item }) => (
+        <View style={{ marginHorizontal: spacing[4], backgroundColor: colors.surface, overflow: 'hidden' }}>
+          <InvRow item={item} isMe={item.userId === myUserId} />
+        </View>
+      )}
     />
   )
 }
@@ -419,18 +458,13 @@ const it = StyleSheet.create({
   },
   shareBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#fff' },
 
-  // Steps
-  stepRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[4], marginBottom: spacing[3] },
-  stepBadge: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  stepNum:  { fontSize: typography.size.sm, fontWeight: typography.weight.extrabold, color: colors.primary },
-  stepText: { flex: 1, fontSize: typography.size.base, color: colors.body, lineHeight: 22, paddingTop: 3 },
+  // Steps — removed (how it works section deleted)
 
-  sectionTitle: {
-    fontSize: typography.size.lg, fontWeight: typography.weight.extrabold,
-    color: colors.dark, marginTop: spacing[2],
+  // Leaderboard card header
+  leaderCard: {
+    backgroundColor: colors.surface, borderRadius: radius.xl,
+    paddingHorizontal: spacing[5], paddingTop: spacing[5], paddingBottom: spacing[2],
+    ...shadow.sm,
   },
 })
 

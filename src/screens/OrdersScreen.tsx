@@ -17,6 +17,7 @@ import { resolveImageUrl } from '../api/cards'
 import { fetchMyWithdrawals, fetchTransactions, Transaction } from '../api/wallet'
 import client from '../api/client'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
+import { useCountry } from '../context/CountryContext'
 
 type Order = {
   id: number
@@ -88,9 +89,11 @@ function currSymbol(code: string) {
   return map[code] || '$'
 }
 
-async function fetchMyOrders(): Promise<Order[]> {
+async function fetchMyOrders(country?: string): Promise<Order[]> {
   try {
-    const res = await client.get('/tuka/order/my', { params: { pageNum: 1, pageSize: 100 } })
+    const params: any = { pageNum: 1, pageSize: 100 }
+    if (country) params.country = country
+    const res = await client.get('/tuka/order/my', { params })
     return res.data.rows || []
   } catch { return [] }
 }
@@ -203,6 +206,8 @@ const dw = StyleSheet.create({
 
 export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
   const { user } = useAuth()
+  const { selectedCountry, isHomeCountry } = useCountry()
+  const localSym = selectedCountry?.currencySymbol ?? '₦'
   const [orders, setOrders]         = useState<Order[]>([])
   const [withdrawals, setWithdrawals] = useState<any[]>([])
   const [loading, setLoading]       = useState(true)
@@ -233,15 +238,18 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
 
   const load = useCallback(async () => {
     try {
-      const [o, w] = await Promise.all([fetchMyOrders(), fetchMyWithdrawals()])
+      const [o, w] = await Promise.all([
+        fetchMyOrders(selectedCountry?.name),
+        fetchMyWithdrawals(selectedCountry?.name),
+      ])
       setOrders(o)
       setWithdrawals(w)
     }
     catch { /* keep */ }
     finally { setLoading(false); setRefreshing(false) }
-  }, [])
+  }, [selectedCountry?.name])
 
-  useEffect(() => { if (user.isPresent()) load() }, [user])
+  useEffect(() => { if (user.isPresent()) load() }, [user, selectedCountry?.name])
   const onRefresh = () => { setRefreshing(true); load() }
 
   // Load commission when tab switches to commission
@@ -323,7 +331,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
             </View>
             <View style={d.heroAmtWrap}>
               <Text style={d.heroAmt}>
-                ₦{(tx.amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 0 })}
+                {localSym}{(tx.amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 0 })}
               </Text>
               <View style={[d.statusChip, { backgroundColor: colors.success + '18', borderColor: colors.success }]}>
                 <Text style={[d.statusChipTxt, { color: colors.success }]}>Success</Text>
@@ -430,7 +438,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
               <Text style={d.heroSub}>{o.cardCurrency} · {typeLabel || 'Gift Card'}</Text>
             </View>
             <View style={d.heroAmtWrap}>
-              <Text style={d.heroAmt}>₦{fmt(o.ngnAmount)}</Text>
+              <Text style={d.heroAmt}>{localSym}{fmt(o.ngnAmount)}</Text>
               <View style={[d.statusChip, { backgroundColor: sc + '18', borderColor: sc }]}>
                 <Text style={[d.statusChipTxt, { color: sc }]}>{sl}</Text>
               </View>
@@ -492,10 +500,10 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
               { lbl: 'Card Type',    val: typeLabel || '—' },
               { lbl: 'Card Value',   val: `${sym}${fmt(o.cardAmount)} ${o.cardCurrency}` },
               { lbl: 'Quantity',     val: `${o.quantity ?? 1}` },
-              { lbl: 'Rate',         val: `₦${fmt(o.rate)} / $1` },
-              { lbl: 'Sales Price',  val: `₦${fmt(o.ngnAmount)}`,  accent: true },
-              { lbl: 'VIP Bonus',    val: `₦${fmt(o.vipReward)}` },
-              { lbl: 'Settlement',   val: `₦${fmt(o.totalSettlement)}` },
+              { lbl: 'Rate',         val: `${localSym}${fmt(o.rate)} / $1` },
+              { lbl: 'Sales Price',  val: `${localSym}${fmt(o.ngnAmount)}`,  accent: true },
+              { lbl: 'VIP Bonus',    val: `${localSym}${fmt(o.vipReward)}` },
+              { lbl: 'Settlement',   val: `${localSym}${fmt(o.totalSettlement)}` },
               { lbl: 'Submitted',    val: formatDateTime(o.createTime) },
               { lbl: 'Completed',    val: o.finishTime ? formatDateTime(o.finishTime) : '—' },
             ].map((item, i, arr) => (
@@ -679,7 +687,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
                 </View>
                 {/* Right: amount + status */}
                 <View style={s.commRight}>
-                  <Text style={s.commAmt}>₦{(tx.amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 0 })}</Text>
+                  <Text style={s.commAmt}>{localSym}{(tx.amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 0 })}</Text>
                   <Text style={s.commStatus}>Success</Text>
                 </View>
               </TouchableOpacity>
@@ -723,7 +731,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
                     </Text>
                   </View>
                   <View style={s.cardAmtWrap}>
-                    <Text style={s.cardNgn}>₦{fmt(order.ngnAmount)}</Text>
+                    <Text style={s.cardNgn}>{localSym}{fmt(order.ngnAmount)}</Text>
                   </View>
                 </View>
 
@@ -772,7 +780,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
                   </View>
                   <View style={s.cardInfo}>
                     <Text style={s.cardName} numberOfLines={1}>{w.bankName}</Text>
-                    <Text style={[s.cardNgn, { color: colors.error }]}>₦ {fmt(w.amount)}</Text>
+                    <Text style={[s.cardNgn, { color: colors.error }]}>{localSym} {fmt(w.amount)}</Text>
                     <Text style={s.cardType}>{w.accountName} · {w.accountNo}</Text>
                   </View>
                 </View>

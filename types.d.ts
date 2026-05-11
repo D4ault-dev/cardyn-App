@@ -1,7 +1,7 @@
 declare type RootStackParams = {
   Tabs: undefined
   Home: undefined
-  SellCard: { cardId?: number } | undefined
+  SellCard: { cardId?: number; currency?: string; inputType?: string; mode?: 'Fast' | 'Slow'; couponId?: number } | undefined
   OrderDetail: { order: string }
   OrderTracking: { orderId?: string }
   Wallet: undefined
@@ -10,6 +10,7 @@ declare type RootStackParams = {
   AddBank: undefined
   SelectBank: undefined
   WithdrawDetail: { withdrawal: string }
+  WithdrawalHistory: undefined
   Profile: undefined
   AccountSettings: undefined
   ProfileEdit: undefined

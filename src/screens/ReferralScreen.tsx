@@ -135,8 +135,20 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true)
     try {
-      const res = await client.get('/tuka/user/referrals')
-      setData(res.data?.data || null)
+      // Use the new referral API endpoint
+      const res = await client.get('/tuka/referral/my')
+      const d = res.data?.data || {}
+
+      // Map new API response to existing ReferralData shape
+      setData({
+        inviteCode:    d.inviteCode    || '',
+        referralLink:  d.referralLink  || `https://cardyn.net/ref/${d.inviteCode || ''}`,
+        totalInvites:  d.signupCount   || 0,
+        pendingCount:  d.pendingRewards || 0,
+        tradedCount:   d.rewardsPaidCount || 0,
+        referralBonus: 500,
+        referredUsers: [], // detailed list not needed on this screen
+      })
     } catch { }
     finally { setLoading(false); setRefreshing(false) }
   }, [])
@@ -152,7 +164,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
   async function handleShare() {
     if (!data) return
     await Share.share({
-      message: `Join FUFU CARDS — sell gift cards instantly! Use my code: ${data.inviteCode}\n${data.referralLink}`,
+      message: `Join Cardyn — sell gift cards instantly! Use my code: ${data.inviteCode}\n${data.referralLink}`,
       url: data.referralLink,
     })
   }
@@ -227,10 +239,30 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
           </View>
 
           {/* Title */}
-          <Text style={s.heroTitle}>Earn Points{'\n'}By Referring</Text>
+          <Text style={s.heroTitle}>Earn Rewards{'\n'}By Referring</Text>
           <Text style={s.heroSub}>
-            Invite friends · Earn <Text style={{ color: colors.primary, fontWeight: typography.weight.extrabold }}>+{data?.referralBonus || 30} pts</Text> per referral
+            Invite friends · Earn <Text style={{ color: colors.primary, fontWeight: typography.weight.extrabold }}>₦{data?.referralBonus || 500}</Text> per referral
           </Text>
+
+          {/* Stats row */}
+          {data && (
+            <View style={s.statsRow}>
+              <View style={s.statItem}>
+                <Text style={s.statNum}>{data.totalInvites}</Text>
+                <Text style={s.statLbl}>Invited</Text>
+              </View>
+              <View style={s.statDivider} />
+              <View style={s.statItem}>
+                <Text style={s.statNum}>{data.tradedCount}</Text>
+                <Text style={s.statLbl}>Converted</Text>
+              </View>
+              <View style={s.statDivider} />
+              <View style={s.statItem}>
+                <Text style={s.statNum}>₦{(data.tradedCount * (data.referralBonus || 500)).toLocaleString()}</Text>
+                <Text style={s.statLbl}>Earned</Text>
+              </View>
+            </View>
+          )}
 
           {/* Code row */}
           <View style={s.codeRow}>
@@ -256,7 +288,14 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
             <Text style={s.sheetTitle}>Your Referrals</Text>
-            <Text style={s.sheetCount}>{data?.totalInvites || 0} invited</Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={s.sheetCount}>{data?.totalInvites || 0} invited</Text>
+              {(data?.pendingCount || 0) > 0 && (
+                <Text style={{ fontSize: typography.size.xs, color: colors.warning, marginTop: 2 }}>
+                  {data?.pendingCount} pending reward{(data?.pendingCount || 0) > 1 ? 's' : ''}
+                </Text>
+              )}
+            </View>
           </View>
 
           <FlatList
@@ -267,7 +306,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
               <View style={s.emptyWrap}>
                 <Text style={{ fontSize: RF(36), marginBottom: spacing[3] }}>👥</Text>
                 <Text style={s.emptyTitle}>No referrals yet</Text>
-                <Text style={s.emptySub}>Share your code and earn points when friends trade</Text>
+                <Text style={s.emptySub}>Share your code and earn ₦500 when friends complete their first trade</Text>
               </View>
             }
             contentContainerStyle={{ paddingBottom: 100 }}
@@ -344,6 +383,19 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: spacing[1],
   },
   qrLinkTxt: { fontSize: typography.size.xs, color: 'rgba(255,255,255,0.6)' },
+
+  // Stats row
+  statsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: radius.xl, paddingVertical: spacing[4],
+    paddingHorizontal: spacing[5], width: '100%',
+    marginBottom: spacing[4],
+  },
+  statItem: { flex: 1, alignItems: 'center' },
+  statNum: { fontSize: typography.size.xl, fontWeight: typography.weight.extrabold, color: '#fff' },
+  statLbl: { fontSize: typography.size.xs, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  statDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.2)' },
 
   // White sheet
   sheet: {
