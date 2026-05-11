@@ -1,11 +1,11 @@
 import React, { useRef, useState } from 'react'
 import {
   View, Text, TouchableOpacity, FlatList, Image, Dimensions, Animated, Platform} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../../../util/statusBar'
 import { ONBOARDING_SLIDES } from '../types'
 import { ob } from '../styles/authStyles'
-import { SCREEN_H, isSmallPhone } from '../../../util/responsive'
+import { SCREEN_H, isSmallPhone, ms, spacing } from '../../../util/responsive'
 import { Analytics } from '../../../util/analytics'
 import storage from '../../../util/storage'
 import { Country } from '../../../api/country'
@@ -20,7 +20,7 @@ const ILLUS_IMAGES: Record<string, any> = {
 }
 
 function SlideIllustration({ type }: { type: string }) {
-  const illustHeight = isSmallPhone ? SCREEN_H * 0.36 : SCREEN_H * 0.42
+  const illustHeight = isSmallPhone ? SCREEN_H * 0.30 : SCREEN_H * 0.36
   return (
     <View style={{ width: W, height: illustHeight, overflow: 'hidden' }}>
       <Image
@@ -49,6 +49,11 @@ export function OnboardingStep({
   const [slideIndex, setSlideIndex] = useState(0)
   const flatListRef = useRef<FlatList>(null)
   const isLast = slideIndex === ONBOARDING_SLIDES.length - 1
+
+  // Bottom inset — non-zero on Android 3-button nav bar phones and iOS home indicator
+  // This ensures buttons are never hidden behind the system navigation bar
+  const insets = useSafeAreaInsets()
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 16 : 8)
 
   return (
     <View style={[{ flex: 1 }, { backgroundColor: '#FFFFFF' }, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
@@ -87,8 +92,8 @@ export function OnboardingStep({
           )}
         />
 
-        {/* Bottom */}
-        <View style={ob.bottom}>
+        {/* Bottom — paddingBottom accounts for Android nav bar + iOS home indicator */}
+        <View style={[ob.bottom, { paddingBottom: bottomPad + ms(8) }]}>
           {/* Dots */}
           <View style={ob.dotsRow}>
             {ONBOARDING_SLIDES.map((_, i) => (

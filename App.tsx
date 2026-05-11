@@ -5,7 +5,7 @@ import { CardStyleInterpolators, createStackNavigator } from '@react-navigation/
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { StatusBar } from 'expo-status-bar'
 import { Feather } from '@expo/vector-icons'
-import { View, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Platform, StatusBar as RNStatusBar } from 'react-native'
+import { View, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Platform, StatusBar as RNStatusBar, AppState } from 'react-native'
 import Svg, { Path, Rect } from 'react-native-svg'
 import * as ExpoLinking from 'expo-linking'
 import * as SplashScreen from 'expo-splash-screen'
@@ -42,12 +42,15 @@ import { CountryProvider } from './src/context/CountryContext'
 import { LoadingContextProvider } from './src/context/LoadingContext'
 import { DrawerProvider } from './src/context/DrawerContext'
 import { AppDrawer } from './src/components/AppDrawer'
+import { BiometricLockScreen } from './src/components/BiometricLockScreen'
 import { colors, spacing, radius, typography, shadow } from './src/theme'
 import { prefetchCredentials } from './src/api/socialAuth'
 import { setupNotificationListeners } from './src/util/pushNotifications'
 import { initFirebase } from './src/firebaseInit'
 import { Analytics } from './src/util/analytics'
 import { fetchAdConfig, initializeAdSDKs } from './src/util/adManager'
+import { BIOMETRIC_KEY } from './src/screens/auth/types'
+import * as SecureStore from 'expo-secure-store'
 
 import HomeScreen    from './src/screens/HomeScreen'
 import AuthScreen    from './src/screens/AuthScreen'
@@ -324,9 +327,52 @@ function RootNavigator() {
 // Keep native splash visible until JS is ready
 SplashScreen.preventAutoHideAsync().catch(() => {})
 
+// How long the app can be in background before requiring biometric re-auth (5 minutes)
+const LOCK_AFTER_MS = 5 * 60 * 1000
+
 function AppContent() {
-  const { isLoading } = useAuth()
+  const { isLoading, user } = useAuth()
   const [splashDone, setSplashDone] = useState(false)
+  const [biometricLocked, setBiometricLocked] = useState(false)
+  const backgroundedAt = useRef<number | null>(null)
+  const appState = useRef(AppState.currentState)
+
+  // ── Biometric lock on background/foreground ────────────────────────────────
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async nextState => {
+      const prev = appState.current
+      appState.current = nextState
+
+      if (nextState === 'background' || nextState === 'inactive') {
+        // Record when app went to background
+        backgroundedAt.current = Date.now()
+      }
+
+      if (nextState === 'active' && prev !== 'active') {
+        // App came back to foreground — check if we should lock
+        const isLoggedIn = user.isPresent()
+        if (!isLoggedIn) return  // Not logged in — no lock needed
+
+        const elapsed = backgroundedAt.current
+          ? Date.now() - backgroundedAt.current
+          : 0
+
+        if (elapsed < LOCK_AFTER_MS) return  // Not long enough — no lock
+
+        // Check if biometric is enabled
+        try {
+          const enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
+          if (enabled === 'true') {
+            setBiometricLocked(true)
+          }
+        } catch {
+          // SecureStore unavailable — don't lock
+        }
+      }
+    })
+
+    return () => sub.remove()
+  }, [user])
 
   // While auth is loading, show dark background — no white flash
   if (isLoading) {
@@ -353,6 +399,10 @@ function AppContent() {
         />
       )}
       <RootNavigator />
+      {/* Biometric lock overlay — shown on top of everything when app returns from background */}
+      {biometricLocked && (
+        <BiometricLockScreen onUnlocked={() => setBiometricLocked(false)} />
+      )}
     </>
   )
 }

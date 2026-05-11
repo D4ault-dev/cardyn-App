@@ -4,10 +4,10 @@ import {
   StyleSheet, Animated, Platform, Keyboard,
   ActivityIndicator, Modal, KeyboardAvoidingView, ScrollView,
 } from 'react-native'
-import { getStatusBarHeight } from '../../../util/statusBar'
+import { getStatusBarHeight, STATUS_BAR_HEIGHT } from '../../../util/statusBar'
 import { Feather } from '@expo/vector-icons'
 import { colors, spacing, radius } from '../../../theme'
-import { keyboardBehavior, ms, RF } from '../../../util/responsive'
+import { ms, RF } from '../../../util/responsive'
 import { isValidEmail } from '../phoneUtils'
 import { SocialButton } from '../AuthComponents'
 import { li2 } from '../styles/authStyles'
@@ -97,7 +97,16 @@ export function LoginStep({
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
+      {/*
+        KAV with behavior="padding" + keyboardVerticalOffset = status bar height.
+        This pushes the white card up by keyboard height without shrinking the container.
+        The hero height animates to 0 when keyboard opens (controlled from AuthScreen).
+      */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior="padding"
+        keyboardVerticalOffset={STATUS_BAR_HEIGHT}
+      >
       <View style={li2.root}>
 
         {/* Blue background */}
@@ -113,16 +122,21 @@ export function LoginStep({
           </View>
         </View>
 
-        {/* Hero — "Welcome Back" text instead of image */}
+        {/* Hero — collapses to 0 when keyboard opens */}
         <Animated.View
-          style={{ height: liHeroHeight, alignItems: 'flex-start', justifyContent: 'flex-end', paddingHorizontal: spacing[6], paddingBottom: spacing[4] }}
+          style={{ height: liHeroHeight, overflow: 'hidden', alignItems: 'flex-start', justifyContent: 'flex-end', paddingHorizontal: spacing[6], paddingBottom: spacing[3] }}
           pointerEvents="none"
         >
           <Text style={li2.heroTitle}>Welcome{'\n'}Back 👋</Text>
         </Animated.View>
 
+        {/* White fill behind keyboard — prevents navy showing below card on Android */}
+        {Platform.OS === 'android' && (
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 300, backgroundColor: '#FFFFFF' }} />
+        )}
+
         {/* White card — flex:1 fills remaining space */}
-        <Animated.View style={[li2.card, { opacity: liCardOpacity, flex: 1, marginTop: -ms(4) }]}>
+        <Animated.View style={[li2.card, { opacity: liCardOpacity, flex: 1 }]}>
           <ScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -131,7 +145,7 @@ export function LoginStep({
           >
 
           {/* Form */}
-          <View style={{ paddingHorizontal: spacing[1], paddingTop: spacing[6] }}>
+          <View style={{ paddingHorizontal: spacing[1], paddingTop: spacing[4] }}>
 
             {/* Account */}
             <View style={[li2.inputRow, isNotFound && li2.inputRowError]}>
@@ -151,6 +165,7 @@ export function LoginStep({
                   setError('')
                 }}
                 returnKeyType="next"
+                keyboardAppearance="light"
               />
               {loginInput.length > 0 && (
                 <TouchableOpacity
@@ -184,6 +199,7 @@ export function LoginStep({
                 onChangeText={t => { setPassword(t); setError('') }}
                 returnKeyType="done"
                 onSubmitEditing={handleLoginPress}
+                keyboardAppearance="light"
               />
               <TouchableOpacity onPress={() => setShowPw(v => !v)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -209,8 +225,8 @@ export function LoginStep({
               </TouchableOpacity>
             </View>
 
-            {/* Log In button — opens Terms modal first */}
-            <Animated.View style={{ transform: [{ scale: liBtnScale }], marginTop: spacing[3] }}>
+            {/* Log In button */}
+            <Animated.View style={{ transform: [{ scale: liBtnScale }], marginTop: spacing[1] }}>
               <TouchableOpacity
                 style={[li2.btn, !canLogin && li2.btnOff]}
                 onPress={handleLoginPress}
@@ -228,16 +244,23 @@ export function LoginStep({
 
           </View>
 
-          {/* Flexible spacer */}
-          <View style={{ flex: 1, minHeight: ms(16), maxHeight: ms(40) }} />
-
-          {/* Footer */}
-          <Animated.View style={{
-            opacity: liFooterOpacity,
-            paddingHorizontal: spacing[1],
-            paddingBottom: Math.max(insetsBottom, 16) + spacing[2],
-            paddingTop: spacing[2],
-          }}>
+          {/* Footer — collapses height + fades when keyboard is up */}
+          <Animated.View style={[
+            {
+              opacity: liFooterOpacity,
+              overflow: 'hidden',
+              paddingHorizontal: spacing[1],
+              paddingBottom: Math.max(insetsBottom, 16) + spacing[2],
+              paddingTop: spacing[2],
+            },
+            {
+              maxHeight: liFooterOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 400],
+                extrapolate: 'clamp',
+              }),
+            },
+          ]}>
             <View style={li2.linksRow}>
               <TouchableOpacity onPress={() => { reset(); goTo('signup') }} activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>

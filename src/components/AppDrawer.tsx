@@ -123,10 +123,11 @@ export function AppDrawer() {
 
           <View style={d.divider} />
 
-          {/* Menu items */}
+          {/* Menu items — scrollable so logout is always visible on small screens */}
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingVertical: spacing[3] }}>
+            contentContainerStyle={{ paddingTop: spacing[3], paddingBottom: spacing[2] }}
+            style={{ flex: 1 }}>
             {menuItems.map(item => (
               <TouchableOpacity
                 key={item.label}
@@ -140,17 +141,17 @@ export function AppDrawer() {
                 <Feather name="chevron-right" size={16} color={colors.border} />
               </TouchableOpacity>
             ))}
+
+            <View style={d.divider} />
+
+            {/* Logout — inside ScrollView so it's always reachable */}
+            <TouchableOpacity style={d.logoutRow} onPress={handleLogout} activeOpacity={0.65}>
+              <View style={d.iconWrap}>
+                <Feather name="log-out" size={20} color={colors.error} />
+              </View>
+              <Text style={[d.menuLabel, { color: colors.error }]}>Log out</Text>
+            </TouchableOpacity>
           </ScrollView>
-
-          <View style={d.divider} />
-
-          {/* Logout */}
-          <TouchableOpacity style={d.logoutRow} onPress={handleLogout} activeOpacity={0.65}>
-            <View style={d.iconWrap}>
-              <Feather name="log-out" size={20} color={colors.error} />
-            </View>
-            <Text style={[d.menuLabel, { color: colors.error }]}>Log out</Text>
-          </TouchableOpacity>
 
         </View>
       </Animated.View>
@@ -188,28 +189,28 @@ const d = StyleSheet.create({
   // Profile — centered
   profileSection: {
     alignItems: 'center',
-    paddingTop: spacing[5],
-    paddingBottom: spacing[6],
+    paddingTop: spacing[3],
+    paddingBottom: spacing[4],
   },
   avatarWrap: {
-    width: 84, height: 84,
-    marginBottom: spacing[3],
+    width: 72, height: 72,
+    marginBottom: spacing[2],
     position: 'relative',
   },
   avatarImg: {
-    width: 84, height: 84,
-    borderRadius: 22,
+    width: 72, height: 72,
+    borderRadius: 18,
     borderWidth: 2.5, borderColor: colors.primaryLight,
   },
   avatarFallback: {
-    width: 84, height: 84,
-    borderRadius: 22,
+    width: 72, height: 72,
+    borderRadius: 18,
     backgroundColor: colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2.5, borderColor: colors.primary,
   },
   avatarInitials: {
-    fontSize: RF(28), fontWeight: typography.weight.extrabold, color: colors.primary,
+    fontSize: RF(24), fontWeight: typography.weight.extrabold, color: colors.primary,
   },
   editBadge: {
     position: 'absolute', bottom: -4, right: -4,
@@ -237,7 +238,7 @@ const d = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing[5],
-    paddingVertical: spacing[4],
+    paddingVertical: spacing[3],
   },
   iconWrap: {
     width: 36, height: 36,
@@ -258,7 +259,7 @@ const d = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing[5],
-    paddingVertical: spacing[4],
-    marginBottom: spacing[4],
+    paddingVertical: spacing[3],
+    marginBottom: spacing[2],
   },
 })

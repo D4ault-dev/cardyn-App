@@ -75,10 +75,10 @@ export const SCREEN_H        = H
 
 // Ahantaman bank app pattern (production-tested):
 // iOS: 'padding' — shifts content up by keyboard height
-// Android: 'height' — shrinks the view height to fit above keyboard
-// 'undefined' on Android causes keyboard to overlap content
+// Android: 'padding' — same as iOS; 'height' causes the container to shrink
+// which creates a gap/transparent area at the top of the white card on auth screens
 export const keyboardBehavior: 'padding' | 'height' | 'position' | undefined =
-  Platform.OS === 'ios' ? 'padding' : 'height'
+  'padding'
 
 // ── Named size constants (computed once at load) ──────────────────────────────
 

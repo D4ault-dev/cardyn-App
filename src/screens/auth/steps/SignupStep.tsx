@@ -4,11 +4,10 @@ import {
   StyleSheet, Animated, KeyboardAvoidingView, Platform, ScrollView,
   Keyboard, ActivityIndicator, Modal,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { getStatusBarHeight } from '../../../util/statusBar'
+import { getStatusBarHeight, STATUS_BAR_HEIGHT } from '../../../util/statusBar'
 import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius } from '../../../theme'
-import { keyboardBehavior, ms, SCREEN_H, RF } from '../../../util/responsive'
+import { ms, SCREEN_H, RF } from '../../../util/responsive'
 import { prefixWithPlus, sanitizePhone, isValidPhone, getExpectedDigits, getFullPhone, maskPhone } from '../phoneUtils'
 import { SocialButton, SocialDivider, StepHeader, HelpModal, CountryPickerModal } from '../AuthComponents'
 import { li2, s } from '../styles/authStyles'
@@ -112,17 +111,24 @@ export function SignupStep(props: SignupStepProps) {
     if (e.nativeEvent.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus()
   }
 
-  // Animated spacer for signup step — shrinks when keyboard opens
-  const spacerHeight = useRef(new Animated.Value(SCREEN_H * 0.10)).current
+  // Hero title height — collapses to 0 when keyboard opens (same pattern as LoginStep)
+  const heroHeight = useRef(new Animated.Value(SCREEN_H * 0.14)).current
+  const [keyboardUp, setKeyboardUp] = useState(false)
   useEffect(() => {
     if (step !== 'signup') return
     const show = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => Animated.spring(spacerHeight, { toValue: SCREEN_H * 0.02, useNativeDriver: false, tension: 60, friction: 14 }).start()
+      () => {
+        setKeyboardUp(true)
+        Animated.spring(heroHeight, { toValue: 0, useNativeDriver: false, tension: 60, friction: 14 }).start()
+      }
     )
     const hide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => Animated.spring(spacerHeight, { toValue: SCREEN_H * 0.10, useNativeDriver: false, tension: 55, friction: 14 }).start()
+      () => {
+        setKeyboardUp(false)
+        Animated.spring(heroHeight, { toValue: SCREEN_H * 0.14, useNativeDriver: false, tension: 55, friction: 14 }).start()
+      }
     )
     return () => { show.remove(); hide.remove() }
   }, [step])
@@ -201,7 +207,11 @@ export function SignupStep(props: SignupStepProps) {
         />
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={{ flex: 1 }}>
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior="padding"
+            keyboardVerticalOffset={STATUS_BAR_HEIGHT}
+          >
           <View style={li2.root}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
@@ -221,34 +231,42 @@ export function SignupStep(props: SignupStepProps) {
               </View>
             </View>
 
-            {/* Hero title */}
-            <View style={li2.heroWrap} pointerEvents="none">
+            {/* Hero title — collapses when keyboard opens */}
+            <Animated.View
+              style={{ height: heroHeight, overflow: 'hidden', justifyContent: 'flex-end', paddingHorizontal: spacing[6], paddingBottom: spacing[3] }}
+              pointerEvents="none"
+            >
               <Text style={li2.heroTitle}>Create Your{'\n'}Account</Text>
-            </View>
+            </Animated.View>
 
-            {/* Animated spacer — shrinks when keyboard opens */}
-            <Animated.View style={{ height: spacerHeight }} />
-
-            {/* White fill for nav bar area */}
-            <View style={{ backgroundColor: '#FFFFFF', position: 'absolute', bottom: 0, left: 0, right: 0, height: Math.max(insetsBottom, 16) + 100 }} />
+            {/* White fill behind keyboard — prevents navy showing below card on Android */}
+            {Platform.OS === 'android' && (
+              <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 300, backgroundColor: '#FFFFFF' }} />
+            )}
 
             {/* White card */}
-            <Animated.View style={[li2.card, { opacity: liCardOpacity, paddingBottom: Math.max(insetsBottom, 16) + spacing[4] }]}>
-              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+            <Animated.View style={[li2.card, { opacity: liCardOpacity, flex: 1 }]}>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                contentContainerStyle={{ paddingBottom: Math.max(insetsBottom, 16) + spacing[4] }}
+              >
 
                 {/* Card header */}
-                <View style={{ paddingHorizontal: spacing[4], paddingTop: spacing[5], paddingBottom: spacing[2] }}>
+                <View style={{ paddingHorizontal: spacing[4], paddingTop: spacing[4], paddingBottom: spacing[1] }}>
                   <Text style={{ fontSize: ms(18), fontWeight: '700', color: colors.dark }}>Your details</Text>
-                  <Text style={{ fontSize: ms(13), color: colors.muted, marginTop: 4 }}>Enter your name and phone number to get started.</Text>
+                  <Text style={{ fontSize: ms(13), color: colors.muted, marginTop: 3 }}>Enter your name and phone number to get started.</Text>
                 </View>
 
                 {/* Full Name */}
-                <View style={[li2.inputRow, { marginTop: spacing[5] }]}>
+                <View style={[li2.inputRow, { marginTop: spacing[3] }]}>
                   <Feather name="user" size={16} color="#AAAAAA" style={{ marginRight: spacing[1] }} />
                   <View style={li2.inputDivider} />
                   <TextInput style={li2.input} placeholder="Full Name"
                     placeholderTextColor="#BBBBBB" autoCapitalize="words"
-                    value={name} onChangeText={t => { setName(t); setError('') }} returnKeyType="next" />
+                    value={name} onChangeText={t => { setName(t); setError('') }}
+                    returnKeyType="next" keyboardAppearance="light" />
                 </View>
 
                 {/* Phone Number */}
@@ -261,7 +279,8 @@ export function SignupStep(props: SignupStepProps) {
                   <TextInput style={li2.input} placeholder="Phone Number"
                     placeholderTextColor="#BBBBBB" keyboardType="phone-pad"
                     maxLength={getExpectedLocalDigits() ?? 14}
-                    value={phone} onChangeText={t => { setPhone(sanitizeLocalPhone(t)); setError('') }} />
+                    value={phone} onChangeText={t => { setPhone(sanitizeLocalPhone(t)); setError('') }}
+                    keyboardAppearance="light" />
                 </View>
 
                 {error === 'phone_exists' ? (
@@ -298,13 +317,18 @@ export function SignupStep(props: SignupStepProps) {
                   </TouchableOpacity>
                 </View>
 
-                <SocialDivider />
-                <View style={[s.socialRowWrap, { marginHorizontal: spacing[2] }]}>
-                  <SocialButton provider="google" loading={socialLoading === 'google'} onPress={handleGoogleSignIn} />
-                  {Platform.OS === 'ios' && (
-                    <SocialButton provider="apple" loading={socialLoading === 'apple'} onPress={handleAppleSignIn} />
-                  )}
-                </View>
+                {/* Social section — hidden when keyboard is up to save space */}
+                {!keyboardUp && (
+                  <>
+                    <SocialDivider />
+                    <View style={[s.socialRowWrap, { marginHorizontal: spacing[2] }]}>
+                      <SocialButton provider="google" loading={socialLoading === 'google'} onPress={handleGoogleSignIn} />
+                      {Platform.OS === 'ios' && (
+                        <SocialButton provider="apple" loading={socialLoading === 'apple'} onPress={handleAppleSignIn} />
+                      )}
+                    </View>
+                  </>
+                )}
               </ScrollView>
             </Animated.View>
           </View>

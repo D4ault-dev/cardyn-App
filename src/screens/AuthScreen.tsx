@@ -18,7 +18,6 @@ import { fetchCountries, Country } from '../api/country'
 import { colors, typography, spacing } from '../theme'
 import { signInWithGoogle, signInWithApple, isAppleAvailable } from '../api/socialAuth'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { getStatusBarHeight } from '../util/statusBar'
 
 // ── Extracted modules ─────────────────────────────────────────────────────────
 import { Step, FALLBACK_COUNTRY, BIOMETRIC_KEY, BIOMETRIC_USER, BIOMETRIC_PASS } from './auth/types'
@@ -640,7 +639,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
       finally { setLoading(false) }
     }
     return (
-      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <SafeAreaView style={s.safe}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
           <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
             <View style={s.pwTopWrap}>
@@ -708,7 +707,7 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
             </View>
           </Animated.View>
         </KeyboardAvoidingView>
-      </View>
+      </SafeAreaView>
     )
   }
 
