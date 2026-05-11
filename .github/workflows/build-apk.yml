@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +60,6 @@ jobs:
           path: android/app/build/outputs/apk/release/cardyn-*.apk
           retention-days: 30
 
-      # Auto-create GitHub Release on every push to main
       - name: Get version
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
@@ -78,8 +79,6 @@ jobs:
             2. On your Android phone: Settings → Install unknown apps → Allow
             3. Open the downloaded APK and install
 
-            > This is always the latest build. Previous builds are in the [Actions artifacts](https://github.com/${{ github.repository }}/actions).
+            > Always the latest build. Previous builds in [Actions artifacts](https://github.com/${{ github.repository }}/actions).
           files: android/app/build/outputs/apk/release/cardyn-*.apk
           prerelease: false
-        permissions:
-          contents: write
