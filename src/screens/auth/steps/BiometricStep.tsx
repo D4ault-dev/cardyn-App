@@ -1,8 +1,8 @@
 import React from 'react'
 import {
-  View, Text, TouchableOpacity, Animated, Alert,
-} from 'react-native'
+  View, Text, TouchableOpacity, Animated, Alert, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../../../util/statusBar'
 import Svg, { Path } from 'react-native-svg'
 import { colors } from '../../../theme'
 import { s } from '../styles/authStyles'
@@ -23,7 +23,7 @@ export function BiometricStep({
   enableBiometric,
 }: BiometricStepProps) {
   return (
-    <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]}>
+    <View style={[s.safe, { backgroundColor: colors.background }, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
         {/* Fingerprint icon — 3 concentric circles in green */}
@@ -81,6 +81,6 @@ export function BiometricStep({
         </View>
 
       </Animated.View>
-    </SafeAreaView>
+    </View>
   )
 }

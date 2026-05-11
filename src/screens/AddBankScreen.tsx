@@ -1,4 +1,5 @@
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -170,7 +171,7 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
   const canSubmit = !!selectedBank && accNumber.length === 10 && !!accName && !!otpCode && !saving && !resolving
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Add Bank Card" onBack={() => props.navigation.goBack()} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -328,7 +329,7 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   )
 }
 

@@ -1,9 +1,9 @@
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, RefreshControl, FlatList,
-} from 'react-native'
+  Image, ActivityIndicator, RefreshControl, FlatList, Platform} from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
@@ -154,7 +154,7 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
   return (
     <FadeScreen>
     <View style={{ flex: 1 }} {...swipeHandlers}>
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
       {/* ── Header ── */}
       <View style={s.header}>
@@ -238,7 +238,7 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
         )}
       </ScrollView>
 
-    </SafeAreaView>
+    </View>
     </View>
     </FadeScreen>
   )

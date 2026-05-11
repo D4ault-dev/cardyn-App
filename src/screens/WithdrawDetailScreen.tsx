@@ -1,9 +1,9 @@
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, Modal, Dimensions, Alert, ActivityIndicator,
-} from 'react-native'
+  TouchableOpacity, Modal, Dimensions, Alert, ActivityIndicator, Platform} from 'react-native'
 import * as ExpoClipboard from 'expo-clipboard'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
@@ -61,7 +61,7 @@ export default function WithdrawDetailScreen(props: StackScreenProps<RootStackPa
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Withdrawal Detail" onBack={() => props.navigation.goBack()} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}>
@@ -175,7 +175,7 @@ export default function WithdrawDetailScreen(props: StackScreenProps<RootStackPa
           </View>
         </Modal>
       )}
-    </SafeAreaView>
+    </View>
   )
 }
 

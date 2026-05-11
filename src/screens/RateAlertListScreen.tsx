@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, Animated,
-} from 'react-native'
+  ActivityIndicator, Animated, Platform} from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
@@ -89,7 +89,7 @@ export default function RateAlertListScreen(props: StackScreenProps<RootStackPar
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => props.navigation.goBack()}>
@@ -144,7 +144,7 @@ export default function RateAlertListScreen(props: StackScreenProps<RootStackPar
           <Text style={s.toastTxt}>Rate target created successfully.</Text>
         </Animated.View>
       )}
-    </SafeAreaView>
+    </View>
   )
 }
 

@@ -3,9 +3,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, RefreshControl, Share, Modal,
-  Animated, Image, Alert, StatusBar,
-} from 'react-native'
+  Animated, Image, Alert, StatusBar, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -214,9 +214,9 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-        <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
           <ActivityIndicator color="#fff" size="large" />
-        </SafeAreaView>
+        </View>
       </View>
     )
   }
@@ -224,7 +224,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
   return (
     <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
       <StatusBar barStyle="light-content" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
 
         {/* ── Dark hero header ── */}
         <View style={s.heroWrap}>
@@ -316,7 +316,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
           />
         </View>
 
-      </SafeAreaView>
+      </View>
 
       {data && (
         <QRModal visible={qrOpen} link={data.referralLink} code={data.inviteCode} onClose={() => setQrOpen(false)} />

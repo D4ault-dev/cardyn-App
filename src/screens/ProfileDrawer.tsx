@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
-  Animated, Dimensions, ScrollView, Modal,
-} from 'react-native'
+  Animated, Dimensions, ScrollView, Modal, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { Feather } from '@expo/vector-icons'
 import { useAuth } from '../context/AuthContext'
 import { fetchWalletInfo } from '../api/wallet'
@@ -73,7 +73,7 @@ export default function ProfileDrawer({ visible, onClose, navigation }: Props) {
 
         {/* Drawer */}
         <Animated.View style={[s.drawer, { transform: [{ translateX: slideAnim }] }]}>
-          <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+          <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing[8] }}>
 
               {/* User row */}
@@ -137,7 +137,7 @@ export default function ProfileDrawer({ visible, onClose, navigation }: Props) {
               </View>
 
             </ScrollView>
-          </SafeAreaView>
+          </View>
         </Animated.View>
       </View>
     </Modal>

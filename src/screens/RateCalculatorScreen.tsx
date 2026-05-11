@@ -2,9 +2,9 @@ import { RF, ms } from '../util/responsive'
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Image, ActivityIndicator, Modal, FlatList, TextInput,
-} from 'react-native'
+  Image, ActivityIndicator, Modal, FlatList, TextInput, Platform} from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
@@ -163,7 +163,7 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={['top']}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={() => props.navigation.goBack()}>
             <Feather name="chevron-left" size={24} color={colors.dark} />
@@ -172,7 +172,7 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
           <View style={{ width: 36 }} />
         </View>
         <ActivityIndicator color={GREEN} style={{ marginTop: spacing[8] }} />
-      </SafeAreaView>
+      </View>
     )
   }
 
@@ -180,7 +180,7 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
 
   return (
     <>
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => props.navigation.goBack()}>
@@ -333,7 +333,7 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
         </TouchableOpacity>
       </View>
 
-    </SafeAreaView>
+    </View>
 
       {/* Card picker modal */}
       <Modal visible={cardPickerOpen} transparent animationType="slide" statusBarTranslucent>

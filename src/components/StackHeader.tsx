@@ -1,7 +1,7 @@
 import { RF } from '../util/responsive'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { ReactNode } from 'react'
-import { View, Text, TouchableOpacity } from 'react-native'
+import { View, Text, TouchableOpacity, Platform } from 'react-native'
 import { Feather } from "@expo/vector-icons"
 import { useNavigation } from "@react-navigation/core"
 import Colors from "../constants/Colors"
@@ -14,7 +14,7 @@ export default function StackHeader(props: {
   const nav = useNavigation<any>()
 
   return (
-    <SafeAreaView>
+    <View style={{ paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
       <View style={{
         flexDirection: "row", paddingHorizontal: 20, paddingVertical: 10,
         alignItems: "center", borderBottomWidth: 1, borderColor: Colors.lightgray,
@@ -33,6 +33,6 @@ export default function StackHeader(props: {
           {props.right}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   )
 }

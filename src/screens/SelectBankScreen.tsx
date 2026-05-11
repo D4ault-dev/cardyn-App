@@ -1,10 +1,10 @@
 import { RF } from '../util/responsive'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SectionList, TouchableOpacity,
-  TextInput, ActivityIndicator, Image,
-} from 'react-native'
+  TextInput, ActivityIndicator, Image, Platform} from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -62,7 +62,7 @@ export default function SelectBankScreen(props: StackScreenProps<RootStackParams
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Select your bank" onBack={() => props.navigation.goBack()} />
 
       {/* Search */}
@@ -143,7 +143,7 @@ export default function SelectBankScreen(props: StackScreenProps<RootStackParams
           )}
         </View>
       )}
-    </SafeAreaView>
+    </View>
   )
 }
 

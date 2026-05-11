@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, ActivityIndicator,
-  TouchableOpacity, Dimensions,
-} from 'react-native'
+  TouchableOpacity, Dimensions, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -224,7 +224,7 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
 
   return (
     <>
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
           <Feather name="chevron-left" size={22} color={colors.dark} />
@@ -290,7 +290,7 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
           )}
         </View>
       )}
-    </SafeAreaView>
+    </View>
     {/* CouponClaimModal disabled
     <CouponClaimModal
       visible={claimVisible}

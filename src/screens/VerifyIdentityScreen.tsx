@@ -4,6 +4,7 @@ import {
   TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -86,7 +87,7 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
   const canContinue = !!pinId && otp.length >= 4 && !verifying
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>
@@ -152,7 +153,7 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   )
 }
 

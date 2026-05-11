@@ -1,7 +1,7 @@
 import { RF } from '../util/responsive'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { ReactNode } from 'react'
-import { View, Text } from 'react-native'
+import { View, Text, Platform } from 'react-native'
 
 export default function Header(props: {
   children?: ReactNode
@@ -9,7 +9,7 @@ export default function Header(props: {
   right?: ReactNode
 }) {
   return (
-    <SafeAreaView>
+    <View style={{ paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
       <View style={{ paddingHorizontal: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           {typeof props.title === "string"
@@ -20,6 +20,6 @@ export default function Header(props: {
         </View>
         {props.children}
       </View>
-    </SafeAreaView>
+    </View>
   )
 }

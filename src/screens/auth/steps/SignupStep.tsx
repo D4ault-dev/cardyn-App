@@ -5,6 +5,7 @@ import {
   Keyboard, ActivityIndicator, Modal,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../../../util/statusBar'
 import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius } from '../../../theme'
 import { keyboardBehavior, ms, SCREEN_H, RF } from '../../../util/responsive'
@@ -205,7 +206,7 @@ export function SignupStep(props: SignupStepProps) {
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
             {/* Nav */}
-            <SafeAreaView edges={['top']} style={li2.safeTop}>
+            <View style={[li2.safeTop, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
               <View style={li2.navRow}>
                 <TouchableOpacity onPress={() => { reset(); goTo('login') }}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -218,7 +219,7 @@ export function SignupStep(props: SignupStepProps) {
               <View style={[s.progressTrack, { marginHorizontal: spacing[5] }]}>
                 <View style={[s.progressFill, { width: '25%' }]} />
               </View>
-            </SafeAreaView>
+            </View>
 
             {/* Hero title */}
             <View style={li2.heroWrap} pointerEvents="none">
@@ -354,7 +355,7 @@ export function SignupStep(props: SignupStepProps) {
     return (
       <>
         <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
-        <SafeAreaView style={s.safe}>
+        <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
             <StepHeader onBack={() => goTo('signup')} progress={0.5}
               onHelp={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }} />
@@ -438,7 +439,7 @@ export function SignupStep(props: SignupStepProps) {
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
       </>
     )
   }
@@ -456,7 +457,7 @@ export function SignupStep(props: SignupStepProps) {
     return (
       <>
         <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
-        <SafeAreaView style={s.safe}>
+        <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
             <StepHeader onBack={() => goTo('signup_otp')} progress={0.85}
               onHelp={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }} />
@@ -571,7 +572,7 @@ export function SignupStep(props: SignupStepProps) {
               </TouchableOpacity>
             </ScrollView>
           </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
       </>
     )
   }

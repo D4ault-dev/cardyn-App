@@ -4,6 +4,7 @@ import {
   TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -77,7 +78,7 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
   const canConfirm = otpCode.length >= 4 && !!pinId && !saving
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Bind Phone Number" onBack={() => props.navigation.goBack()} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -143,7 +144,7 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
       </KeyboardAvoidingView>
 
       {Toast}
-    </SafeAreaView>
+    </View>
   )
 }
 

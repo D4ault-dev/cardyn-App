@@ -1,9 +1,9 @@
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, Modal, Dimensions, Animated,
-} from 'react-native'
+  TouchableOpacity, Modal, Dimensions, Animated, Platform} from 'react-native'
 import * as ExpoClipboard from 'expo-clipboard'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
@@ -111,7 +111,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title="Order tracking" onBack={() => props.navigation.goBack()} />
 
@@ -329,7 +329,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
         </Modal>
       )}
 
-    </SafeAreaView>
+    </View>
   )
 }
 

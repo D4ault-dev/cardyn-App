@@ -1,7 +1,8 @@
 import { RF } from '../util/responsive'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from "@react-navigation/stack"
 import React, { createContext, ReactChild, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet, Platform} from 'react-native'
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Feather, AntDesign } from "@expo/vector-icons"
 import Binance from "../context/Binance"
@@ -105,7 +106,7 @@ export default function ChartScreen(props: StackScreenProps<RootStackParams, "Ch
 
           )}
         </KlinesContext.Consumer>
-        <SafeAreaView edges={["bottom"]}>
+        <View>
           <View style={{ paddingHorizontal: 20, flexDirection: "row", paddingVertical: 10, borderTopWidth: 1, borderTopColor: Colors.lightgray }}>
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
               <TouchableOpacity onPress={handleAlertPressed}><Feather name="bell" style={{ fontSize: RF(30) }} /></TouchableOpacity>
@@ -117,7 +118,7 @@ export default function ChartScreen(props: StackScreenProps<RootStackParams, "Ch
               <Button textStyle={{ fontSize: RF(13) }} onPress={handleSellPressed} style={{ paddingHorizontal: 30 }}>SELL</Button>
             </View>
           </View>
-        </SafeAreaView>
+        </View>
       </View>
     </KlinesContextProvider>
   )

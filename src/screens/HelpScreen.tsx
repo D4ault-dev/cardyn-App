@@ -1,9 +1,9 @@
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView,
-} from 'react-native'
+  ScrollView, Platform} from 'react-native'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { StackScreenProps } from '@react-navigation/stack'
@@ -55,7 +55,7 @@ export default function HelpScreen(props: StackScreenProps<any, any>) {
   }
 
   return (
-    <SafeAreaView style={s.safe}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title="Help" onBack={() => props.navigation.goBack()} />
 
@@ -113,7 +113,7 @@ export default function HelpScreen(props: StackScreenProps<any, any>) {
         </TouchableOpacity>
       </View>
 
-    </SafeAreaView>
+    </View>
   )
 }
 

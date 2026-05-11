@@ -2,9 +2,9 @@ import { RF } from '../util/responsive'
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Animated, ActivityIndicator, Alert,
-} from 'react-native'
+  Animated, ActivityIndicator, Alert, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -97,7 +97,7 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
   ]
 
   return (
-    <SafeAreaView style={s.root} edges={['top', 'bottom']}>
+    <View style={[s.root, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Authorize Payment" onBack={() => props.navigation.goBack()} />
 
       {/* Blue bank card */}
@@ -163,7 +163,7 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
           </View>
         ))}
       </View>
-    </SafeAreaView>
+    </View>
   )
 }
 

@@ -1,5 +1,6 @@
 import { RF } from '../util/responsive'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView,
@@ -152,7 +153,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
   // ── Guest ──────────────────────────────────────────────────────────────────
   if (!user.isPresent()) {
     return (
-      <SafeAreaView style={s.safe}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}><Text style={s.headerTitle}>Wallet</Text></View>
         <View style={s.guestWrap}>
           <View style={s.guestIcon}><Feather name="lock" size={32} color={colors.primary} /></View>
@@ -162,12 +163,12 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
             <Text style={s.loginBtnTxt}>Log In / Sign Up</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     )
   }
 
   return (
-    <SafeAreaView style={s.safe}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <Text style={s.headerTitle}>Wallet</Text>

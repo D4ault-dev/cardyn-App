@@ -2,12 +2,12 @@ import React, { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
   StyleSheet, Animated, Platform, Keyboard,
-  ActivityIndicator, Modal,
+  ActivityIndicator, Modal, KeyboardAvoidingView, ScrollView,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../../../util/statusBar'
 import { Feather } from '@expo/vector-icons'
 import { colors, spacing, radius } from '../../../theme'
-import { ms, RF } from '../../../util/responsive'
+import { keyboardBehavior, ms, RF } from '../../../util/responsive'
 import { isValidEmail } from '../phoneUtils'
 import { SocialButton } from '../AuthComponents'
 import { li2 } from '../styles/authStyles'
@@ -97,20 +97,21 @@ export function LoginStep({
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
       <View style={li2.root}>
 
         {/* Blue background */}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
         {/* Nav */}
-        <SafeAreaView edges={['top']} style={li2.safeTop}>
+        <View style={[li2.safeTop, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
           <View style={li2.navRow}>
             <View style={{ width: 40 }} />
             <TouchableOpacity onPress={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }}>
               <Text style={li2.helpTxt}>Help</Text>
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
 
         {/* Hero — "Welcome Back" text instead of image */}
         <Animated.View
@@ -120,8 +121,14 @@ export function LoginStep({
           <Text style={li2.heroTitle}>Welcome{'\n'}Back 👋</Text>
         </Animated.View>
 
-        {/* White card — flex:1 fills remaining space, content at top, footer at bottom */}
+        {/* White card — flex:1 fills remaining space */}
         <Animated.View style={[li2.card, { opacity: liCardOpacity, flex: 1, marginTop: -ms(4) }]}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={{ flexGrow: 1 }}
+          >
 
           {/* Form */}
           <View style={{ paddingHorizontal: spacing[1], paddingTop: spacing[6] }}>
@@ -221,8 +228,8 @@ export function LoginStep({
 
           </View>
 
-          {/* Flexible spacer — keeps footer close to form, not pinned to screen bottom */}
-          <View style={{ flex: 1, maxHeight: ms(40) }} />
+          {/* Flexible spacer */}
+          <View style={{ flex: 1, minHeight: ms(16), maxHeight: ms(40) }} />
 
           {/* Footer */}
           <Animated.View style={{
@@ -257,6 +264,7 @@ export function LoginStep({
             </View>
           </Animated.View>
 
+          </ScrollView>
         </Animated.View>
 
         {/* ── Terms & Privacy Modal ── */}
@@ -290,6 +298,7 @@ export function LoginStep({
         </Modal>
 
       </View>
+      </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   )
 }

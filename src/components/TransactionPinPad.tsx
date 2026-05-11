@@ -1,4 +1,5 @@
 import { RF } from '../util/responsive'
+import { getStatusBarHeight } from '../util/statusBar'
 /**
  * TransactionPinPad
  * Professional 4-digit PIN pad for authorizing withdrawals.
@@ -7,9 +8,8 @@ import { RF } from '../util/responsive'
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
-  Animated, ActivityIndicator,
+  Animated, ActivityIndicator, Platform,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
 import { colors, spacing, radius, typography } from '../theme'
 
@@ -76,7 +76,7 @@ export function TransactionPinPad({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={st.root} edges={['top', 'bottom']}>
+      <View style={[st.root, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         {/* Header */}
         <View style={st.header}>
           <TouchableOpacity onPress={onClose} style={st.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -134,7 +134,7 @@ export function TransactionPinPad({
             </View>
           ))}
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   )
 }

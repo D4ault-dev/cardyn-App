@@ -6,6 +6,7 @@ import {
   Platform, Modal, Animated, Alert, ScrollView,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -325,7 +326,7 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
   const displayUri = avatarUri || (serverAvatar ? resolveImageUrl(serverAvatar) : null)
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Profile Edit" onBack={() => props.navigation.goBack()} />
 
       <View style={s.body}>
@@ -441,7 +442,7 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
       {/* ── Toast ── */}
       {Toast}
 
-    </SafeAreaView>
+    </View>
   )
 }
 

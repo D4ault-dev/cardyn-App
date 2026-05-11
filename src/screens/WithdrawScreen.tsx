@@ -1,5 +1,6 @@
 import { RF } from '../util/responsive'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -227,7 +228,7 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
   return (
     <>
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title="Wallet" onBack={() => props.navigation.goBack()} />
 
@@ -322,7 +323,7 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
         </View>
       </BottomSheet>
 
-    </SafeAreaView>
+    </View>
 
       {/* ── Add bank modal ── */}
       <Modal visible={addBankOpen} transparent animationType="slide" statusBarTranslucent>

@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
-  Animated, Dimensions, ScrollView,
-} from 'react-native'
+  Animated, Dimensions, ScrollView, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { useAuth } from '../context/AuthContext'
@@ -68,7 +68,7 @@ export default function ProfileScreen(props: StackScreenProps<RootStackParams, '
 
       {/* Drawer slides in from right */}
       <Animated.View style={[s.drawer, { transform: [{ translateX: slideAnim }] }]}>
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing[8] }}>
 
             {/* User row */}
@@ -132,7 +132,7 @@ export default function ProfileScreen(props: StackScreenProps<RootStackParams, '
             </View>
 
           </ScrollView>
-        </SafeAreaView>
+        </View>
       </Animated.View>
     </View>
   )

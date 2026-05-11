@@ -1,5 +1,6 @@
 import { RF } from '../util/responsive'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
@@ -36,7 +37,7 @@ export default function LoginScreen(props: StackScreenProps<RootStackParams, 'Lo
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding' })}>
         <ScrollView
           contentContainerStyle={styles.content}
@@ -156,7 +157,7 @@ export default function LoginScreen(props: StackScreenProps<RootStackParams, 'Lo
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   )
 }
 

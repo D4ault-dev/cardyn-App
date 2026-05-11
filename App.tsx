@@ -95,12 +95,12 @@ const Stack = createStackNavigator<RootStackParams>()
 
 function Tabs() {
   const insets = useSafeAreaInsets()
-  // On Android with gesture nav: insets.bottom = 0 (gestures) or ~24-48 (3-button nav)
-  // On iOS: insets.bottom = 34 (home indicator) or 0 (older devices)
-  // We always add a minimum gap of 8px above the system nav area
-  const bottomInset  = insets.bottom
-  // Add 16px gap above Android nav bar so tab bar doesn't touch it
-  const tabBarBottom = Platform.OS === 'android' ? Math.max(bottomInset + 16, 24) : 24
+  // F8 app pattern: fixed bottom values — more reliable than SafeAreaInsets on Android.
+  // Android gesture nav: system handles spacing; 3-button nav: 16px clearance is enough.
+  // iOS: 24px works for all devices (SafeAreaProvider handles notch/home indicator).
+  const tabBarBottom = Platform.OS === 'android'
+    ? Math.max((insets.bottom ?? 0) + 8, 16)
+    : 24
 
   return (
     <DrawerProvider>
@@ -344,9 +344,13 @@ function AppContent() {
 
   return (
     <>
-      <StatusBar style="light" backgroundColor={colors.primary} translucent={false} />
+      <StatusBar style="light" translucent={true} />
       {Platform.OS === 'android' && (
-        <RNStatusBar backgroundColor={colors.primary} barStyle="light-content" translucent={false} />
+        <RNStatusBar 
+          backgroundColor="rgba(13, 31, 36, 0.85)" 
+          barStyle="light-content" 
+          translucent={true}
+        />
       )}
       <RootNavigator />
     </>
@@ -363,8 +367,9 @@ export default function App() {
 
     // ── Android system navigation bar ──────────────────────────────────────
     if (Platform.OS === 'android') {
-      // Force status bar navy with white icons
-      RNStatusBar.setBackgroundColor('#0D1F24', true)
+      // Translucent status bar with semi-transparent navy — F8 app pattern
+      RNStatusBar.setTranslucent(true)
+      RNStatusBar.setBackgroundColor('rgba(13, 31, 36, 0.85)', true)
       RNStatusBar.setBarStyle('light-content', true)
       // Note: NavigationBar color/button APIs are no-ops in SDK 53+ (edge-to-edge)
       // The system handles nav bar appearance automatically

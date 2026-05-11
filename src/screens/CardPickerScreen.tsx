@@ -1,9 +1,9 @@
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Image, ActivityIndicator, TextInput, FlatList,
-} from 'react-native'
+  Image, ActivityIndicator, TextInput, FlatList, Platform} from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
@@ -43,7 +43,7 @@ export default function CardPickerScreen(props: StackScreenProps<RootStackParams
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
       {/* Header */}
       <View style={s.header}>
@@ -125,7 +125,7 @@ export default function CardPickerScreen(props: StackScreenProps<RootStackParams
           }}
         />
       )}
-    </SafeAreaView>
+    </View>
   )
 }
 

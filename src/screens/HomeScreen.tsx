@@ -4,7 +4,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Image,
   Dimensions, Animated, Modal,
-  Keyboard, TouchableWithoutFeedback, StatusBar,
+  Keyboard, TouchableWithoutFeedback, StatusBar, Platform,
 } from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
@@ -21,6 +21,7 @@ import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { tabBarClearance, ms, RF } from '../util/responsive'
 import { FadeScreen } from '../components/FadeScreen'
 import { useCountry } from '../context/CountryContext'
+import { getStatusBarHeight } from '../util/statusBar'
 
 const { width: W } = Dimensions.get('window')
 
@@ -214,7 +215,11 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <FadeScreen>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={Platform.OS === 'android' ? 'rgba(250,250,250,0.95)' : colors.background}
+          translucent={Platform.OS === 'android'}
+        />
         <View style={{ flex: 1, backgroundColor: colors.background }}>
 
           {/* ── Home content ── */}
@@ -233,7 +238,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
               </Animated.View>
             )}
 
-            <SafeAreaView style={s.safe}>
+            {/* F8 pattern: manual paddingTop instead of SafeAreaView — more reliable on Android */}
+            <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 refreshControl={
@@ -435,7 +441,7 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                 </View>
 
               </ScrollView>
-            </SafeAreaView>
+            </View>
           </View>
 
           {/* ── Daily Check-in Modal ── */}

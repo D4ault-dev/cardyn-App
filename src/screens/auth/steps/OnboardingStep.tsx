@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react'
 import {
-  View, Text, TouchableOpacity, FlatList, Image, Dimensions, Animated,
-} from 'react-native'
+  View, Text, TouchableOpacity, FlatList, Image, Dimensions, Animated, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../../../util/statusBar'
 import { ONBOARDING_SLIDES } from '../types'
 import { ob } from '../styles/authStyles'
 import { SCREEN_H, isSmallPhone } from '../../../util/responsive'
@@ -51,7 +51,7 @@ export function OnboardingStep({
   const isLast = slideIndex === ONBOARDING_SLIDES.length - 1
 
   return (
-    <SafeAreaView style={[{ flex: 1 }, { backgroundColor: '#FFFFFF' }]}>
+    <View style={[{ flex: 1 }, { backgroundColor: '#FFFFFF' }, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
 
         {/* Skip button */}
@@ -119,6 +119,6 @@ export function OnboardingStep({
         </View>
 
       </Animated.View>
-    </SafeAreaView>
+    </View>
   )
 }

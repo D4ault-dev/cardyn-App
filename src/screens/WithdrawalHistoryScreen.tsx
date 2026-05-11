@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native'
+  ActivityIndicator, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import * as ExpoClipboard from 'expo-clipboard'
@@ -130,7 +130,7 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Withdrawal Record" onBack={() => props.navigation.goBack()} />
 
       {loading ? (
@@ -159,7 +159,7 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
           }
         />
       )}
-    </SafeAreaView>
+    </View>
   )
 }
 

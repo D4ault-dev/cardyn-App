@@ -1,10 +1,10 @@
 import { RF } from '../util/responsive'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Animated, Image, Alert,
+  ScrollView, Animated, Image, Alert, Platform,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
@@ -88,7 +88,7 @@ export function AppDrawer() {
 
       {/* Drawer */}
       <Animated.View style={[d.drawer, { transform: [{ translateX: drawerAnim }] }]}>
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
 
           {/* Close button — top left */}
           <TouchableOpacity onPress={close} style={d.closeBtn} activeOpacity={0.7}>
@@ -152,7 +152,7 @@ export function AppDrawer() {
             <Text style={[d.menuLabel, { color: colors.error }]}>Log out</Text>
           </TouchableOpacity>
 
-        </SafeAreaView>
+        </View>
       </Animated.View>
     </>
   )

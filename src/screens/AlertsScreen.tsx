@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, Animated, ActivityIndicator,
-  Dimensions, PanResponder, BackHandler,
-} from 'react-native'
+  Dimensions, PanResponder, BackHandler, Platform} from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
@@ -206,7 +206,7 @@ function DetailPanel({ item, onBack, onAction, navigating }: {
         style={[dp.panel, { transform: [{ translateX: slideX }] }]}
         {...pan.panHandlers}
       >
-        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
           {/* Header */}
           <View style={dp.header}>
             <TouchableOpacity onPress={handleBack} style={dp.backBtn}>
@@ -240,7 +240,7 @@ function DetailPanel({ item, onBack, onAction, navigating }: {
               </TouchableOpacity>
             </View>
           )}
-        </SafeAreaView>
+        </View>
       </Animated.View>
     </View>
   )
@@ -409,7 +409,7 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <SafeAreaView style={s.safe} edges={['top']}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
         {/* Header */}
         <View style={s.header}>
@@ -472,7 +472,7 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
             )}
           />
         )}
-      </SafeAreaView>
+      </View>
 
       {/* Detail panel — rendered on top, slides in from right */}
       {selected && (

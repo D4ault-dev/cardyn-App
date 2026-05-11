@@ -3,9 +3,9 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, ActivityIndicator, FlatList,
   TouchableOpacity, RefreshControl, Image, Dimensions,
-  StatusBar, Modal, ScrollView, Share, Animated,
-} from 'react-native'
+  StatusBar, Modal, ScrollView, Share, Animated, Platform} from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -534,7 +534,7 @@ export default function LeaderboardScreen(props: StackScreenProps<RootStackParam
 
       {/* ── Dark gradient header ── */}
       <LinearGradient colors={['#0D1B2A', '#1B2838', '#1A3A4A']} style={s.headerGrad}>
-        <SafeAreaView edges={['top']}>
+        <View style={{ paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
           {/* Nav */}
           <View style={s.navRow}>
             <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn}>
@@ -590,7 +590,7 @@ export default function LeaderboardScreen(props: StackScreenProps<RootStackParam
               <Text style={{ fontSize: RF(52) }}>🤝</Text>
             </View>
           )}
-        </SafeAreaView>
+        </View>
       </LinearGradient>
 
       {/* ── Content — fades when switching tabs ── */}

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image,
-} from 'react-native'
+  Image, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -78,7 +78,7 @@ export default function DiscoveryScreen(props: StackScreenProps<RootStackParams,
 
   return (
     <View style={{ flex: 1 }} {...swipeHandlers}>
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <View style={s.header}>
         <Text style={s.headerTitle}>Discover</Text>
       </View>
@@ -110,7 +110,7 @@ export default function DiscoveryScreen(props: StackScreenProps<RootStackParams,
           }
         />
       )}
-    </SafeAreaView>
+    </View>
     </View>
   )
 }

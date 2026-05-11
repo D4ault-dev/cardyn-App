@@ -1,8 +1,8 @@
 import React from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-} from 'react-native'
+  View, Text, StyleSheet, TouchableOpacity, Platform} from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -11,7 +11,7 @@ import { ms, RF } from '../util/responsive'
 
 export default function AccountDeletionScreen(props: StackScreenProps<RootStackParams, 'AccountDeletion'>) {
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
       {/* Header */}
       <View style={s.header}>
@@ -65,7 +65,7 @@ export default function AccountDeletionScreen(props: StackScreenProps<RootStackP
         </TouchableOpacity>
       </View>
 
-    </SafeAreaView>
+    </View>
   )
 }
 

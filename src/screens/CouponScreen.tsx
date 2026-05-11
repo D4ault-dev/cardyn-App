@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator, RefreshControl,
-} from 'react-native'
+  StyleSheet, ActivityIndicator, RefreshControl, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius } from '../theme'
@@ -113,7 +113,7 @@ export default function CouponScreen({ navigation }: any) {
   const expired = coupons.filter(c => c.expired)
 
   return (
-    <SafeAreaView style={s.root} edges={['top']}>
+    <View style={[s.root, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Coupon" onBack={() => navigation.goBack()} />
 
       {loading ? (
@@ -155,7 +155,7 @@ export default function CouponScreen({ navigation }: any) {
           )}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   )
 }
 

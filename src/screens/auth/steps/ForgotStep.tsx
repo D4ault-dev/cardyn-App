@@ -5,6 +5,7 @@ import {
   Keyboard, ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../../../util/statusBar'
 import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing } from '../../../theme'
 import { keyboardBehavior, ms, SCREEN_H } from '../../../util/responsive'
@@ -138,7 +139,7 @@ export function ForgotStep(props: ForgotStepProps) {
           <View style={li2.root}>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
-            <SafeAreaView edges={['top']} style={li2.safeTop}>
+            <View style={[li2.safeTop, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
               <View style={li2.navRow}>
                 <TouchableOpacity onPress={() => { setError(''); goTo('login') }}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -148,7 +149,7 @@ export function ForgotStep(props: ForgotStepProps) {
                   <Text style={li2.helpTxt}>Help</Text>
                 </TouchableOpacity>
               </View>
-            </SafeAreaView>
+            </View>
 
             <View style={li2.heroWrap} pointerEvents="none">
               <Text style={li2.heroTitle}>Reset{'\n'}Password</Text>
@@ -221,7 +222,7 @@ export function ForgotStep(props: ForgotStepProps) {
   if (step === 'forgot_otp') {
     const otpFilled = otpValue.length === 6
     return (
-      <SafeAreaView style={s.safe}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
           <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
             <StepHeader onBack={() => goTo('forgot')} progress={0.66}
@@ -306,7 +307,7 @@ export function ForgotStep(props: ForgotStepProps) {
             </View>
           </Animated.View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     )
   }
 
@@ -325,7 +326,7 @@ export function ForgotStep(props: ForgotStepProps) {
         <View style={li2.root}>
           <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
 
-          <SafeAreaView edges={['top']} style={li2.safeTop}>
+          <View style={[li2.safeTop, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
             <View style={li2.navRow}>
               <TouchableOpacity onPress={() => goTo('forgot_otp')}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -335,7 +336,7 @@ export function ForgotStep(props: ForgotStepProps) {
                 <Text style={li2.helpTxt}>Help</Text>
               </TouchableOpacity>
             </View>
-          </SafeAreaView>
+          </View>
 
           <View style={li2.heroWrap} pointerEvents="none">
             <Text style={li2.heroTitle}>Set New{'\n'}Password</Text>
@@ -443,7 +444,7 @@ export function ForgotStep(props: ForgotStepProps) {
   // ── PASSWORD SUCCESS ──────────────────────────────────────────────────────
   if (step === 'password_success') {
     return (
-      <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]}>
+      <View style={[s.safe, { backgroundColor: colors.background }, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }], alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[8] }}>
 
           {/* Success icon */}
@@ -472,7 +473,7 @@ export function ForgotStep(props: ForgotStepProps) {
           </TouchableOpacity>
 
         </Animated.View>
-      </SafeAreaView>
+      </View>
     )
   }
 

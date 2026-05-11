@@ -2,9 +2,9 @@ import { RF, ms } from '../util/responsive'
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Image, ActivityIndicator, Modal, FlatList, TextInput, Alert,
-} from 'react-native'
+  Image, ActivityIndicator, Modal, FlatList, TextInput, Alert, Platform} from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { Spinner } from '../components/Spinner'
@@ -133,7 +133,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={['top']}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={() => props.navigation.goBack()}>
             <Feather name="chevron-left" size={24} color={colors.dark} />
@@ -142,14 +142,14 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
           <View style={{ width: 36 }} />
         </View>
         <Spinner color={GREEN} style={{ marginTop: spacing[8] }} />
-      </SafeAreaView>
+      </View>
     )
   }
 
   const imgUrl = resolveImageUrl(selectedCard?.icon ?? null)
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => props.navigation.goBack()}>
           <Feather name="chevron-left" size={24} color={colors.dark} />
@@ -429,7 +429,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   )
 }
 

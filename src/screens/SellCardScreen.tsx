@@ -1,4 +1,5 @@
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -539,7 +540,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     return (
-      <SafeAreaView style={[s.safe, { backgroundColor: '#F8F9FA' }]}>
+      <View style={[s.safe, { backgroundColor: '#F8F9FA' }, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
 
           {/* ── Check icon with sparkles ── */}
@@ -624,13 +625,13 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
             <Text style={ss.homeBtnTxt}>Check Order</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     )
   }
 
   if (!user.isPresent()) {
     return (
-      <SafeAreaView style={s.safe}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn}>
             <Feather name="arrow-left" size={22} color={colors.dark} />
@@ -648,13 +649,13 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
             <Text style={s.loginBtnTxt}>Log In / Sign Up</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     )
   }
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn}>
             <Feather name="arrow-left" size={22} color={colors.dark} />
@@ -665,7 +666,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
         <View style={s.loadingBox}>
           <Spinner size="large" />
         </View>
-      </SafeAreaView>
+      </View>
     )
   }
 
@@ -674,7 +675,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   return (
     <>
-    <SafeAreaView style={s.safe}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
         {/* Header */}
         <View style={s.header}>
@@ -979,7 +980,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
           </TouchableOpacity>
         </View>
 
-      </SafeAreaView>
+      </View>
 
       {/* ── Confirm Trade Modal — redesigned ── */}
       <BottomSheet visible={confirmOpen} onClose={() => setConfirmOpen(false)}>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity, Switch, Alert,
-} from 'react-native'
+  View, Text, StyleSheet, TouchableOpacity, Switch, Alert, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -56,7 +56,7 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Security" onBack={() => props.navigation.goBack()} />
 
       <View style={s.body}>
@@ -82,7 +82,7 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
           After enabling biometrics, it will be prioritized for high-security operations.
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   )
 }
 

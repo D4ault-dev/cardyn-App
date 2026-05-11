@@ -5,9 +5,9 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, TextInput, ActivityIndicator, RefreshControl, Dimensions,
-} from 'react-native'
+  Image, TextInput, ActivityIndicator, RefreshControl, Dimensions, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -48,7 +48,7 @@ export default function SellLandingScreen(props: StackScreenProps<RootStackParam
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <Text style={s.title}>Sell Gift Cards</Text>
@@ -126,7 +126,7 @@ export default function SellLandingScreen(props: StackScreenProps<RootStackParam
           }}
         />
       )}
-    </SafeAreaView>
+    </View>
   )
 }
 

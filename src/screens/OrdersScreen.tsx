@@ -1,10 +1,10 @@
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal,
-  Dimensions,
-} from 'react-native'
+  Dimensions, Platform} from 'react-native'
 import * as ExpoClipboard from 'expo-clipboard'
 const { width: W } = Dimensions.get('window')
 import { StackScreenProps } from '@react-navigation/stack'
@@ -314,7 +314,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
 
     return (
       <Modal visible animationType="slide" statusBarTranslucent>
-      <SafeAreaView style={d.safe} edges={['top', 'bottom']}>
+      <View style={[d.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
         {/* ── Header ── */}
         <View style={d.headerBg}>
@@ -387,7 +387,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
           </TouchableOpacity>
         </View>
 
-      </SafeAreaView>
+      </View>
       </Modal>
     )
   }
@@ -411,7 +411,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
     ].filter(Boolean).join(' · ')
 
     return (
-      <SafeAreaView style={d.safe} edges={['top']}>
+      <View style={[d.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         {/* ── Header — white, clean ── */}
         <View style={d.headerBg}>
           <View style={d.headerRow}>
@@ -599,14 +599,14 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
           </Modal>
         )}
 
-      </SafeAreaView>
+      </View>
     )
   }
 
   // ── Guest ──────────────────────────────────────────────────────────────────
   if (!user.isPresent()) {
     return (
-      <SafeAreaView style={s.safe}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <Text style={s.pageTitle}>Transaction</Text>
         <View style={s.guestWrap}>
           <View style={s.guestIcon}><Feather name="clock" size={32} color={colors.primary} /></View>
@@ -616,14 +616,14 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
             <Text style={s.loginBtnTxt}>Log In / Sign Up</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     )
   }
 
   // ── List ───────────────────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1 }} {...swipeHandlers}>
-    <SafeAreaView style={s.safe}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <Text style={s.pageTitle}>Transaction</Text>
 
       {/* Tab pills + filter button */}
@@ -795,7 +795,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
           })
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
 
     {/* ── Filter bottom sheet ── */}
     <Modal visible={filterOpen} transparent animationType="slide" statusBarTranslucent>

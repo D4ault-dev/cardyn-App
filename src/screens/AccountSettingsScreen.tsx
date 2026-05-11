@@ -1,9 +1,9 @@
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Image,
-  ActivityIndicator,
-} from 'react-native'
+  ActivityIndicator, Platform} from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -108,7 +108,7 @@ export default function AccountSettingsScreen(props: StackScreenProps<RootStackP
   const avatarUri = avatar ? resolveImageUrl(avatar) : null
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title="Account Settings" onBack={() => props.navigation.goBack()} />
 
@@ -195,7 +195,7 @@ export default function AccountSettingsScreen(props: StackScreenProps<RootStackP
         </ScrollView>
       )}
 
-    </SafeAreaView>
+    </View>
   )
 }
 

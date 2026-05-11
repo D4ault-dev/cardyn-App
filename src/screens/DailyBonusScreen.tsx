@@ -4,9 +4,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Switch, Animated, Alert,
-} from 'react-native'
+  ActivityIndicator, Switch, Animated, Alert, Platform} from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
@@ -285,15 +285,15 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={['top']}>
+      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
         <AppHeader title="Daily Bonus" onBack={() => props.navigation.goBack()} light />
         <View style={s.centered}><Spinner size="large" color="#fff" /></View>
-      </SafeAreaView>
+      </View>
     )
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Daily Bonus" onBack={() => props.navigation.goBack()} light />
 
       <ScrollView
@@ -454,7 +454,7 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   )
 }
 

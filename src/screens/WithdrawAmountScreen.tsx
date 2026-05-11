@@ -6,6 +6,7 @@ import {
   Platform, ScrollView,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -46,7 +47,7 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
   }
 
   return (
-    <SafeAreaView style={s.root} edges={['top', 'bottom']}>
+    <View style={[s.root, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding', android: 'height' })}>
 
         <AppHeader title="Enter Amount" onBack={() => props.navigation.goBack()} />
@@ -152,7 +153,7 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
         </View>
 
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   )
 }
 

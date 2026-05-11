@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView, Platform,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
@@ -99,7 +100,7 @@ export default function ModifyPasswordScreen(props: StackScreenProps<RootStackPa
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title={isWithdraw ? 'Withdrawal Password' : 'Modify Password'} onBack={() => props.navigation.goBack()} />
 
@@ -152,7 +153,7 @@ export default function ModifyPasswordScreen(props: StackScreenProps<RootStackPa
       {/* Toast */}
       {Toast}
 
-    </SafeAreaView>
+    </View>
   )
 }
 
