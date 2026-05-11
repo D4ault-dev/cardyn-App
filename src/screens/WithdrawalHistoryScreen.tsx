@@ -130,7 +130,7 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Withdrawal Record" onBack={() => props.navigation.goBack()} />
 
       {loading ? (

@@ -76,7 +76,7 @@ export default function UpdateEmailScreen(props: StackScreenProps<RootStackParam
   const canConfirm = isValidEmail(email) && otp.length >= 4 && !saving
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>

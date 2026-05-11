@@ -100,7 +100,7 @@ export default function ModifyPasswordScreen(props: StackScreenProps<RootStackPa
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title={isWithdraw ? 'Withdrawal Password' : 'Modify Password'} onBack={() => props.navigation.goBack()} />
 

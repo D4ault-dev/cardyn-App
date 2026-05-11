@@ -62,7 +62,7 @@ export default function SelectBankScreen(props: StackScreenProps<RootStackParams
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Select your bank" onBack={() => props.navigation.goBack()} />
 
       {/* Search */}

@@ -326,7 +326,7 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
   const displayUri = avatarUri || (serverAvatar ? resolveImageUrl(serverAvatar) : null)
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Profile Edit" onBack={() => props.navigation.goBack()} />
 
       <View style={s.body}>

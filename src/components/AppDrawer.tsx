@@ -88,7 +88,7 @@ export function AppDrawer() {
 
       {/* Drawer */}
       <Animated.View style={[d.drawer, { transform: [{ translateX: drawerAnim }] }]}>
-        <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
+        <View style={{ flex: 1, paddingTop: getStatusBarHeight() }}>
 
           {/* Close button — top left */}
           <TouchableOpacity onPress={close} style={d.closeBtn} activeOpacity={0.7}>

@@ -9,7 +9,7 @@ import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
-import { ms } from '../util/responsive'
+import { ms, tabBarClearance } from '../util/responsive'
 
 const GREEN = '#2E7D5E'
 const GREEN_LIGHT = '#E8F5EE'
@@ -89,7 +89,7 @@ export default function RateAlertListScreen(props: StackScreenProps<RootStackPar
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => props.navigation.goBack()}>
@@ -117,7 +117,7 @@ export default function RateAlertListScreen(props: StackScreenProps<RootStackPar
           keyExtractor={a => String(a.id)}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={alerts.length === 0 ? s.emptyContainer : { paddingBottom: 120 }}
+          contentContainerStyle={alerts.length === 0 ? s.emptyContainer : { paddingBottom: tabBarClearance(insets.bottom) }}
           ListEmptyComponent={
             <View style={s.empty}>
               <Feather name="bell-off" size={48} color={colors.border} />

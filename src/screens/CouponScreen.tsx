@@ -113,7 +113,7 @@ export default function CouponScreen({ navigation }: any) {
   const expired = coupons.filter(c => c.expired)
 
   return (
-    <View style={[s.root, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.root, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Coupon" onBack={() => navigation.goBack()} />
 
       {loading ? (

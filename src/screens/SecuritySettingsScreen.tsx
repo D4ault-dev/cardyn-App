@@ -56,7 +56,7 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Security" onBack={() => props.navigation.goBack()} />
 
       <View style={s.body}>

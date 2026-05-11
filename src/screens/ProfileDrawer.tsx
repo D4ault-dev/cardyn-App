@@ -73,7 +73,7 @@ export default function ProfileDrawer({ visible, onClose, navigation }: Props) {
 
         {/* Drawer */}
         <Animated.View style={[s.drawer, { transform: [{ translateX: slideAnim }] }]}>
-          <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
+          <View style={{ flex: 1, paddingTop: getStatusBarHeight() }}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing[8] }}>
 
               {/* User row */}

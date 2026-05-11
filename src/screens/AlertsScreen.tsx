@@ -206,7 +206,7 @@ function DetailPanel({ item, onBack, onAction, navigating }: {
         style={[dp.panel, { transform: [{ translateX: slideX }] }]}
         {...pan.panHandlers}
       >
-        <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
+        <View style={{ flex: 1, paddingTop: getStatusBarHeight() }}>
           {/* Header */}
           <View style={dp.header}>
             <TouchableOpacity onPress={handleBack} style={dp.backBtn}>
@@ -409,7 +409,7 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
         {/* Header */}
         <View style={s.header}>

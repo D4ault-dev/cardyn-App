@@ -87,7 +87,7 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
   const canContinue = !!pinId && otp.length >= 4 && !verifying
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn} activeOpacity={0.7}>

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Image, Platform} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
@@ -11,6 +11,7 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchArticles, Article } from '../api/discovery'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { tabBarClearance } from '../util/responsive'
 
 // ── Article list card ─────────────────────────────────────────────────────────
 function ArticleCard({ article, onPress }: { article: Article; onPress: () => void }) {
@@ -60,6 +61,7 @@ const ac = StyleSheet.create({
 
 // ── Main list screen ──────────────────────────────────────────────────────────
 export default function DiscoveryScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
+  const insets = useSafeAreaInsets()
   const [articles,   setArticles]   = useState<Article[]>([])
   const [loading,    setLoading]    = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -78,7 +80,7 @@ export default function DiscoveryScreen(props: StackScreenProps<RootStackParams,
 
   return (
     <View style={{ flex: 1 }} {...swipeHandlers}>
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <View style={s.header}>
         <Text style={s.headerTitle}>Discover</Text>
       </View>
@@ -103,7 +105,7 @@ export default function DiscoveryScreen(props: StackScreenProps<RootStackParams,
               <Text style={s.emptySub}>Posts and news will appear here</Text>
             </View>
           }
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />

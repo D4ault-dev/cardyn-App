@@ -9,13 +9,13 @@
     "scheme": "cardyn",
     "userInterfaceStyle": "light",
     "statusBar": {
-      "backgroundColor": "#0D1F24",
-      "style": "light",
+      "backgroundColor": "#F5F6FA",
+      "style": "dark",
       "translucent": false
     },
     "androidNavigationBar": {
-      "backgroundColor": "#0D1F24",
-      "barStyle": "light-content"
+      "backgroundColor": "#F5F6FA",
+      "barStyle": "dark-content"
     },
     "splash": {
       "image": "./assets/splash.png",

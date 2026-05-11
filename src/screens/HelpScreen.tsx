@@ -55,7 +55,7 @@ export default function HelpScreen(props: StackScreenProps<any, any>) {
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title="Help" onBack={() => props.navigation.goBack()} />
 

@@ -111,7 +111,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title="Order tracking" onBack={() => props.navigation.goBack()} />
 
@@ -161,7 +161,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
         })}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing[8] }}>
 
         {/* ── Main card ── */}
         <View style={s.card}>

@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Image, TextInput, ActivityIndicator, RefreshControl, Dimensions, Platform} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
+import { tabBarClearance } from '../util/responsive'
 
 const { width: W } = Dimensions.get('window')
 const CARD_W = (W - spacing[4] * 2 - spacing[3]) / 2
@@ -24,6 +25,7 @@ const CARD_BG = [
 ]
 
 export default function SellLandingScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
+  const insets = useSafeAreaInsets()
   const [cards,     setCards]     = useState<CardCategory[]>([])
   const [loading,   setLoading]   = useState(true)
   const [refreshing,setRefreshing]= useState(false)
@@ -48,7 +50,7 @@ export default function SellLandingScreen(props: StackScreenProps<RootStackParam
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <Text style={s.title}>Sell Gift Cards</Text>
@@ -83,7 +85,7 @@ export default function SellLandingScreen(props: StackScreenProps<RootStackParam
           keyExtractor={c => String(c.id)}
           numColumns={2}
           columnWrapperStyle={{ gap: spacing[3] }}
-          contentContainerStyle={{ padding: spacing[4], paddingBottom: 120, gap: spacing[3] }}
+          contentContainerStyle={{ padding: spacing[4], paddingBottom: tabBarClearance(insets.bottom), gap: spacing[3] }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <AppRefreshControl

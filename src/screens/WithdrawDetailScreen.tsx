@@ -61,7 +61,7 @@ export default function WithdrawDetailScreen(props: StackScreenProps<RootStackPa
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Withdrawal Detail" onBack={() => props.navigation.goBack()} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}>

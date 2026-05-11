@@ -171,7 +171,7 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
   const canSubmit = !!selectedBank && accNumber.length === 10 && !!accName && !!otpCode && !saving && !resolving
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Add Bank Card" onBack={() => props.navigation.goBack()} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>

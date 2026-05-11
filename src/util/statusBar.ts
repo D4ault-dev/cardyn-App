@@ -8,17 +8,22 @@
  */
 
 import { Platform, StatusBar } from 'react-native'
+import Constants from 'expo-constants'
 
 /**
  * Returns the correct status bar height for manual top padding.
  *
- * - iOS: always 20px (SafeAreaInsets handles notch separately)
+ * - iOS: uses expo-constants statusBarHeight which correctly handles
+ *   notched iPhones (44px) vs older iPhones (20px)
  * - Android API < 21: 0 (pre-Lollipop has no translucent status bar)
  * - Android API >= 21: use StatusBar.currentHeight or fallback to 25
  */
 export function getStatusBarHeight(): number {
   if (Platform.OS === 'ios') {
-    return 20
+    // expo-constants gives the correct value for all iOS devices:
+    // - iPhone X+ (notch): 44px
+    // - iPhone SE / older: 20px
+    return Constants.statusBarHeight ?? 20
   }
 
   // Android: pre-Lollipop has no translucent status bar

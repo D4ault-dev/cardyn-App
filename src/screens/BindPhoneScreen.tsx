@@ -78,7 +78,7 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
   const canConfirm = otpCode.length >= 4 && !!pinId && !saving
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Bind Phone Number" onBack={() => props.navigation.goBack()} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

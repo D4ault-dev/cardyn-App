@@ -228,7 +228,7 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
   return (
     <>
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title="Wallet" onBack={() => props.navigation.goBack()} />
 

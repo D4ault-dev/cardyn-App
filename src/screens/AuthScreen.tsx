@@ -26,6 +26,7 @@ import { sendOtp, verifyOtp } from './auth/otpUtils'
 import { HelpModal, CountryPickerModal } from './auth/AuthComponents'
 import { Analytics } from '../util/analytics'
 import { SCREEN_H, keyboardBehavior } from '../util/responsive'
+import { useAuthStatusBar } from '../hooks/useAuthStatusBar'
 
 // ── Step components ───────────────────────────────────────────────────────────
 import { OnboardingStep } from './auth/steps/OnboardingStep'
@@ -38,6 +39,9 @@ import { s } from './auth/styles/authStyles'
 export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Login'>) {
   const { login, signup, loginWithSocial, resetPassword } = useAuth()
   const insets = useSafeAreaInsets()
+
+  // ── Status bar — light background, dark icons for all auth screens ────────
+  useAuthStatusBar()
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [step, setStep]           = useState<Step>('landing')

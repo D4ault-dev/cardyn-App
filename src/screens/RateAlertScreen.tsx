@@ -133,7 +133,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
 
   if (loading) {
     return (
-      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}>
           <TouchableOpacity style={s.backBtn} onPress={() => props.navigation.goBack()}>
             <Feather name="chevron-left" size={24} color={colors.dark} />
@@ -149,7 +149,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
   const imgUrl = resolveImageUrl(selectedCard?.icon ?? null)
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => props.navigation.goBack()}>
           <Feather name="chevron-left" size={24} color={colors.dark} />

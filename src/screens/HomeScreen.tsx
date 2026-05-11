@@ -238,8 +238,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
               </Animated.View>
             )}
 
-            {/* F8 pattern: manual paddingTop instead of SafeAreaView — more reliable on Android */}
-            <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+            {/* Status bar is always translucent — pad content below it on both platforms */}
+            <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 refreshControl={

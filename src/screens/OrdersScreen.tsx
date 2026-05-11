@@ -1,4 +1,4 @@
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
@@ -17,6 +17,7 @@ import { resolveImageUrl } from '../api/cards'
 import { fetchMyWithdrawals, fetchTransactions, Transaction } from '../api/wallet'
 import client from '../api/client'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
+import { tabBarClearance } from '../util/responsive'
 import { useCountry } from '../context/CountryContext'
 
 type Order = {
@@ -205,6 +206,7 @@ const dw = StyleSheet.create({
 })
 
 export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
+  const insets = useSafeAreaInsets()
   const { user } = useAuth()
   const { selectedCountry, isHomeCountry } = useCountry()
   const localSym = selectedCountry?.currencySymbol ?? '₦'
@@ -314,7 +316,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
 
     return (
       <Modal visible animationType="slide" statusBarTranslucent>
-      <View style={[d.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[d.safe, { paddingTop: getStatusBarHeight() }]}>
 
         {/* ── Header ── */}
         <View style={d.headerBg}>
@@ -411,7 +413,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
     ].filter(Boolean).join(' · ')
 
     return (
-      <View style={[d.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[d.safe, { paddingTop: getStatusBarHeight() }]}>
         {/* ── Header — white, clean ── */}
         <View style={d.headerBg}>
           <View style={d.headerRow}>
@@ -606,7 +608,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
   // ── Guest ──────────────────────────────────────────────────────────────────
   if (!user.isPresent()) {
     return (
-      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
         <Text style={s.pageTitle}>Transaction</Text>
         <View style={s.guestWrap}>
           <View style={s.guestIcon}><Feather name="clock" size={32} color={colors.primary} /></View>
@@ -623,7 +625,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
   // ── List ───────────────────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1 }} {...swipeHandlers}>
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <Text style={s.pageTitle}>Transaction</Text>
 
       {/* Tab pills + filter button */}
@@ -651,7 +653,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ padding: spacing[4], paddingBottom: 120 }}>
+        contentContainerStyle={{ padding: spacing[4], paddingBottom: tabBarClearance(insets.bottom) }}>
 
         {loading && tab !== 'commission' ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing[16] }} />

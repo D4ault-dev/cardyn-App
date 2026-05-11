@@ -68,7 +68,7 @@ export default function ProfileScreen(props: StackScreenProps<RootStackParams, '
 
       {/* Drawer slides in from right */}
       <Animated.View style={[s.drawer, { transform: [{ translateX: slideAnim }] }]}>
-        <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
+        <View style={{ flex: 1, paddingTop: getStatusBarHeight() }}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing[8] }}>
 
             {/* User row */}

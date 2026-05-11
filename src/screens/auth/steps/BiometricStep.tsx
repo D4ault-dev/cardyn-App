@@ -23,7 +23,7 @@ export function BiometricStep({
   enableBiometric,
 }: BiometricStepProps) {
   return (
-    <View style={[s.safe, { backgroundColor: colors.background }, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { backgroundColor: colors.background }, { paddingTop: getStatusBarHeight() }]}>
       <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
         {/* Fingerprint icon — 3 concentric circles in green */}

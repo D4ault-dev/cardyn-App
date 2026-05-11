@@ -285,7 +285,7 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
 
   if (loading) {
     return (
-      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
         <AppHeader title="Daily Bonus" onBack={() => props.navigation.goBack()} light />
         <View style={s.centered}><Spinner size="large" color="#fff" /></View>
       </View>
@@ -293,7 +293,7 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Daily Bonus" onBack={() => props.navigation.goBack()} light />
 
       <ScrollView

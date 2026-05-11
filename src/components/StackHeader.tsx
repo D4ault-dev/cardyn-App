@@ -14,7 +14,7 @@ export default function StackHeader(props: {
   const nav = useNavigation<any>()
 
   return (
-    <View style={{ paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
+    <View style={{ paddingTop: getStatusBarHeight() }}>
       <View style={{
         flexDirection: "row", paddingHorizontal: 20, paddingVertical: 10,
         alignItems: "center", borderBottomWidth: 1, borderColor: Colors.lightgray,

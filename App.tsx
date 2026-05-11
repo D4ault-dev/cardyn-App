@@ -195,7 +195,7 @@ function RootNavigator() {
   }, [isLoggedIn])
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking} theme={{ dark: true, colors: { background: colors.primary, card: colors.primary, text: '#fff', border: 'transparent', notification: colors.accent, primary: colors.accent } }}>
+    <NavigationContainer ref={navigationRef} linking={linking} theme={{ dark: false, colors: { background: '#F5F6FA', card: colors.primary, text: '#fff', border: 'transparent', notification: colors.accent, primary: colors.accent } }}>
       <Stack.Navigator screenOptions={{
         headerShown: false,
         // ── Premium screen transition ──────────────────────────────────────
@@ -374,15 +374,15 @@ function AppContent() {
     return () => sub.remove()
   }, [user])
 
-  // While auth is loading, show dark background — no white flash
+  // While auth is loading, show light background — matches auth screens
   if (isLoading) {
-    return <View style={{ flex: 1, backgroundColor: '#0D1F24' }} />
+    return <View style={{ flex: 1, backgroundColor: '#F5F6FA' }} />
   }
 
   // Show animated splash until it finishes
   if (!splashDone) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0D1F24' }}>
+      <View style={{ flex: 1, backgroundColor: '#F5F6FA' }}>
         <SplashAnimationScreen onFinish={() => setSplashDone(true)} />
       </View>
     )
@@ -390,11 +390,13 @@ function AppContent() {
 
   return (
     <>
+      {/* Global status bar — dark background for main app screens.
+          Auth screens override this individually with their own StatusBar. */}
       <StatusBar style="light" translucent={true} />
       {Platform.OS === 'android' && (
-        <RNStatusBar 
-          backgroundColor="rgba(13, 31, 36, 0.85)" 
-          barStyle="light-content" 
+        <RNStatusBar
+          backgroundColor="rgba(13, 31, 36, 0.85)"
+          barStyle="light-content"
           translucent={true}
         />
       )}
@@ -440,7 +442,7 @@ export default function App() {
   }, [])
 
   return (
-    <SafeAreaProvider style={{ backgroundColor: '#0D1F24' }}>
+    <SafeAreaProvider style={{ backgroundColor: '#F5F6FA' }}>
       <LoadingContextProvider>
         <AuthProvider>
           <CountryProvider>

@@ -1,19 +1,57 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
-  StyleSheet, Animated, KeyboardAvoidingView, Platform, ScrollView,
-  Keyboard, ActivityIndicator, Modal,
+  StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
+  Keyboard, ActivityIndicator, Modal, StatusBar, Image,
 } from 'react-native'
-import { getStatusBarHeight, STATUS_BAR_HEIGHT } from '../../../util/statusBar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { getStatusBarHeight } from '../../../util/statusBar'
 import { Feather } from '@expo/vector-icons'
-import { colors, typography, spacing, radius } from '../../../theme'
-import { ms, SCREEN_H, RF } from '../../../util/responsive'
+import { colors, spacing } from '../../../theme'
+import { ms, RF, keyboardBehavior } from '../../../util/responsive'
 import { prefixWithPlus, sanitizePhone, isValidPhone, getExpectedDigits, getFullPhone, maskPhone } from '../phoneUtils'
-import { SocialButton, SocialDivider, StepHeader, HelpModal, CountryPickerModal } from '../AuthComponents'
-import { li2, s } from '../styles/authStyles'
+import { StepHeader, HelpModal, CountryPickerModal } from '../AuthComponents'
+import { s } from '../styles/authStyles'
 import { Country } from '../../../api/country'
 import { Step } from '../types'
 import storage from '../../../util/storage'
+
+// ── Shared flat-design styles (matches landing + login screens) ───────────────
+const flat = StyleSheet.create({
+  root:       { flex: 1, backgroundColor: '#F5F6FA' },
+  scroll:     { flexGrow: 1, paddingHorizontal: spacing[6] },
+  backBtn:    { alignSelf: 'flex-start', marginBottom: ms(20) },
+  backCircle: { width: ms(36), height: ms(36), borderRadius: ms(18), backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: '#E2E8F0' },
+  iconWrap:   { alignItems: 'center', marginBottom: ms(20) },
+  iconBg:     { width: ms(64), height: ms(64), borderRadius: ms(16), backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  title:      { fontSize: RF(28), fontWeight: '800', color: '#1A1A2E', textAlign: 'center', marginBottom: ms(8) },
+  subtitle:   { fontSize: RF(16), fontWeight: '500', color: '#8A94A6', textAlign: 'center', lineHeight: ms(24), marginBottom: ms(24) },
+  fieldWrap:  { marginBottom: ms(16) },
+  fieldLabel: { fontSize: RF(15), fontWeight: '700', color: '#1A1A2E', marginBottom: ms(8) },
+  required:   { color: '#EF4444' },
+  inputBox:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: ms(10), borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: ms(14), paddingVertical: ms(14), gap: ms(8) },
+  inputBoxError: { borderColor: '#EF4444', backgroundColor: '#FFF5F5' },
+  input:      { flex: 1, fontSize: RF(16), color: '#1A1A2E', paddingVertical: 0 },
+  errRow:     { flexDirection: 'row', alignItems: 'center', gap: ms(4), marginTop: ms(6) },
+  errTxt:     { fontSize: RF(13), color: '#EF4444' },
+  errLink:    { fontSize: RF(13), fontWeight: '700', color: colors.primary },
+  primaryBtn: { backgroundColor: colors.primary, borderRadius: ms(12), paddingVertical: ms(17), alignItems: 'center', justifyContent: 'center', marginBottom: ms(16) },
+  primaryBtnOff: { backgroundColor: '#D0D5DD' },
+  primaryBtnTxt: { fontSize: RF(17), fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  primaryBtnTxtOff: { color: '#8A94A6' },
+  footer:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingTop: ms(4) },
+  footerTxt:  { fontSize: RF(15), color: '#8A94A6' },
+  footerLink: { fontSize: RF(15), fontWeight: '700', color: colors.primary },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: ms(16) },
+  dividerLine:{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#D0D5DD' },
+  dividerTxt: { fontSize: RF(13), color: '#8A94A6', marginHorizontal: ms(12) },
+  hintRow:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: ms(12) },
+  hintChip:   { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: ms(20), paddingHorizontal: spacing[2], paddingVertical: 3 },
+  hintTxt:    { fontSize: RF(11), fontWeight: '500' },
+  // Nav row (used in OTP + password steps)
+  navRow:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing[5], paddingTop: ms(16), paddingBottom: ms(12) },
+  helpTxt:    { fontSize: RF(15), fontWeight: '600', color: colors.primary },
+})
 
 export interface SignupStepProps {
   step: 'signup' | 'signup_otp' | 'signup_password'
@@ -89,6 +127,11 @@ export function SignupStep(props: SignupStepProps) {
   } = props
   const otpFullPhone = props.otpFullPhone
 
+  // Use safe area insets for correct top padding on all devices (notched iPhones, Android nav bars)
+  const insets = useSafeAreaInsets()
+  // Top inset: use safe area on iOS (handles notch correctly), status bar height on Android
+  const topInset = Platform.OS === 'ios' ? insets.top : getStatusBarHeight()
+
   const sanitizeLocalPhone = (v: string) => sanitizePhone(v, selectedCountry)
   const getExpectedLocalDigits = () => getExpectedDigits(selectedCountry)
   const getPhoneValidationMessage = () => {
@@ -111,39 +154,10 @@ export function SignupStep(props: SignupStepProps) {
     if (e.nativeEvent.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus()
   }
 
-  // Hero title height — collapses to 0 when keyboard opens (same pattern as LoginStep)
-  const heroHeight = useRef(new Animated.Value(SCREEN_H * 0.14)).current
-  const [keyboardUp, setKeyboardUp] = useState(false)
-  useEffect(() => {
-    if (step !== 'signup') return
-    const show = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => {
-        setKeyboardUp(true)
-        Animated.spring(heroHeight, { toValue: 0, useNativeDriver: false, tension: 60, friction: 14 }).start()
-      }
-    )
-    const hide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardUp(false)
-        Animated.spring(heroHeight, { toValue: SCREEN_H * 0.14, useNativeDriver: false, tension: 55, friction: 14 }).start()
-      }
-    )
-    return () => { show.remove(); hide.remove() }
-  }, [step])
-
-  // Terms modal state — shown only if user hasn't agreed before
+  // Terms modal state
   const [termsVisible, setTermsVisible] = useState(false)
-  const [termsChecked, setTermsChecked] = useState(false)
-
-  // Check if user already agreed to terms on this device
-  useEffect(() => {
-    storage.getItem('@cardyn_terms_agreed').then(val => {
-      setTermsChecked(true)
-      // If already agreed, skip the modal entirely
-    }).catch(() => setTermsChecked(true))
-  }, [])
+  // Confirm password touched state — only show mismatch after user leaves the field
+  const [confirmTouched, setConfirmTouched] = useState(false)
 
   // ── SIGNUP — name + phone + terms ─────────────────────────────────────────
   if (step === 'signup') {
@@ -153,30 +167,18 @@ export function SignupStep(props: SignupStepProps) {
 
     async function handleSignupNext() {
       if (!canNext) { setError(`Enter your full name and ${getPhoneValidationMessage().toLowerCase()}`); return }
-      setLoading(true)
-      setError('')
+      setLoading(true); setError('')
       try {
         const clientModule = await import('../../../api/client')
         const apiClient = clientModule.default
         try {
           const res = await apiClient.get('/tuka/user/checkPhone', { params: { phone: fullPhone } })
-          if (res.data?.msg === 'exists') {
-            setPhone(normalizedPhone)
-            setLoginMethod('phone')
-            setError('phone_exists')
-            return
-          }
+          if (res.data?.msg === 'exists') { setPhone(normalizedPhone); setLoginMethod('phone'); setError('phone_exists'); return }
           const sent = await sendOtpToPhone(fullPhone)
-          if (sent) {
-            setPhone(normalizedPhone)
-            goTo('signup_otp')
-          }
-        } catch (checkErr: any) {
+          if (sent) { setPhone(normalizedPhone); goTo('signup_otp') }
+        } catch {
           const sent = await sendOtpToPhone(fullPhone)
-          if (sent) {
-            setPhone(normalizedPhone)
-            goTo('signup_otp')
-          }
+          if (sent) { setPhone(normalizedPhone); goTo('signup_otp') }
         }
       } finally { setLoading(false) }
     }
@@ -184,13 +186,8 @@ export function SignupStep(props: SignupStepProps) {
     function handleNextPress() {
       if (!canNext || loading) return
       Keyboard.dismiss()
-      // Check if user already agreed to terms — if so, skip modal
       storage.getItem('@cardyn_terms_agreed').then(agreed => {
-        if (agreed === 'true') {
-          handleSignupNext()
-        } else {
-          setTermsVisible(true)
-        }
+        if (agreed === 'true') { handleSignupNext() } else { setTermsVisible(true) }
       }).catch(() => setTermsVisible(true))
     }
 
@@ -198,179 +195,170 @@ export function SignupStep(props: SignupStepProps) {
       <>
         <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
         <CountryPickerModal
-          visible={countryPickerOpen}
-          countries={countries}
-          selected={selectedCountry}
+          visible={countryPickerOpen} countries={countries} selected={selectedCountry}
           onSelect={c => { setSelectedCountry(c); setCountryPickerOpen(false) }}
-          onClose={() => setCountryPickerOpen(false)}
-          loading={countriesLoading}
+          onClose={() => setCountryPickerOpen(false)} loading={countriesLoading}
         />
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={{ flex: 1 }}>
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior="padding"
-            keyboardVerticalOffset={STATUS_BAR_HEIGHT}
-          >
-          <View style={li2.root}>
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
-
-            {/* Nav */}
-            <View style={[li2.safeTop, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
-              <View style={li2.navRow}>
-                <TouchableOpacity onPress={() => { reset(); goTo('login') }}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                  <Feather name="chevron-left" size={26} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }}>
-                  <Text style={li2.helpTxt}>Help</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={[s.progressTrack, { marginHorizontal: spacing[5] }]}>
-                <View style={[s.progressFill, { width: '25%' }]} />
-              </View>
-            </View>
-
-            {/* Hero title — collapses when keyboard opens */}
-            <Animated.View
-              style={{ height: heroHeight, overflow: 'hidden', justifyContent: 'flex-end', paddingHorizontal: spacing[6], paddingBottom: spacing[3] }}
-              pointerEvents="none"
-            >
-              <Text style={li2.heroTitle}>Create Your{'\n'}Account</Text>
-            </Animated.View>
-
-            {/* White fill behind keyboard — prevents navy showing below card on Android */}
-            {Platform.OS === 'android' && (
-              <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 300, backgroundColor: '#FFFFFF' }} />
-            )}
-
-            {/* White card */}
-            <Animated.View style={[li2.card, { opacity: liCardOpacity, flex: 1 }]}>
+          <KeyboardAvoidingView style={[{ flex: 1 }, { paddingTop: topInset }]} behavior={keyboardBehavior} keyboardVerticalOffset={0}>
+            <View style={flat.root}>
               <ScrollView
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 bounces={false}
-                contentContainerStyle={{ paddingBottom: Math.max(insetsBottom, 16) + spacing[4] }}
+                contentContainerStyle={[flat.scroll, { paddingBottom: Math.max(insetsBottom, 48) + ms(24) }]}
               >
+                {/* Back */}
+                <TouchableOpacity style={flat.backBtn} onPress={() => { reset(); goTo('login') }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                  <View style={flat.backCircle}>
+                    <Feather name="chevron-left" size={18} color="#1A1A2E" />
+                  </View>
+                </TouchableOpacity>
 
-                {/* Card header */}
-                <View style={{ paddingHorizontal: spacing[4], paddingTop: spacing[4], paddingBottom: spacing[1] }}>
-                  <Text style={{ fontSize: ms(18), fontWeight: '700', color: colors.dark }}>Your details</Text>
-                  <Text style={{ fontSize: ms(13), color: colors.muted, marginTop: 3 }}>Enter your name and phone number to get started.</Text>
+                {/* Icon */}
+                <View style={flat.iconWrap}>
+                  <View style={flat.iconBg}>
+                    <Feather name="user-plus" size={ms(28)} color="#FFFFFF" />
+                  </View>
                 </View>
 
+                {/* Title */}
+                <Text style={flat.title}>Create Account</Text>
+                <Text style={flat.subtitle}>Join Cardyn — enter your details to get started</Text>
+
                 {/* Full Name */}
-                <View style={[li2.inputRow, { marginTop: spacing[3] }]}>
-                  <Feather name="user" size={16} color="#AAAAAA" style={{ marginRight: spacing[1] }} />
-                  <View style={li2.inputDivider} />
-                  <TextInput style={li2.input} placeholder="Full Name"
-                    placeholderTextColor="#BBBBBB" autoCapitalize="words"
-                    value={name} onChangeText={t => { setName(t); setError('') }}
-                    returnKeyType="next" keyboardAppearance="light" />
+                <View style={flat.fieldWrap}>
+                  <Text style={flat.fieldLabel}>Full Name<Text style={flat.required}>*</Text></Text>
+                  <View style={flat.inputBox}>
+                    <TextInput style={flat.input} placeholder="Your full name"
+                      placeholderTextColor="#BBBBBB" autoCapitalize="words"
+                      value={name} onChangeText={t => { setName(t); setError('') }}
+                      returnKeyType="next" keyboardAppearance="light" />
+                  </View>
                 </View>
 
                 {/* Phone Number */}
-                <View style={li2.inputRow}>
-                  <TouchableOpacity style={s.flagSection} onPress={openCountryPicker} activeOpacity={0.7}>
-                    <Text style={[li2.inputLabel, { minWidth: 0, marginRight: 0 }]}>{prefixWithPlus(selectedCountry.phonePrefix)}</Text>
-                    <Feather name="chevron-down" size={13} color={colors.muted} />
-                  </TouchableOpacity>
-                  <View style={li2.inputDivider} />
-                  <TextInput style={li2.input} placeholder="Phone Number"
-                    placeholderTextColor="#BBBBBB" keyboardType="phone-pad"
-                    maxLength={getExpectedLocalDigits() ?? 14}
-                    value={phone} onChangeText={t => { setPhone(sanitizeLocalPhone(t)); setError('') }}
-                    keyboardAppearance="light" />
+                <View style={flat.fieldWrap}>
+                  <Text style={flat.fieldLabel}>Phone Number<Text style={flat.required}>*</Text></Text>
+                  <View style={flat.inputBox}>
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: ms(4), paddingRight: ms(8), borderRightWidth: 1, borderRightColor: '#E2E8F0', marginRight: ms(4) }}
+                      onPress={openCountryPicker} activeOpacity={0.7}>
+                      <Text style={{ fontSize: RF(15), color: '#1A1A2E', fontWeight: '600' }}>{prefixWithPlus(selectedCountry.phonePrefix)}</Text>
+                      <Feather name="chevron-down" size={13} color="#8A94A6" />
+                    </TouchableOpacity>
+                    <TextInput style={flat.input} placeholder="Phone number"
+                      placeholderTextColor="#BBBBBB" keyboardType="phone-pad"
+                      maxLength={getExpectedLocalDigits() ?? 14}
+                      value={phone} onChangeText={t => { setPhone(sanitizeLocalPhone(t)); setError('') }}
+                      keyboardAppearance="light" />
+                  </View>
                 </View>
 
+                {/* Errors */}
                 {error === 'phone_exists' ? (
-                  <View style={inlineErr.box}>
-                    <Feather name="alert-circle" size={14} color="#FF4D4F" />
-                    <Text style={inlineErr.txt}>This number is already registered. </Text>
+                  <View style={flat.errRow}>
+                    <Feather name="alert-circle" size={12} color="#EF4444" />
+                    <Text style={flat.errTxt}>Number already registered. </Text>
                     <TouchableOpacity onPress={() => { reset(); goTo('login') }} activeOpacity={0.7}>
-                      <Text style={inlineErr.link}>Log in →</Text>
+                      <Text style={flat.errLink}>Sign in →</Text>
                     </TouchableOpacity>
                   </View>
                 ) : !!error ? (
-                  <View style={inlineErr.box}>
-                    <Feather name="alert-circle" size={14} color="#FF4D4F" />
-                    <Text style={inlineErr.txt}>{error}</Text>
+                  <View style={flat.errRow}>
+                    <Feather name="alert-circle" size={12} color="#EF4444" />
+                    <Text style={flat.errTxt}>{error}</Text>
                   </View>
                 ) : null}
 
+                {/* Next button */}
                 <TouchableOpacity
-                  style={[li2.btn, (!canNext || loading) && li2.btnOff]}
-                  onPress={handleNextPress}
-                  disabled={!canNext || loading}
-                  activeOpacity={0.85}>
+                  style={[flat.primaryBtn, { marginTop: ms(8) }, (!canNext || loading) && flat.primaryBtnOff]}
+                  onPress={handleNextPress} disabled={!canNext || loading} activeOpacity={0.85}>
                   {loading
                     ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={[li2.btnTxt, (!canNext || loading) && li2.btnTxtOff]}>Next</Text>
+                    : <Text style={[flat.primaryBtnTxt, (!canNext || loading) && flat.primaryBtnTxtOff]}>Continue</Text>
                   }
                 </TouchableOpacity>
 
-                <View style={s.switchRow}>
-                  <Text style={s.switchTxt}>Already have an account? </Text>
-                  <TouchableOpacity onPress={() => { reset(); goTo('login') }} activeOpacity={0.7}
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Text style={s.switchLink}>Log In</Text>
-                  </TouchableOpacity>
+                {/* Social divider */}
+                <View style={sgSocial.dividerRow}>
+                  <View style={sgSocial.dividerLine} />
+                  <Text style={sgSocial.dividerTxt}>or sign up with</Text>
+                  <View style={sgSocial.dividerLine} />
                 </View>
 
-                {/* Social section — hidden when keyboard is up to save space */}
-                {!keyboardUp && (
-                  <>
-                    <SocialDivider />
-                    <View style={[s.socialRowWrap, { marginHorizontal: spacing[2] }]}>
-                      <SocialButton provider="google" loading={socialLoading === 'google'} onPress={handleGoogleSignIn} />
-                      {Platform.OS === 'ios' && (
-                        <SocialButton provider="apple" loading={socialLoading === 'apple'} onPress={handleAppleSignIn} />
-                      )}
-                    </View>
-                  </>
+                {/* Google */}
+                <TouchableOpacity
+                  style={sgSocial.btn}
+                  onPress={handleGoogleSignIn}
+                  disabled={socialLoading !== null}
+                  activeOpacity={0.8}
+                >
+                  {socialLoading === 'google'
+                    ? <ActivityIndicator size="small" color="#1A1A2E" />
+                    : <>
+                        <Image source={require('../../../../assets/google-logo.png')} style={sgSocial.icon} resizeMode="contain" />
+                        <Text style={sgSocial.txt}>Continue with Google</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+
+                {/* Apple — iOS only */}
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    style={sgSocial.btn}
+                    onPress={handleAppleSignIn}
+                    disabled={socialLoading !== null}
+                    activeOpacity={0.8}
+                  >
+                    {socialLoading === 'apple'
+                      ? <ActivityIndicator size="small" color="#1A1A2E" />
+                      : <>
+                          <Image source={require('../../../../assets/apple-logo.png')} style={sgSocial.icon} resizeMode="contain" />
+                          <Text style={sgSocial.txt}>Continue with Apple</Text>
+                        </>
+                    }
+                  </TouchableOpacity>
                 )}
+
+                {/* Sign in link */}
+                <View style={[flat.footer, { marginTop: ms(8) }]}>
+                  <Text style={flat.footerTxt}>Already have an account? </Text>
+                  <TouchableOpacity onPress={() => { reset(); goTo('login') }} activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={flat.footerLink}>Sign in</Text>
+                  </TouchableOpacity>
+                </View>
               </ScrollView>
-            </Animated.View>
-          </View>
+            </View>
           </KeyboardAvoidingView>
-        </View>
         </TouchableWithoutFeedback>
 
-        {/* ── Terms & Privacy Modal ── */}
-        <Modal
-          visible={termsVisible}
-          transparent
-          animationType="fade"
-          statusBarTranslucent
-          onRequestClose={() => setTermsVisible(false)}
-        >
-          <View style={sgTm.overlay}>
-            <View style={sgTm.card}>
-              <Text style={sgTm.title}>Service Agreement &{'\n'}Privacy Protection</Text>
-              <Text style={sgTm.body}>
-                To best protect your legal rights, please read and agree to our{' '}
-                <Text style={sgTm.link}>Terms & Conditions</Text>
-                {' '}and{' '}
-                <Text style={sgTm.link}>Privacy Policy</Text>
-                {' '}before creating your account.
+        {/* Terms Modal */}
+        <Modal visible={termsVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setTermsVisible(false)}>
+          <View style={tm.overlay}>
+            <View style={tm.card}>
+              <Text style={tm.title}>Service Agreement &{'\n'}Privacy Protection</Text>
+              <Text style={tm.body}>
+                Please read and agree to our <Text style={tm.link}>Terms & Conditions</Text> and <Text style={tm.link}>Privacy Policy</Text> before creating your account.
               </Text>
-              <View style={sgTm.btnRow}>
-                <TouchableOpacity style={sgTm.disagreeBtn} onPress={() => setTermsVisible(false)} activeOpacity={0.8}>
-                  <Text style={sgTm.disagreeTxt}>Disagree</Text>
+              <View style={tm.btnRow}>
+                <TouchableOpacity style={tm.disagreeBtn} onPress={() => setTermsVisible(false)} activeOpacity={0.8}>
+                  <Text style={tm.disagreeTxt}>Disagree</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={sgTm.agreeBtn} onPress={() => {
-                  // Persist agreement so modal never shows again on this device
+                <TouchableOpacity style={tm.agreeBtn} onPress={() => {
                   storage.setItem('@cardyn_terms_agreed', 'true').catch(() => {})
                   setTermsVisible(false)
                   handleSignupNext()
                 }} activeOpacity={0.85}>
-                  <Text style={sgTm.agreeTxt}>Agree</Text>
+                  <Text style={tm.agreeTxt}>Agree</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
-
       </>
     )
   }
@@ -379,91 +367,128 @@ export function SignupStep(props: SignupStepProps) {
     return (
       <>
         <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
-        <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
-            <StepHeader onBack={() => goTo('signup')} progress={0.5}
-              onHelp={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }} />
-            <View style={s.stepContent}>
-              <Text style={s.stepTitle}>Verify Your Number</Text>
-              <Text style={s.stepSub}>
-                We sent a 6-digit code to{' '}
-                <Text style={{ fontWeight: typography.weight.bold, color: colors.dark }}>{maskPhone(phone)}</Text>
+        <KeyboardAvoidingView
+          style={[{ flex: 1 }, { paddingTop: topInset }]}
+          behavior={keyboardBehavior}
+          keyboardVerticalOffset={0}
+        >
+          <View style={flat.root}>
+
+            {/* Simple nav row — no progress bar */}
+            <View style={flat.navRow}>
+              <TouchableOpacity
+                style={flat.backCircle}
+                onPress={() => goTo('signup')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Feather name="chevron-left" size={18} color="#1A1A2E" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={flat.helpTxt}>Help</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              contentContainerStyle={[flat.scroll, { paddingTop: ms(16), paddingBottom: ms(80) }]}
+            >
+              {/* Icon */}
+              <View style={flat.iconWrap}>
+                <View style={flat.iconBg}>
+                  <Feather name="message-square" size={ms(28)} color="#FFFFFF" />
+                </View>
+              </View>
+
+              <Text style={flat.title}>Verify Your Number</Text>
+              <Text style={flat.subtitle}>
+                We sent a 6-digit code to{'\n'}
+                <Text style={{ fontWeight: '700', color: '#1A1A2E' }}>{maskPhone(phone)}</Text>
               </Text>
 
-              <View style={s.otpRow}>
+              {/* OTP boxes */}
+              <View style={otp6.row}>
                 {otp.map((d, i) => (
-                  <TextInput key={i} ref={r => { otpRefs.current[i] = r }}
-                    style={[s.otpBox, otpFocused === i && !d && s.otpBoxFocused, d ? s.otpBoxOn : null]}
+                  <TextInput
+                    key={i}
+                    ref={r => { otpRefs.current[i] = r }}
+                    style={[otp6.box, otpFocused === i && !d && otp6.boxFocused, !!d && otp6.boxFilled]}
                     value={d}
-                    onFocus={() => setOtpFocused(i)}
+                    onFocus={() => {
+                      // Redirect to first empty box — can't skip ahead
+                      const firstEmpty = otp.findIndex(v => !v)
+                      if (firstEmpty !== -1 && firstEmpty < i) {
+                        otpRefs.current[firstEmpty]?.focus()
+                        return
+                      }
+                      setOtpFocused(i)
+                    }}
                     onBlur={() => setOtpFocused(-1)}
                     selectionColor={colors.primary}
                     cursorColor={colors.primary}
                     onChangeText={v => {
                       const next = [...otp]; next[i] = v.slice(-1); setOtp(next)
-                      if (v && i < 5) {
-                        otpRefs.current[i + 1]?.focus()
-                      } else if (v && i === 5) {
-                        Keyboard.dismiss()
-                      }
+                      if (v && i < 5) { otpRefs.current[i + 1]?.focus() }
+                      else if (v && i === 5) { Keyboard.dismiss() }
                       if (!v && i > 0) otpRefs.current[i - 1]?.focus()
                     }}
-                    onKeyPress={e => handleOtpKey(e, i)}
-                    keyboardType="number-pad" maxLength={1} selectTextOnFocus />
+                    onKeyPress={e => { if (e.nativeEvent.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus() }}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    selectTextOnFocus
+                  />
                 ))}
               </View>
 
-              {!!error && <Text style={s.errTxt}>{error}</Text>}
+              {!!error && (
+                <View style={[flat.errRow, { justifyContent: 'center', marginBottom: ms(8) }]}>
+                  <Feather name="alert-circle" size={12} color="#EF4444" />
+                  <Text style={flat.errTxt}>{error}</Text>
+                </View>
+              )}
 
-              <View style={s.resendWrap}>
+              {/* Resend */}
+              <View style={{ alignItems: 'center', marginBottom: ms(24) }}>
                 {canResend ? (
-                  <TouchableOpacity style={s.resendBtn}
-                    onPress={async () => {
-                      setOtp(['','','','','',''])
-                      setCanResend(false)
-                      setCountdown(60)
-                      // Use the full international phone format saved during first send
-                      await sendOtpToPhone(otpFullPhone || phone)
-                    }}
+                  <TouchableOpacity
+                    style={otp6.resendBtn}
+                    onPress={async () => { setOtp(['','','','','','']); setCanResend(false); setCountdown(60); await sendOtpToPhone(otpFullPhone || phone) }}
                     activeOpacity={0.8}>
                     <Feather name="refresh-cw" size={14} color={colors.primary} />
-                    <Text style={s.resendBtnTxt}>Resend Code</Text>
+                    <Text style={otp6.resendTxt}>Resend Code</Text>
                   </TouchableOpacity>
                 ) : (
-                  <View style={{ flexDirection: 'row' }}>
-                    <Text style={s.resendCountTxt}>Resend code in </Text>
-                    <Text style={[s.resendCountTxt, { fontWeight: typography.weight.bold, color: colors.dark }]}>
+                  <Text style={otp6.countdownTxt}>
+                    Resend code in{' '}
+                    <Text style={{ fontWeight: '700', color: '#1A1A2E' }}>
                       {String(Math.floor(countdown / 60)).padStart(2,'0')}:{String(countdown % 60).padStart(2,'0')}
                     </Text>
-                  </View>
+                  </Text>
                 )}
               </View>
 
               {!!otpTestCode && (
-                <View style={{ alignItems: 'center', marginTop: spacing[2] }}>
-                  <Text style={{ fontSize: typography.size.xs, color: colors.warning }}>
-                    🔧 Test mode — your code: <Text style={{ fontWeight: typography.weight.bold }}>{otpTestCode}</Text>
+                <View style={{ alignItems: 'center', marginBottom: ms(12) }}>
+                  <Text style={{ fontSize: RF(12), color: colors.warning }}>
+                    🔧 Test mode — code: <Text style={{ fontWeight: '700' }}>{otpTestCode}</Text>
                   </Text>
                 </View>
               )}
-            </View>
 
-            <View style={{ flex: 1 }} />
-            <View style={s.bottomPad}>
               <TouchableOpacity
-                style={[s.primaryBtn, (!otpFilled || loading) && s.primaryBtnOff]}
-                onPress={async () => {
-                  const ok = await verifyOtpCode(otpValue)
-                  if (ok) goTo('signup_password')
-                }}
-                disabled={!otpFilled || loading} activeOpacity={0.85}>
-                <Text style={[s.primaryBtnTxt, !otpFilled && s.primaryBtnTxtOff]}>
-                  {loading ? 'Verifying...' : 'Verify'}
-                </Text>
+                style={[flat.primaryBtn, (!otpFilled || loading) && flat.primaryBtnOff]}
+                onPress={async () => { const ok = await verifyOtpCode(otpValue); if (ok) goTo('signup_password') }}
+                disabled={!otpFilled || loading}
+                activeOpacity={0.85}>
+                {loading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={[flat.primaryBtnTxt, !otpFilled && flat.primaryBtnTxtOff]}>Verify</Text>
+                }
               </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </>
     )
   }
@@ -475,128 +500,130 @@ export function SignupStep(props: SignupStepProps) {
     const hasNumber = /[0-9]/.test(password)
     const hasLength = password.length >= 8
     const isValid = hasLength && hasUpper && hasLower && hasNumber && password === confirmPw
-
-    // Show strength hints only after user starts typing
     const showHints = password.length > 0
+
     return (
       <>
         <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
-        <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={keyboardBehavior}>
-            <StepHeader onBack={() => goTo('signup_otp')} progress={0.85}
-              onHelp={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }} />
+        <KeyboardAvoidingView
+          style={[{ flex: 1 }, { paddingTop: topInset }]}
+          behavior={keyboardBehavior}
+          keyboardVerticalOffset={0}
+        >
+          <View style={flat.root}>
+            <View style={flat.navRow}>
+              <TouchableOpacity style={flat.backCircle} onPress={() => goTo('signup_otp')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Feather name="chevron-left" size={18} color="#1A1A2E" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { Keyboard.dismiss(); setTimeout(() => setShowHelp(true), 150) }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={flat.helpTxt}>Help</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: spacing[2], paddingTop: spacing[4], paddingBottom: spacing[8] }}>
+              contentContainerStyle={[flat.scroll, { paddingTop: ms(8), paddingBottom: ms(80) }]}>
 
-              <Text style={[s.stepTitle, { marginHorizontal: spacing[2] }]}>Set Your Password</Text>
-              <Text style={[s.stepSub, { marginHorizontal: spacing[2] }]}>Choose a strong password to secure your account.</Text>
-
-              {/* Password */}
-              <View style={li2.pwRow}>
-                <Feather name="lock" size={16} color="#AAAAAA" />
-                <TextInput style={li2.pwInput} placeholder="At least 8 characters"
-                  placeholderTextColor="#BBBBBB" secureTextEntry={!showPw}
-                  value={password} onChangeText={t => { setPassword(t); setError('') }} returnKeyType="next" />
-                <TouchableOpacity onPress={() => setShowPw(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Feather name={showPw ? 'eye-off' : 'eye'} size={16} color="#AAAAAA" />
-                </TouchableOpacity>
+              {/* Icon */}
+              <View style={flat.iconWrap}>
+                <View style={flat.iconBg}>
+                  <Feather name="lock" size={ms(28)} color="#FFFFFF" />
+                </View>
               </View>
 
-              {/* Password strength hints */}
+              <Text style={flat.title}>Set Your Password</Text>
+              <Text style={flat.subtitle}>Choose a strong password to secure your Cardyn account</Text>
+
+              {/* Password */}
+              <View style={flat.fieldWrap}>
+                <Text style={flat.fieldLabel}>Password<Text style={flat.required}>*</Text></Text>
+                <View style={flat.inputBox}>
+                  <TextInput style={flat.input} placeholder="At least 8 characters"
+                    placeholderTextColor="#BBBBBB" secureTextEntry={!showPw}
+                    value={password} onChangeText={t => { setPassword(t); setError('') }} returnKeyType="next" />
+                  <TouchableOpacity onPress={() => setShowPw(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Feather name={showPw ? 'eye' : 'eye-off'} size={18} color="#BBBBBB" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Strength hints */}
               {showHints && (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginHorizontal: spacing[2], marginBottom: spacing[2] }}>
-                  {[
-                    { label: '8+ chars', ok: hasLength },
-                    { label: 'Uppercase', ok: hasUpper },
-                    { label: 'Lowercase', ok: hasLower },
-                    { label: 'Number', ok: hasNumber },
-                  ].map(h => (
-                    <View key={h.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 3,
-                      backgroundColor: h.ok ? '#E8F8F0' : '#F5F5F5',
-                      borderRadius: ms(20), paddingHorizontal: spacing[2], paddingVertical: 3 }}>
+                <View style={[flat.hintRow, { marginBottom: ms(12) }]}>
+                  {[{ label: '8+ chars', ok: hasLength }, { label: 'Uppercase', ok: hasUpper }, { label: 'Lowercase', ok: hasLower }, { label: 'Number', ok: hasNumber }].map(h => (
+                    <View key={h.label} style={[flat.hintChip, { backgroundColor: h.ok ? '#E8F8F0' : '#F5F5F5' }]}>
                       <Feather name={h.ok ? 'check' : 'x'} size={11} color={h.ok ? '#22C55E' : '#AAAAAA'} />
-                      <Text style={{ fontSize: ms(11), color: h.ok ? '#22C55E' : '#AAAAAA', fontWeight: '500' }}>{h.label}</Text>
+                      <Text style={[flat.hintTxt, { color: h.ok ? '#22C55E' : '#AAAAAA' }]}>{h.label}</Text>
                     </View>
                   ))}
                 </View>
               )}
 
               {/* Confirm Password */}
-              <View style={[li2.pwRow, confirmPw.length > 0 && password !== confirmPw && li2.pwRowError]}>
-                <Feather name="lock" size={16} color={confirmPw.length > 0 && password !== confirmPw ? '#FF4D4F' : '#AAAAAA'} />
-                <TextInput style={li2.pwInput} placeholder="Re-enter password"
-                  placeholderTextColor="#BBBBBB" secureTextEntry={!showConfirmPw}
-                  value={confirmPw} onChangeText={t => { setConfirmPw(t); setError('') }}
-                  returnKeyType="done" />
-                <TouchableOpacity onPress={() => setShowConfirmPw(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Feather name={showConfirmPw ? 'eye-off' : 'eye'} size={16} color="#AAAAAA" />
-                </TouchableOpacity>
+              <View style={flat.fieldWrap}>
+                <Text style={flat.fieldLabel}>Confirm Password<Text style={flat.required}>*</Text></Text>
+                <View style={[flat.inputBox, confirmTouched && confirmPw.length > 0 && password !== confirmPw && flat.inputBoxError]}>
+                  <TextInput style={flat.input} placeholder="Re-enter password"
+                    placeholderTextColor="#BBBBBB" secureTextEntry={!showConfirmPw}
+                    value={confirmPw}
+                    onChangeText={t => { setConfirmPw(t); setError('') }}
+                    onBlur={() => setConfirmTouched(true)}
+                    returnKeyType="done" />
+                  <TouchableOpacity onPress={() => setShowConfirmPw(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Feather name={showConfirmPw ? 'eye' : 'eye-off'} size={18} color="#BBBBBB" />
+                  </TouchableOpacity>
+                </View>
+                {/* Only show mismatch after user leaves the field */}
+                {confirmTouched && confirmPw.length > 0 && password !== confirmPw && (
+                  <View style={flat.errRow}>
+                    <Feather name="alert-circle" size={12} color="#EF4444" />
+                    <Text style={flat.errTxt}>Passwords do not match</Text>
+                  </View>
+                )}
               </View>
 
-              {confirmPw.length > 0 && password !== confirmPw && (
-                <View style={inlineErr.box}>
-                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
-                  <Text style={inlineErr.txt}>Passwords do not match</Text>
-                </View>
-              )}
               {error === 'phone_exists_pw' ? (
-                <View style={inlineErr.box}>
-                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
-                  <Text style={inlineErr.txt}>This number is already registered. </Text>
+                <View style={flat.errRow}>
+                  <Feather name="alert-circle" size={12} color="#EF4444" />
+                  <Text style={flat.errTxt}>Number already registered. </Text>
                   <TouchableOpacity onPress={() => { setLoginMethod('phone'); setPassword(''); goTo('login') }} activeOpacity={0.7}>
-                    <Text style={inlineErr.link}>Log in →</Text>
+                    <Text style={flat.errLink}>Sign in →</Text>
                   </TouchableOpacity>
                 </View>
               ) : !!error ? (
-                <View style={inlineErr.box}>
-                  <Feather name="alert-circle" size={14} color="#FF4D4F" />
-                  <Text style={inlineErr.txt}>{error}</Text>
+                <View style={flat.errRow}>
+                  <Feather name="alert-circle" size={12} color="#EF4444" />
+                  <Text style={flat.errTxt}>{error}</Text>
                 </View>
               ) : null}
 
               <TouchableOpacity
-                style={[li2.btn, (!isValid || loading) && li2.btnOff]}
+                style={[flat.primaryBtn, { marginTop: ms(8) }, (!isValid || loading) && flat.primaryBtnOff]}
                 onPress={async () => {
                   if (!isValid) return
                   setLoading(true)
                   try {
                     const fullPhone = getFullPhoneLocal(phone)
-                    await signup({
-                      name: name.trim(),
-                      username: fullPhone,
-                      phone: fullPhone,
-                      country: selectedCountry.name,
-                      password,
-                    })
-                    // Save phone + country for next login
+                    await signup({ name: name.trim(), username: fullPhone, phone: fullPhone, country: selectedCountry.name, password })
                     storage.setItem('@tuka_last_phone', sanitizeLocalPhone(phone)).catch(() => {})
                     storage.setItem('@tuka_last_country', JSON.stringify(selectedCountry)).catch(() => {})
-                    if (biometricAvailable) {
-                      setPendingUsername(fullPhone)
-                      goTo('biometric_setup')
-                    }
-                    // else: AuthContext user state updated → App.tsx navigator switches to authenticated stack
+                    if (biometricAvailable) { setPendingUsername(fullPhone); goTo('biometric_setup') }
                   } catch (e: any) {
                     const msg: string = e.message || ''
-                    if (msg.includes('already registered') || msg.includes('已存在') || msg.includes('exists')) {
-                      setError('phone_exists_pw')
-                    } else if (msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
-                      setError('Check your internet connection and try again.')
-                    } else {
-                      setError(msg || 'Registration failed. Please try again.')
-                    }
-                  }
-                  finally { setLoading(false) }
+                    if (msg.includes('already registered') || msg.includes('exists')) { setError('phone_exists_pw') }
+                    else if (msg.includes('Network') || msg.includes('timeout')) { setError('Check your internet connection and try again.') }
+                    else { setError(msg || 'Registration failed. Please try again.') }
+                  } finally { setLoading(false) }
                 }}
                 disabled={!isValid || loading} activeOpacity={0.85}>
                 {loading
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={[li2.btnTxt, (!isValid || loading) && li2.btnTxtOff]}>Create Account</Text>
+                  : <Text style={[flat.primaryBtnTxt, (!isValid || loading) && flat.primaryBtnTxtOff]}>Create Account</Text>
                 }
               </TouchableOpacity>
             </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </>
     )
   }
@@ -604,94 +631,86 @@ export function SignupStep(props: SignupStepProps) {
   return null
 }
 
-// ── Inline error styles ───────────────────────────────────────────────────────
-const inlineErr = StyleSheet.create({
-  box: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFF1F1',
-    borderRadius: ms(10),
-    borderWidth: 1,
-    borderColor: '#FFD6D6',
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
-    marginHorizontal: spacing[2],
-    marginBottom: spacing[2],
+// ── Social signup styles ──────────────────────────────────────────────────────
+const sgSocial = StyleSheet.create({
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: ms(16) },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#D0D5DD' },
+  dividerTxt:  { fontSize: RF(13), color: '#8A94A6', marginHorizontal: ms(12) },
+  btn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFFFFF', borderRadius: ms(12),
+    paddingVertical: ms(14), marginBottom: ms(10),
+    borderWidth: StyleSheet.hairlineWidth, borderColor: '#E2E8F0',
+    gap: ms(10),
   },
-  txt: {
-    fontSize: typography.size.sm,
-    color: '#CC0000',
-    flex: 1,
-    lineHeight: ms(18),
-  },
-  link: {
-    fontSize: typography.size.sm,
-    fontWeight: '700',
-    color: colors.primary,
-  },
+  icon: { width: ms(20), height: ms(20) },
+  txt:  { fontSize: RF(16), fontWeight: '700', color: '#1A1A2E' },
 })
 
-// ── Terms modal styles (signup) ───────────────────────────────────────────────
-const sgTm = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing[6],
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: ms(20),
-    padding: spacing[6],
-    width: '100%',
-  },
-  title: {
-    fontSize: RF(18),
-    fontWeight: '700',
-    color: '#1A1A1A',
-    textAlign: 'center',
-    marginBottom: spacing[4],
-    lineHeight: ms(26),
-  },
-  body: {
-    fontSize: RF(14),
-    color: '#555',
-    lineHeight: ms(22),
-    marginBottom: spacing[6],
-  },
-  link: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  btnRow: {
+// ── Terms modal styles ────────────────────────────────────────────────────────
+const tm = StyleSheet.create({  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[6] },
+  card:    { backgroundColor: '#FFFFFF', borderRadius: ms(20), padding: spacing[6], width: '100%' },
+  title:   { fontSize: RF(18), fontWeight: '700', color: '#1A1A2E', textAlign: 'center', marginBottom: spacing[4], lineHeight: ms(26) },
+  body:    { fontSize: RF(14), color: '#555', lineHeight: ms(22), marginBottom: spacing[6] },
+  link:    { color: colors.primary, fontWeight: '600' },
+  btnRow:  { flexDirection: 'row', gap: spacing[3] },
+  disagreeBtn: { flex: 1, paddingVertical: ms(14), borderRadius: ms(50), borderWidth: 1.5, borderColor: '#E0E0E0', alignItems: 'center' },
+  disagreeTxt: { fontSize: RF(15), fontWeight: '600', color: '#555' },
+  agreeBtn:    { flex: 2, paddingVertical: ms(14), borderRadius: ms(50), backgroundColor: colors.primary, alignItems: 'center' },
+  agreeTxt:    { fontSize: RF(15), fontWeight: '700', color: '#fff' },
+})
+
+// ── OTP 6-box styles ──────────────────────────────────────────────────────────
+const otp6 = StyleSheet.create({
+  row: {
     flexDirection: 'row',
-    gap: spacing[3],
+    justifyContent: 'center',
+    gap: ms(10),
+    marginBottom: ms(20),
+    paddingHorizontal: spacing[2],
   },
-  disagreeBtn: {
-    flex: 1,
-    paddingVertical: ms(14),
-    borderRadius: radius.full,
+  box: {
+    width: ms(48),
+    height: ms(58),
+    borderRadius: ms(12),
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-  },
-  disagreeTxt: {
-    fontSize: RF(15),
-    fontWeight: '600',
-    color: '#555',
-  },
-  agreeBtn: {
-    flex: 2,
-    paddingVertical: ms(14),
-    borderRadius: radius.full,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-  },
-  agreeTxt: {
-    fontSize: RF(15),
+    borderColor: '#E2E8F0',
+    textAlign: 'center',
+    fontSize: RF(24),
     fontWeight: '700',
-    color: '#fff',
+    color: '#1A1A2E',
+  },
+  boxFocused: {
+    borderColor: colors.primary,
+    backgroundColor: '#FFFFFF',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  boxFilled: {
+    backgroundColor: '#E6F7F5',
+    borderColor: colors.primary,
+    color: colors.primary,
+  },
+  resendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ms(6),
+    backgroundColor: '#E6F7F5',
+    borderRadius: ms(50),
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(10),
+  },
+  resendTxt: {
+    fontSize: RF(14),
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  countdownTxt: {
+    fontSize: RF(14),
+    color: '#8A94A6',
   },
 })

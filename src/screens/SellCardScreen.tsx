@@ -453,12 +453,16 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
       })
       const serverUrl = uploadRes.data?.url || uploadRes.data?.data?.url || uploadRes.data?.fileName
       if (serverUrl) {
-        // Rewrite any localhost/127.0.0.1 references to the actual BASE_URL
-        const resolvedUrl = serverUrl
-          .replace(/https?:\/\/localhost:\d+/, BASE_URL)
-          .replace(/https?:\/\/127\.0\.0\.1:\d+/, BASE_URL)
-        // Only add to state AFTER server confirms — never keep broken local URIs
-        setCardImages(prev => [...prev, resolvedUrl])
+        // Use resolveImageUrl to:
+        // 1. Replace any server host with BASE_URL
+        // 2. Rewrite /profile/ → /files/ (public serving endpoint)
+        // 3. Handle localhost/emulator rewrites
+        const resolvedUrl = resolveImageUrl(serverUrl)
+        if (resolvedUrl) {
+          setCardImages(prev => [...prev, resolvedUrl])
+        } else {
+          Alert.alert('Upload Failed', 'Image could not be uploaded. Please try again.')
+        }
       } else {
         Alert.alert('Upload Failed', 'Image could not be uploaded. Please try again.')
       }
@@ -540,7 +544,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     return (
-      <View style={[s.safe, { backgroundColor: '#F8F9FA' }, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[s.safe, { backgroundColor: '#F8F9FA' }, { paddingTop: getStatusBarHeight() }]}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
 
           {/* ── Check icon with sparkles ── */}
@@ -631,7 +635,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   if (!user.isPresent()) {
     return (
-      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn}>
             <Feather name="arrow-left" size={22} color={colors.dark} />
@@ -655,7 +659,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   if (loading) {
     return (
-      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn}>
             <Feather name="arrow-left" size={22} color={colors.dark} />
@@ -675,7 +679,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   return (
     <>
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
         {/* Header */}
         <View style={s.header}>

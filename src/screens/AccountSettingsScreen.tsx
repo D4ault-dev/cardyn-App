@@ -108,7 +108,7 @@ export default function AccountSettingsScreen(props: StackScreenProps<RootStackP
   const avatarUri = avatar ? resolveImageUrl(avatar) : null
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
       <AppHeader title="Account Settings" onBack={() => props.navigation.goBack()} />
 

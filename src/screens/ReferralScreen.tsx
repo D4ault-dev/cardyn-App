@@ -214,7 +214,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: getStatusBarHeight() }}>
           <ActivityIndicator color="#fff" size="large" />
         </View>
       </View>
@@ -224,7 +224,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
   return (
     <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
       <StatusBar barStyle="light-content" />
-      <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
+      <View style={{ flex: 1, paddingTop: getStatusBarHeight() }}>
 
         {/* ── Dark hero header ── */}
         <View style={s.heroWrap}>
@@ -309,7 +309,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
                 <Text style={s.emptySub}>Share your code and earn ₦500 when friends complete their first trade</Text>
               </View>
             }
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: spacing[8] }}
             showsVerticalScrollIndicator={false}
             refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true) }} />}
             ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 46 + spacing[3] + spacing[5] }} />}

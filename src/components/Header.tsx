@@ -9,7 +9,7 @@ export default function Header(props: {
   right?: ReactNode
 }) {
   return (
-    <View style={{ paddingTop: Platform.OS === 'android' ? getStatusBarHeight() : 0 }}>
+    <View style={{ paddingTop: getStatusBarHeight() }}>
       <View style={{ paddingHorizontal: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           {typeof props.title === "string"

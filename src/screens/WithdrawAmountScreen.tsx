@@ -47,7 +47,7 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
   }
 
   return (
-    <View style={[s.root, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.root, { paddingTop: getStatusBarHeight() }]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding', android: 'height' })}>
 
         <AppHeader title="Enter Amount" onBack={() => props.navigation.goBack()} />

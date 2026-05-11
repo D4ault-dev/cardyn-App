@@ -76,7 +76,7 @@ export function TransactionPinPad({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[st.root, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[st.root, { paddingTop: getStatusBarHeight() }]}>
         {/* Header */}
         <View style={st.header}>
           <TouchableOpacity onPress={onClose} style={st.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>

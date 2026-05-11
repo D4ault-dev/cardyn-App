@@ -1,5 +1,5 @@
-import { RF } from '../util/responsive'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { RF, tabBarClearance } from '../util/responsive'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback } from 'react'
 import {
@@ -39,6 +39,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
   const { user } = useAuth()
   const { selectedCountry } = useCountry()
   const sym = selectedCountry?.currencySymbol ?? '₦'
+  const insets = useSafeAreaInsets()
 
   const [wallet, setWallet]           = useState<WalletInfo>({
     balance: 0, totalSales: 0, totalWithdrawn: 0,
@@ -153,7 +154,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
   // ── Guest ──────────────────────────────────────────────────────────────────
   if (!user.isPresent()) {
     return (
-      <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+      <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
         <View style={s.header}><Text style={s.headerTitle}>Wallet</Text></View>
         <View style={s.guestWrap}>
           <View style={s.guestIcon}><Feather name="lock" size={32} color={colors.primary} /></View>
@@ -168,7 +169,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       {/* Header */}
       <View style={s.header}>
         <Text style={s.headerTitle}>Wallet</Text>
@@ -181,7 +182,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ paddingBottom: 120 }}>
+        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}>
 
         {/* ── Balance card ── */}
         <LinearGradient

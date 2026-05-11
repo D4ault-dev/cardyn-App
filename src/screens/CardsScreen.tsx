@@ -1,4 +1,4 @@
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback } from 'react'
 import {
@@ -13,7 +13,7 @@ import { fetchCountries, Country } from '../api/country'
 import { currSym, currLabel } from '../util/currency'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { FadeScreen } from '../components/FadeScreen'
-import { ms } from '../util/responsive'
+import { ms, tabBarClearance } from '../util/responsive'
 import { useCountry } from '../context/CountryContext'
 
 const CARD_BG = ['#E8F5E9','#FFF3E0','#E3F2FD','#FCE4EC','#F3E5F5','#E0F7FA','#FFF8E1','#E8EAF6']
@@ -108,6 +108,7 @@ function RateTable({
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
+  const insets = useSafeAreaInsets()
   const [cards, setCards]           = useState<CardCategory[]>([])
   const [loading, setLoading]       = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -154,7 +155,7 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
   return (
     <FadeScreen>
     <View style={{ flex: 1 }} {...swipeHandlers}>
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
       {/* ── Header ── */}
       <View style={s.header}>
@@ -212,7 +213,7 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ paddingBottom: 120 }}>
+        contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}>
 
         {loading ? (
           <Spinner style={{ marginTop: spacing[16] }} />

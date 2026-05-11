@@ -351,8 +351,8 @@ export const ob = StyleSheet.create({
     color: colors.dark, lineHeight: ms(34), marginBottom: spacing[2], textAlign: 'center',
   },
   subtitle: { fontSize: typography.size.base, color: colors.muted, lineHeight: ms(22), textAlign: 'center' },
-  bottom: { paddingHorizontal: spacing[6], paddingBottom: spacing[4] },
-  dotsRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[4], justifyContent: 'center' },
+  bottom: { paddingHorizontal: spacing[6], paddingBottom: spacing[8] },
+  dotsRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[6], justifyContent: 'center' },
   obDot: { width: ms(6), height: ms(6), borderRadius: ms(3), backgroundColor: '#E0E0E0' },
   obDotActive: { width: ms(20), height: ms(6), borderRadius: ms(3), backgroundColor: colors.primary },
   startBtn: {

@@ -11,7 +11,7 @@ import { ms, RF } from '../util/responsive'
 
 export default function AccountDeletionScreen(props: StackScreenProps<RootStackParams, 'AccountDeletion'>) {
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
       {/* Header */}
       <View style={s.header}>

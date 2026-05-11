@@ -97,7 +97,7 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
   ]
 
   return (
-    <View style={[s.root, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.root, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Authorize Payment" onBack={() => props.navigation.goBack()} />
 
       {/* Blue bank card */}

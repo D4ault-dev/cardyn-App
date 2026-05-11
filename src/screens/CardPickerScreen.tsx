@@ -43,7 +43,7 @@ export default function CardPickerScreen(props: StackScreenProps<RootStackParams
   }
 
   return (
-    <View style={[s.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
       {/* Header */}
       <View style={s.header}>

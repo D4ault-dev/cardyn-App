@@ -37,7 +37,7 @@ export default function LoginScreen(props: StackScreenProps<RootStackParams, 'Lo
   }
 
   return (
-    <View style={[styles.safe, Platform.OS === 'android' && { paddingTop: getStatusBarHeight() }]}>
+    <View style={[styles.safe, { paddingTop: getStatusBarHeight() }]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.select({ ios: 'padding' })}>
         <ScrollView
           contentContainerStyle={styles.content}
