@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons'
 import * as ExpoClipboard from 'expo-clipboard'
 import { AppHeader } from '../components/AppHeader'
 import { AppRefreshControl } from '../components/Spinner'
+import { GenericListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchMyWithdrawals, Withdrawal } from '../api/wallet'
 import { useCountry } from '../context/CountryContext'
@@ -134,9 +135,7 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
       <AppHeader title="Withdrawal Record" onBack={() => props.navigation.goBack()} />
 
       {loading ? (
-        <View style={s.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
+        <GenericListSkeleton rows={5} />
       ) : (
         <FlatList
           data={list}

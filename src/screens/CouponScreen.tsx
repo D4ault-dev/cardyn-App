@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius } from '../theme'
 import { fetchAllCoupons, Coupon } from '../api/coupon'
 import { AppHeader } from '../components/AppHeader'
+import { GenericListSkeleton } from '../components/Skeleton'
 
 // ── Usage rules text ─────────────────────────────────────────────────────────
 const USAGE_RULES =
@@ -117,9 +118,7 @@ export default function CouponScreen({ navigation }: any) {
       <AppHeader title="Coupon" onBack={() => navigation.goBack()} />
 
       {loading ? (
-        <View style={s.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
+        <GenericListSkeleton rows={4} />
       ) : (
         <ScrollView
           contentContainerStyle={s.list}

@@ -11,6 +11,7 @@ import { Feather } from '@expo/vector-icons'
 import { useAuth } from '../context/AuthContext'
 import { useDrawer, DRAWER_W as DRAWER_WIDTH } from '../context/DrawerContext'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { HomeBalanceSkeleton, Skeleton as SkeletonBlock } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchCountries, Country } from '../api/country'
@@ -93,6 +94,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
   }, [isLoggedIn])
 
   const cardAnims = useRef<Animated.Value[]>([]).current
+  // Use a ref to track card existence — avoids dependency loop in loadCards
+  const hasCardsRef = useRef(false)
   const { show: showCheckIn, points: checkInPts, streak: checkInStreak, check: checkDailyIn, dismiss: dismissCheckIn } = useDailyCheckIn()
 
   // Trigger daily check-in check when user is logged in
@@ -118,45 +121,45 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
 
   const loadCards = useCallback(async (force = false, silent = false) => {
     try {
-      const alreadyHasCards = cards.length > 0
-      // Only clear cards if forced AND not silent (country switch or explicit refresh)
-      // Never clear on background focus refresh — avoids "No cards available" flash
+      const alreadyHasCards = hasCardsRef.current
+      // Only clear on explicit country switch — never on silent focus refresh
       if (force && !silent && !alreadyHasCards) setCards([])
       const data = await fetchCardCategories(force, selectedCountry?.name || '')
       setCards(data)
+      hasCardsRef.current = data.length > 0
 
-      if (alreadyHasCards && !force) {
-        cardAnims.length = 0
-        data.forEach(() => cardAnims.push(new Animated.Value(1)))
+      // Never animate when cards already exist — causes the blink
+      if (alreadyHasCards) {
+        if (cardAnims.length !== data.length) {
+          cardAnims.length = 0
+          data.forEach(() => cardAnims.push(new Animated.Value(1)))
+        }
         return
       }
 
-      // Fresh load — stagger cards in smoothly
+      // First load only — stagger cards in smoothly
       cardAnims.length = 0
       data.forEach(() => cardAnims.push(new Animated.Value(0)))
       requestAnimationFrame(() => {
         Animated.stagger(
           40,
           cardAnims.map(anim =>
-            Animated.timing(anim, {
-              toValue: 1,
-              duration: 280,
-              useNativeDriver: true,
-            })
+            Animated.timing(anim, { toValue: 1, duration: 280, useNativeDriver: true })
           )
         ).start()
       })
     } catch {
-      // On error, keep existing cards — don't show empty state
+      // On error keep existing cards — don't show empty state
     } finally {
       setCardsLoading(false)
       setRefreshing(false)
     }
-  }, [selectedCountry, cards.length])
+  }, [selectedCountry])
 
   useEffect(() => {
     setCardsLoading(true)
-    // Country changed — clear cards so skeleton shows, then reload
+    // Country changed — reset ref so skeleton shows for new country, then reload
+    hasCardsRef.current = false
     setCards([])
     const country = selectedCountry?.name || ''
     const fetches: Promise<any>[] = [loadCards(true, false)]
@@ -321,7 +324,7 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                         </TouchableOpacity>
                       </>
                     ) : walletLoading ? (
-                      <ActivityIndicator color={colors.dark} size="small" />
+                      <HomeBalanceSkeleton />
                     ) : (
                       <>
                         <Text style={s.balanceLbl}>Total Balance</Text>
@@ -359,18 +362,18 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                   </View>
 
                   {cardsLoading && cards.length === 0 ? (
-                    // Skeleton rows — same height as real cards, no flash on load
+                    // Animated skeleton rows — shimmer effect
                     <View>
                       {[1,2,3,4,5].map(k => (
                         <View key={k}>
                           {k > 1 && <View style={s.divider} />}
-                          <View style={[s.cardRow, { opacity: 0.35 }]}>
-                            <View style={[s.cardIconCircle, { backgroundColor: colors.border }]} />
+                          <View style={[s.cardRow]}>
+                            <SkeletonBlock circle size={ms(50)} />
                             <View style={{ flex: 1, marginLeft: spacing[3], gap: spacing[2] }}>
-                              <View style={{ height: 14, width: '55%', backgroundColor: colors.border, borderRadius: 6 }} />
-                              <View style={{ height: 12, width: '35%', backgroundColor: colors.border, borderRadius: 6 }} />
+                              <SkeletonBlock width="55%" height={14} />
+                              <SkeletonBlock width="35%" height={11} />
                             </View>
-                            <View style={[s.sellBtn, { backgroundColor: colors.border }]} />
+                            <SkeletonBlock width={52} height={34} radius={radius.md} />
                           </View>
                         </View>
                       ))}

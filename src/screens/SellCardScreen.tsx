@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchCountries, Country } from '../api/country'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { SellCardSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client, { BASE_URL } from '../api/client'
 import { currSym, currLabel } from '../util/currency'
@@ -668,7 +669,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
           <View style={{ width: 36 }} />
         </View>
         <View style={s.loadingBox}>
-          <Spinner size="large" />
+          <SellCardSkeleton />
         </View>
       </View>
     )
@@ -1812,8 +1813,12 @@ const s = StyleSheet.create({
   searchInput: { flex: 1, fontSize: typography.size.lg, color: colors.dark, marginLeft: spacing[2] },
   cardItem: {
     flexDirection: 'row' as const, alignItems: 'center' as const,
-    paddingHorizontal: spacing[5], paddingVertical: spacing[3],
-    borderBottomWidth: 1, borderBottomColor: colors.background,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    marginHorizontal: spacing[4], marginBottom: spacing[2],
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
   cardItemIcon: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' as const, alignItems: 'center' as const, justifyContent: 'center' as const, marginRight: spacing[3] },
   cardItemImg:  { width: 44, height: 44 },

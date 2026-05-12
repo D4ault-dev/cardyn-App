@@ -11,6 +11,7 @@ import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as ExpoClipboard from 'expo-clipboard'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { GenericListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import client from '../api/client'
@@ -213,10 +214,8 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: getStatusBarHeight() }}>
-          <ActivityIndicator color="#fff" size="large" />
-        </View>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E', paddingTop: getStatusBarHeight() }}>
+        <GenericListSkeleton rows={4} hasAvatar />
       </View>
     )
   }

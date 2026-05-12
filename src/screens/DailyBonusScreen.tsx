@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { AppHeader } from '../components/AppHeader'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { GenericListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import {
   fetchStreakInfo, fetchBonusHistory, postCheckIn,
@@ -287,7 +288,7 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
     return (
       <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
         <AppHeader title="Daily Bonus" onBack={() => props.navigation.goBack()} light />
-        <View style={s.centered}><Spinner size="large" color="#fff" /></View>
+        <View style={s.centered}><GenericListSkeleton rows={3} /></View>
       </View>
     )
   }

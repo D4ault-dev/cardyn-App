@@ -9,6 +9,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { AppRefreshControl } from '../components/Spinner'
+import { NotificationSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { ms, RF } from '../util/responsive'
@@ -435,11 +436,7 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
         </View>
 
         {loading ? (
-          <View style={{ padding: spacing[4], gap: spacing[3] }}>
-            {[0, 1, 2].map(i => (
-              <View key={i} style={[s.skeleton, { opacity: 1 - i * 0.2 }]} />
-            ))}
-          </View>
+          <NotificationSkeleton count={3} />
         ) : (
           <FlatList
             data={notifications}

@@ -18,6 +18,7 @@ import {
   BankAccount,
 } from '../api/wallet'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { WalletBalanceSkeleton, GenericListSkeleton, Skeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { useCountry } from '../context/CountryContext'
 
@@ -198,7 +199,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
           </View>
 
           {loading ? (
-            <ActivityIndicator color="#fff" style={{ marginVertical: spacing[3] }} />
+            <WalletBalanceSkeleton />
           ) : (
             <Text style={s.balanceAmt}>
               {balanceVisible ? `${sym}${fmt(displayBalance)}` : '• • • • • •'}
@@ -280,7 +281,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
 
           {/* List */}
           {loading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing[10] }} />
+            <GenericListSkeleton rows={5} />
           ) : displayed.length === 0 ? (
             <View style={s.emptyWrap}>
               <View style={s.emptyIcon}>
@@ -469,6 +470,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
           </KeyboardAvoidingView>
         </View>
       </Modal>
+    </View>
   )
 }
 

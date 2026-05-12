@@ -11,6 +11,7 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchArticles, Article } from '../api/discovery'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { GenericListSkeleton } from '../components/Skeleton'
 import { tabBarClearance } from '../util/responsive'
 
 // ── Article list card ─────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ export default function DiscoveryScreen(props: StackScreenProps<RootStackParams,
       </View>
 
       {loading ? (
-        <View style={s.centered}><Spinner size="large" /></View>
+        <GenericListSkeleton rows={4} />
       ) : (
         <FlatList
           data={articles}

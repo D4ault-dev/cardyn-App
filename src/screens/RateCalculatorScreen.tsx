@@ -8,6 +8,7 @@ import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { CardListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchCountries, Country } from '../api/country'
@@ -171,7 +172,7 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
           <Text style={s.headerTitle}>Rate Calculator</Text>
           <View style={{ width: 36 }} />
         </View>
-        <ActivityIndicator color={GREEN} style={{ marginTop: spacing[8] }} />
+        <CardListSkeleton />
       </View>
     )
   }
@@ -800,10 +801,14 @@ const s = StyleSheet.create({
   searchInput: { flex: 1, fontSize: typography.size.base, color: colors.dark },
   pickerRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    paddingHorizontal: spacing[5], paddingVertical: spacing[3] + 2,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3] + 2,
+    marginHorizontal: spacing[4], marginBottom: spacing[2],
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
-  pickerRowOn:  { backgroundColor: GREEN_LIGHT },
+  pickerRowOn:  { backgroundColor: GREEN_LIGHT, borderWidth: 1.5, borderColor: GREEN },
   pickerIcon:   { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
   pickerName:   { flex: 1, fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.dark },
 
@@ -845,8 +850,12 @@ const s = StyleSheet.create({
   // Face value picker
   fvRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing[5], paddingVertical: spacing[3],
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    marginHorizontal: spacing[4], marginBottom: spacing[2],
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
   fvLeft:   { flex: 1 },
   fvTopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[1] },

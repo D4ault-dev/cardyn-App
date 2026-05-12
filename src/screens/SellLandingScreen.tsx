@@ -12,6 +12,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { CardListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { tabBarClearance } from '../util/responsive'
@@ -76,9 +77,7 @@ export default function SellLandingScreen(props: StackScreenProps<RootStackParam
       </View>
 
       {loading ? (
-        <View style={s.centered}>
-          <Spinner size="large" />
-        </View>
+        <CardListSkeleton />
       ) : (
         <FlatList
           data={filtered}

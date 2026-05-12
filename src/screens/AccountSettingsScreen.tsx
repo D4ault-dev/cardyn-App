@@ -9,6 +9,7 @@ import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { useAuth } from '../context/AuthContext'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { ProfileSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { resolveImageUrl } from '../api/cards'
@@ -113,9 +114,7 @@ export default function AccountSettingsScreen(props: StackScreenProps<RootStackP
       <AppHeader title="Account Settings" onBack={() => props.navigation.goBack()} />
 
       {loading ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Spinner />
-        </View>
+        <ProfileSkeleton />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: spacing[5], paddingBottom: Math.max(insets.bottom, 16) + 40 }}>
 

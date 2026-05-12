@@ -12,6 +12,7 @@ import { BottomSheet } from '../components/BottomSheet'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { WithdrawBalanceSkeleton, Skeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import {
@@ -236,6 +237,9 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Balance card — clean white */}
+        {loading ? (
+          <WithdrawBalanceSkeleton />
+        ) : (
         <View style={s.balanceCard}>
           <View style={s.balanceCardTop}>
             <Text style={s.balanceLbl}>Total Balance</Text>
@@ -248,35 +252,49 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
               <Text style={s.historyBtnTxt}>History</Text>
             </TouchableOpacity>
           </View>
-          {loading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing[3] }} />
-          ) : (
-            <Text style={s.balanceAmt}>{localSym} {fmt(wallet?.balance)}</Text>
-          )}
+          <Text style={s.balanceAmt}>{localSym} {fmt(wallet?.balance)}</Text>
         </View>
+        )}
 
         {/* Bank Card section */}
-        <Text style={s.sectionLbl}>Bank Card ({banks.length})</Text>
+        <Text style={s.sectionLbl}>Bank Card ({loading ? '…' : banks.length})</Text>
 
-        {/* Existing bank cards — swipe left to delete */}
-        {banks.map(bank => (
-          <SwipeableBank
-            key={bank.id}
-            bank={bank}
-            selected={selectedBank?.id === bank.id}
-            onSelect={() => setSelectedBank(bank)}
-            onDelete={() => handleDeleteBank(bank.id)}
-          />
-        ))}
+        {/* Skeleton bank cards while loading */}
+        {loading ? (
+          <>
+            {[1, 2].map(i => (
+              <View key={i} style={{ marginHorizontal: spacing[4], marginBottom: spacing[4] }}>
+                <Skeleton width="100%" height={160} radius={20} />
+              </View>
+            ))}
+            {/* Skeleton add bank row */}
+            <View style={{ marginHorizontal: spacing[4], marginBottom: spacing[2] }}>
+              <Skeleton width="100%" height={64} radius={radius.xl} />
+            </View>
+          </>
+        ) : (
+          <>
+            {/* Existing bank cards — swipe left to delete */}
+            {banks.map(bank => (
+              <SwipeableBank
+                key={bank.id}
+                bank={bank}
+                selected={selectedBank?.id === bank.id}
+                onSelect={() => setSelectedBank(bank)}
+                onDelete={() => handleDeleteBank(bank.id)}
+              />
+            ))}
 
-        {/* Add bank card row */}
-        <TouchableOpacity style={s.addBankRow} onPress={() => props.navigation.navigate('AddBank' as any)} activeOpacity={0.8}>
-          <View style={s.bankIcon}>
-            <Feather name="credit-card" size={18} color="#fff" />
-          </View>
-          <Text style={s.addBankTxt}>Add bank card</Text>
-          <Feather name="plus" size={20} color={colors.dark} />
-        </TouchableOpacity>
+            {/* Add bank card row */}
+            <TouchableOpacity style={s.addBankRow} onPress={() => props.navigation.navigate('AddBank' as any)} activeOpacity={0.8}>
+              <View style={s.bankIcon}>
+                <Feather name="credit-card" size={18} color="#fff" />
+              </View>
+              <Text style={s.addBankTxt}>Add bank card</Text>
+              <Feather name="plus" size={20} color={colors.dark} />
+            </TouchableOpacity>
+          </>
+        )}
 
       </ScrollView>
 
@@ -665,8 +683,12 @@ const m = StyleSheet.create({
   searchInput: { flex: 1, fontSize: typography.size.base, color: colors.dark },
   bankPickerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing[5], paddingVertical: spacing[4],
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3] + 2,
+    marginHorizontal: spacing[4], marginBottom: spacing[2],
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
   bankPickerName: { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.dark },
 })

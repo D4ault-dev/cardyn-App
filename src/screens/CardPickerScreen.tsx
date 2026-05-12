@@ -7,6 +7,7 @@ import {
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { CardListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 
@@ -75,14 +76,14 @@ export default function CardPickerScreen(props: StackScreenProps<RootStackParams
       </View>
 
       {loading ? (
-        <Spinner style={{ marginTop: spacing[16] }} />
+        <CardListSkeleton />
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={c => String(c.id)}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 40 }}
-          ItemSeparatorComponent={() => <View style={s.separator} />}
+          contentContainerStyle={{ paddingHorizontal: spacing[4], paddingBottom: Math.max(insets.bottom, 16) + 40, paddingTop: spacing[2] }}
+          ItemSeparatorComponent={() => <View style={{ height: spacing[2] }} />}
           renderItem={({ item, index }) => {
             const url    = resolveImageUrl(item.icon)
             const bg     = CARD_BG[index % CARD_BG.length]
@@ -166,17 +167,26 @@ const s = StyleSheet.create({
   searchInput: { flex: 1, fontSize: typography.size.lg, color: colors.dark, fontWeight: typography.weight.extrabold },
 
   separator: {
-    height: 1, backgroundColor: colors.background,
-    marginLeft: spacing[5] + 44 + spacing[3],
+    height: spacing[2],
   },
 
   row: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3],
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing[5],
-    paddingVertical: spacing[4],
+    borderRadius: radius.xl,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3] + 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
-  rowOn: { backgroundColor: colors.primaryLight },
+  rowOn: {
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
 
   iconWrap: {
     width: 44, height: 44, borderRadius: radius.lg,

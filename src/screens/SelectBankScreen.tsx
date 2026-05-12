@@ -9,6 +9,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { GenericListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius } from '../theme'
 import { fetchNigerianBanks, NigerianBank } from '../api/wallet'
 
@@ -84,7 +85,7 @@ export default function SelectBankScreen(props: StackScreenProps<RootStackParams
       </View>
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing[16] }} />
+        <GenericListSkeleton rows={8} hasAvatar />
       ) : (
         <View style={{ flex: 1, flexDirection: 'row' }}>
           {/* Bank list */}
@@ -95,19 +96,23 @@ export default function SelectBankScreen(props: StackScreenProps<RootStackParams
             keyExtractor={item => `${item.code}_${item.name}`}
             stickySectionHeadersEnabled
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}
+            contentContainerStyle={{ paddingHorizontal: spacing[4], paddingBottom: Math.max(insets.bottom, 16) + 24 }}
             renderSectionHeader={({ section }) => (
               <View style={s.sectionHeader}>
                 <Text style={s.sectionHeaderTxt}>{section.title}</Text>
               </View>
             )}
+            renderSectionFooter={() => <View style={{ height: spacing[2] }} />}
             renderItem={({ item, index, section }) => {
-              const isLast = index === section.data.length - 1
-              const initials = item.name.slice(0, 2).toUpperCase()
-              const bg = avatarColor(item.name)
+              const isFirst = index === 0
+              const isLast  = index === section.data.length - 1
               return (
                 <TouchableOpacity
-                  style={[s.bankRow, isLast && s.bankRowLast]}
+                  style={[
+                    s.bankRow,
+                    isFirst && s.bankRowFirst,
+                    isLast  && s.bankRowLast,
+                  ]}
                   onPress={() => selectBank(item)}
                   activeOpacity={0.7}>
                   {/* Real logo or bank building icon fallback */}
@@ -167,17 +172,27 @@ const s = StyleSheet.create({
 
   sectionHeader: {
     backgroundColor: colors.background,
-    paddingHorizontal: spacing[5], paddingVertical: spacing[2],
+    paddingHorizontal: spacing[2],
+    paddingTop: spacing[3],
+    paddingBottom: spacing[1],
   },
   sectionHeaderTxt: { fontSize: typography.size.sm, fontWeight: typography.weight.bold, color: colors.muted },
 
   bankRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3],
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing[5], paddingVertical: spacing[3] + 2,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3] + 2,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  bankRowLast: { borderBottomWidth: 0 },
+  bankRowFirst: {
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+  },
+  bankRowLast: {
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: radius.xl,
+    borderBottomRightRadius: radius.xl,
+  },
 
   avatar: {
     width: 40, height: 40, borderRadius: 20,

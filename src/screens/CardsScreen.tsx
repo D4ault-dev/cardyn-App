@@ -8,6 +8,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { useIsFocused } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { CardListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchCountries, Country } from '../api/country'
@@ -227,7 +228,7 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
         contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) }}>
 
         {loading ? (
-          <Spinner style={{ marginTop: spacing[16] }} />
+          <CardListSkeleton />
         ) : !selectedCard ? (
           <View style={s.emptyState}>
             <Feather name="credit-card" size={36} color={colors.subtle} />

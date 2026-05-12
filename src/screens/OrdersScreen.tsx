@@ -12,6 +12,7 @@ import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { useAuth } from '../context/AuthContext'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { OrderListSkeleton, GenericListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import { fetchMyWithdrawals, fetchTransactions, Transaction } from '../api/wallet'
@@ -656,11 +657,11 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
         contentContainerStyle={{ padding: spacing[4], paddingBottom: tabBarClearance(insets.bottom) }}>
 
         {loading && tab !== 'commission' ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: spacing[16] }} />
+          <OrderListSkeleton />
         ) : tab === 'commission' ? (
           // ── Commission tab ────────────────────────────────────────────────
           commLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: spacing[16] }} />
+            <GenericListSkeleton rows={4} />
           ) : commission.length === 0 ? (
             <View style={s.emptyWrap}>
               <Feather name="award" size={48} color={colors.border} />

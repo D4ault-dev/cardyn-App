@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import * as ExpoClipboard from 'expo-clipboard'
 import { useAuth } from '../context/AuthContext'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { LeaderboardSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import client from '../api/client'
@@ -297,9 +298,7 @@ function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation
   }
 
   if (loading) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
-      <Spinner />
-    </View>
+    <LeaderboardSkeleton />
   )
 
   return (
@@ -596,7 +595,7 @@ export default function LeaderboardScreen(props: StackScreenProps<RootStackParam
       {/* ── Content — fades when switching tabs ── */}
       <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
       {loading ? (
-        <View style={s.centered}><Spinner size="large" /></View>
+        <View style={s.centered}><LeaderboardSkeleton /></View>
       ) : tab === 'Leaderboard' ? (
         <FlatList
           data={rest}
