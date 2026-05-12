@@ -116,10 +116,12 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
       .finally(() => setWalletLoading(false))
   }, [isLoggedIn, selectedCountry?.name])
 
-  const loadCards = useCallback(async (force = false) => {
+  const loadCards = useCallback(async (force = false, silent = false) => {
     try {
-      const alreadyHasCards = cards.length > 0 && !force
-      if (force) setCards([])  // clear immediately so skeleton shows on country switch
+      const alreadyHasCards = cards.length > 0
+      // Only clear cards if forced AND not silent (country switch or explicit refresh)
+      // Never clear on background focus refresh — avoids "No cards available" flash
+      if (force && !silent && !alreadyHasCards) setCards([])
       const data = await fetchCardCategories(force, selectedCountry?.name || '')
       setCards(data)
 
@@ -145,7 +147,7 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
         ).start()
       })
     } catch {
-      setCards([])
+      // On error, keep existing cards — don't show empty state
     } finally {
       setCardsLoading(false)
       setRefreshing(false)
@@ -154,9 +156,10 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
 
   useEffect(() => {
     setCardsLoading(true)
-    // Parallel: cards + wallet together on country change
+    // Country changed — clear cards so skeleton shows, then reload
+    setCards([])
     const country = selectedCountry?.name || ''
-    const fetches: Promise<any>[] = [loadCards(true)]
+    const fetches: Promise<any>[] = [loadCards(true, false)]
     if (isLoggedIn) {
       setWalletLoading(true)
       fetches.push(
@@ -171,9 +174,9 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
-    // Parallel: cards + wallet on pull-to-refresh
+    // Parallel: cards + wallet on pull-to-refresh (not silent — user explicitly requested)
     const country = selectedCountry?.name || ''
-    const fetches: Promise<any>[] = [loadCards(true)]
+    const fetches: Promise<any>[] = [loadCards(true, false)]
     if (isLoggedIn) {
       fetches.push(
         fetchWalletInfo(country).then(w => setWallet(w)).catch(() => {})
@@ -192,9 +195,10 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
         ctxClose()
       }
       if (isLoggedIn) {
-        // Refresh wallet + cards silently in background on focus
+        // Refresh wallet silently in background on focus
         fetchWalletInfo(selectedCountry?.name).then(w => setWallet(w)).catch(() => {})
-        loadCards(true)
+        // Refresh cards silently — existing cards stay visible, no flash
+        loadCards(true, true)
       }
     })
     return unsub
