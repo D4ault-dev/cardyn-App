@@ -116,7 +116,7 @@ export default function AccountSettingsScreen(props: StackScreenProps<RootStackP
       {loading ? (
         <ProfileSkeleton />
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: spacing[5], paddingBottom: Math.max(insets.bottom, 16) + 40 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: spacing[5], paddingBottom: Math.max(insets.bottom, 16) + spacing[4] }}>
 
           {/* ── Card 1: Avatar + name — tap to edit profile ── */}
           <View style={s.card}>
