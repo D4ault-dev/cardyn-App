@@ -127,8 +127,12 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
     try {
       const c = await fetchCardCategories(force, selectedCountry?.name || '')
       setCards(c)
-      // Default to first card
-      if (c.length > 0) setSelectedId(c[0].id)  // reset to first card of new country
+      // Only default to first card on initial load (no card selected yet)
+      // Never reset the selection when refreshing — user's choice must be preserved
+      setSelectedId(prev => {
+        if (prev !== null && c.some(card => card.id === prev)) return prev  // keep current
+        return c.length > 0 ? c[0].id : null  // first card only on initial load
+      })
     } catch { /* keep */ }
     finally { setLoading(false); setRefreshing(false) }
   }, [selectedCountry?.name])
@@ -138,13 +142,12 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
     load(true)
   }, [selectedCountry?.name])
 
-  // Force-refresh whenever the screen comes into focus
-  // This ensures deleted/updated cards from admin panel show within 60s
+  // Refresh data on focus but DON'T reset selected card
   useEffect(() => {
-    if (isFocused) load(true)
+    if (isFocused) load(false)  // force=false — use cache, no flicker, no selection reset
   }, [isFocused])
 
-  // When CardPickerScreen navigates back with a selection
+  // When CardPickerScreen navigates back with a selection — always honour it
   useEffect(() => {
     if (incomingId) setSelectedId(incomingId)
   }, [incomingId])
