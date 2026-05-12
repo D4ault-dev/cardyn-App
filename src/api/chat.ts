@@ -75,16 +75,21 @@ export async function pollMessages(sessionId: number, lastId: number): Promise<C
 }
 
 export class ChatPoller {
-  private sessionId: number
-  private lastId:    number
-  private timer:     ReturnType<typeof setTimeout> | null = null
-  private running:   boolean = false
-  private onUpdate:  (result: PollResult) => void
+  private sessionId:    number
+  private lastId:       number
+  private timer:        ReturnType<typeof setTimeout> | null = null
+  private running:      boolean = false
+  private onUpdate:     (result: PollResult) => void
+  private emptyStreak:  number = 0   // consecutive empty polls — used for backoff
+
+  // Intervals: fast when active, slow when idle
+  private static readonly FAST_MS  = 1500   // 1.5s — active chat
+  private static readonly SLOW_MS  = 4000   // 4s   — idle (no messages for a while)
+  private static readonly IDLE_AFTER = 5    // switch to slow after 5 empty polls
 
   constructor(
     sessionId: number,
     lastId: number,
-    // Accept both old (msgs only) and new (full result) callbacks
     onUpdate: ((result: PollResult) => void) | ((msgs: ChatMessage[]) => void)
   ) {
     this.sessionId = sessionId
@@ -94,6 +99,7 @@ export class ChatPoller {
 
   start() {
     this.running = true
+    this.emptyStreak = 0
     this.poll()
   }
 
@@ -102,22 +108,41 @@ export class ChatPoller {
     if (this.timer) clearTimeout(this.timer)
   }
 
+  /** Call this after the user sends a message to immediately poll for the echo */
+  kickPoll() {
+    if (!this.running) return
+    if (this.timer) clearTimeout(this.timer)
+    this.emptyStreak = 0  // reset backoff — user is active
+    this.timer = setTimeout(() => this.poll(), 300)  // poll in 300ms
+  }
+
   private async poll() {
     if (!this.running) return
     try {
       const result = await pollSession(this.sessionId, this.lastId)
       if (result.messages.length > 0) {
         this.lastId = result.messages[result.messages.length - 1].id
+        this.emptyStreak = 0  // reset backoff on activity
+        this.onUpdate(result)
+      } else {
+        this.emptyStreak++
+        // Still call onUpdate for status changes even with no messages
+        if (result.status) this.onUpdate(result)
       }
-      this.onUpdate(result)
     } catch { /* silently retry */ }
+
     if (this.running) {
-      this.timer = setTimeout(() => this.poll(), 3000)
+      // Use fast interval when active, slow when idle
+      const delay = this.emptyStreak >= ChatPoller.IDLE_AFTER
+        ? ChatPoller.SLOW_MS
+        : ChatPoller.FAST_MS
+      this.timer = setTimeout(() => this.poll(), delay)
     }
   }
 
   updateLastId(id: number) {
     this.lastId = id
+    this.emptyStreak = 0  // reset backoff — activity detected
   }
 }
 

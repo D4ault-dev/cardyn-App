@@ -277,7 +277,7 @@ export default function ChatScreen(props: Props) {
                 scrollToBottom()
                 return [...prev, ...fresh]
               })
-            }, 1200 + Math.random() * 600)
+            }, 600 + Math.random() * 300)  // 600-900ms feels natural, not slow
           } else {
             setMessages(prev => {
               const ids = new Set(prev.map(m => m.id))
@@ -332,6 +332,7 @@ export default function ChatScreen(props: Props) {
       const sent = await sendMessage(session.sessionId, text)
       setMessages(prev => prev.map(m => m.id === optimistic.id ? sent : m))
       pollerRef.current?.updateLastId(sent.id)
+      pollerRef.current?.kickPoll()  // immediately poll for agent response
     } catch {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
       setInput(text)
@@ -375,6 +376,7 @@ export default function ChatScreen(props: Props) {
       const sent = await sendImageMessage(session.sessionId, asset.uri, asset.fileName || 'image.jpg')
       setMessages(prev => prev.map(m => m.id === optimistic.id ? sent : m))
       pollerRef.current?.updateLastId(sent.id)
+      pollerRef.current?.kickPoll()
     } catch (e: any) {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
       Alert.alert('Failed', e.message)
