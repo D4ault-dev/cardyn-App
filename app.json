@@ -32,7 +32,14 @@
         "NSFaceIDUsageDescription": "Allow Cardyn to use Face ID for secure biometric login.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
-        }
+        },
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.47948483945-4c5ohnnrrrnl72a9lc06rn1o6rqb7lu3"
+            ]
+          }
+        ]
       }
     },
     "android": {

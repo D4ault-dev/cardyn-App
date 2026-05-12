@@ -35,17 +35,15 @@ async function getCredentials(): Promise<Record<string, string>> {
 function getClientId(creds: Record<string, string>): string {
   return Platform.select({
     ios:     creds['google_client_id_ios']     || '',
-    android: creds['google_client_id_android'] || '',
-    default: creds['google_client_id_ios']     || '',
+    android: creds['google_client_id_web']     || creds['google_client_id_android'] || '',
+    default: creds['google_client_id_web']     || creds['google_client_id_ios']     || '',
   })!
 }
 
 function getRedirectUri(creds: Record<string, string>): string {
-  // Google auto-registers reverse-DNS redirect URIs for native iOS/Android clients
-  // Format: com.googleusercontent.apps.{CLIENT_ID_PREFIX}:/oauth2redirect
   return Platform.select({
     ios:     creds['google_redirect_uri']         || '',
-    android: creds['google_redirect_uri_android'] || '',
+    android: creds['google_redirect_uri_android'] || 'https://auth.expo.io/@tuka21/cardflex',
     default: creds['google_redirect_uri']         || '',
   })!
 }
