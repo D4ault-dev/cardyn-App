@@ -54,7 +54,9 @@ export function resolveImageUrl(icon: string | null): string | null {
 }
 
 // ── Cache ──────────────────────────────────────────────────────────────────
-const CACHE_TTL = 5 * 60 * 1000
+// 60-second TTL — deleted/updated cards in admin panel reflect within 1 minute
+// Users can also pull-to-refresh for immediate update
+const CACHE_TTL = 60 * 1000
 // Bump this version string to invalidate all cached card data
 const CACHE_VERSION = 'v3'
 let _cache: Map<string, { data: CardCategory[]; time: number }> = new Map()

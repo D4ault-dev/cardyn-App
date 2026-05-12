@@ -182,7 +182,7 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
     Promise.all(fetches).catch(() => {})
   }, [loadCards, isLoggedIn, selectedCountry?.name])
 
-  // Reset drawer state + refresh balance when screen regains focus
+  // Reset drawer state + refresh balance + cards when screen regains focus
   useEffect(() => {
     const unsub = (props.navigation as any).addListener?.('focus', () => {
       // Only reset if drawer is not currently open (avoids hard-reset mid-animation)
@@ -192,8 +192,9 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
         ctxClose()
       }
       if (isLoggedIn) {
-        // Refresh wallet silently in background on focus
+        // Refresh wallet + cards silently in background on focus
         fetchWalletInfo(selectedCountry?.name).then(w => setWallet(w)).catch(() => {})
+        loadCards(true)
       }
     })
     return unsub

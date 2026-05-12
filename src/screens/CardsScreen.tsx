@@ -5,6 +5,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, ActivityIndicator, RefreshControl, FlatList, Platform} from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
+import { useIsFocused } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
@@ -117,6 +118,7 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
 
   // Global country from context
   const { selectedCountry, countries } = useCountry()
+  const isFocused = useIsFocused()
 
   // Accept selectedCardId passed back from CardPickerScreen
   const incomingId = (props.route?.params as any)?.selectedCardId
@@ -135,6 +137,12 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
     setLoading(true)
     load(true)
   }, [selectedCountry?.name])
+
+  // Force-refresh whenever the screen comes into focus
+  // This ensures deleted/updated cards from admin panel show within 60s
+  useEffect(() => {
+    if (isFocused) load(true)
+  }, [isFocused])
 
   // When CardPickerScreen navigates back with a selection
   useEffect(() => {
