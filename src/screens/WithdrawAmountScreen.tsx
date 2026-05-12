@@ -1,11 +1,11 @@
-import { RF } from '../util/responsive'
+import { RF, ms } from '../util/responsive'
 import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   TextInput, KeyboardAvoidingView,
   Platform, ScrollView,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
@@ -29,6 +29,7 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
   const { bank, balance, fee } = (props.route.params as any) || {}
   const { selectedCountry } = useCountry()
   const sym = selectedCountry?.currencySymbol ?? '₦'
+  const insets = useSafeAreaInsets()
   const [amount, setAmount] = useState('')
 
   const parsed   = parseFloat(amount) || 0
@@ -141,8 +142,8 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
           <View style={{ flex: 1 }} />
         </ScrollView>
 
-        {/* Next button */}
-        <View style={s.footer}>
+        {/* Next button — same pattern as AddBankScreen */}
+        <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 16) + spacing[3] }]}>
           <TouchableOpacity
             style={[s.nextBtn, !canNext && s.nextBtnOff]}
             onPress={handleNext}
@@ -190,8 +191,8 @@ const s = StyleSheet.create({
   hintTxt:    { fontSize: typography.size.sm, color: colors.error, flex: 1 },
   minRow:     { flexDirection: 'row', alignItems: 'center', gap: spacing[1], marginBottom: spacing[4], marginTop: -spacing[2] },
   minTxt:     { fontSize: typography.size.xs, color: colors.muted },
-  footer:     { padding: spacing[5], backgroundColor: 'transparent' },
-  nextBtn:    { backgroundColor: colors.accent, borderRadius: radius.full, paddingVertical: 16, alignItems: 'center' },
+  footer:     { paddingHorizontal: spacing[4], paddingTop: spacing[3], backgroundColor: 'transparent' },
+  nextBtn:    { backgroundColor: colors.accent, borderRadius: radius.full, paddingVertical: spacing[5], alignItems: 'center', minHeight: ms(56) },
   nextBtnOff: { backgroundColor: colors.disabled },
-  nextBtnTxt: { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: '#fff' },
+  nextBtnTxt: { fontSize: ms(typography.size.lg), fontWeight: typography.weight.extrabold, color: '#fff' },
 })

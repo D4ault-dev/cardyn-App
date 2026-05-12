@@ -1,5 +1,5 @@
-import { RF } from '../util/responsive'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { RF, ms } from '../util/responsive'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
@@ -114,6 +114,7 @@ function SwipeableBank({ bank, selected, onSelect, onDelete }: {
 export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
   const { selectedCountry } = useCountry()
   const localSym = selectedCountry?.currencySymbol ?? '₦'
+  const insets = useSafeAreaInsets()
 
   const [wallet, setWallet]           = useState<WalletInfo | null>(null)
   const [banks, setBanks]             = useState<BankAccount[]>([])
@@ -279,8 +280,8 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
       </ScrollView>
 
-      {/* Withdraw button — pinned above tab bar */}
-      <View style={s.bottomBar}>
+      {/* Withdraw button — same pattern as AddBank: fixed bottom, no border */}
+      <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[3] }]}>
         <TouchableOpacity
           style={[s.withdrawBtn, !canWithdraw && s.withdrawBtnOff]}
           onPress={() => {
@@ -553,18 +554,21 @@ const s = StyleSheet.create({
   txEmpty: { alignItems: 'center', paddingVertical: spacing[8] },
   txEmptyTxt: { fontSize: typography.size.base, color: colors.muted },
 
-  // Bottom bar — sits just above tab bar
+  // Bottom bar — same pattern as AddBankScreen
   bottomBar: {
-    paddingHorizontal: spacing[5],
-    paddingVertical: spacing[4],
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[3],
     backgroundColor: colors.background,
   },
   withdrawBtn: {
-    backgroundColor: colors.accent, borderRadius: radius.full,
-    paddingVertical: spacing[4], alignItems: 'center',
+    backgroundColor: colors.accent,
+    borderRadius: radius.full,
+    paddingVertical: spacing[5],
+    alignItems: 'center',
+    minHeight: ms(56),
   },
-  withdrawBtnOff: { backgroundColor: '#E0E0E0' },
-  withdrawBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: '#fff' },
+  withdrawBtnOff: { backgroundColor: colors.disabled },
+  withdrawBtnTxt: { fontSize: ms(typography.size.lg), fontWeight: typography.weight.bold, color: '#fff' },
 })
 
 const m = StyleSheet.create({

@@ -426,8 +426,8 @@ export default function ChatScreen(props: Props) {
 
       {/* ── Messages ── */}
       <KeyboardAvoidingView style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
 
         {loading ? (
           <View style={s.centered}><ActivityIndicator color={colors.primary} size="large" /></View>
@@ -437,9 +437,9 @@ export default function ChatScreen(props: Props) {
             data={messages}
             keyExtractor={m => String(m.id)}
             style={s.list}
-            contentContainerStyle={{ paddingTop: spacing[4], paddingBottom: spacing[2] }}
+            contentContainerStyle={{ paddingTop: spacing[4], paddingBottom: spacing[4] }}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={scrollToBottom}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
             renderItem={({ item, index }) => {
               const showDateSep = shouldShowDate(messages, index)
               const showTime    = shouldShowTime(messages, index) || index === messages.length - 1
@@ -479,39 +479,41 @@ export default function ChatScreen(props: Props) {
 
         {/* ── Input bar ── */}
         {session?.status !== 'closed' ? (
-          <View style={[s.inputBar, inputFocused && s.inputBarFocused]}>
-            <TouchableOpacity style={s.attachBtn} onPress={handlePickImage} activeOpacity={0.7}>
-              <Feather name="image" size={20} color={inputFocused ? colors.primary : colors.muted} />
-            </TouchableOpacity>
-            <TextInput
-              style={s.input}
-              placeholder="Message..."
-              placeholderTextColor={colors.subtle}
-              value={input}
-              onChangeText={setInput}
-              multiline maxLength={500}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-            />
-            <TouchableOpacity
-              style={[s.sendBtn, input.trim() && s.sendBtnActive]}
-              onPress={() => handleSend()}
-              disabled={!input.trim() || sending}
-              activeOpacity={0.85}
-            >
-              {sending
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Feather name="send" size={17} color={input.trim() ? '#fff' : colors.muted} />
-              }
-            </TouchableOpacity>
+          <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, spacing[2]) }]}>
+            <View style={[s.inputRow, inputFocused && s.inputRowFocused]}>
+              <TouchableOpacity style={s.attachBtn} onPress={handlePickImage} activeOpacity={0.7}>
+                <Feather name="image" size={20} color={inputFocused ? colors.primary : colors.muted} />
+              </TouchableOpacity>
+              <TextInput
+                style={s.input}
+                placeholder="Type a message..."
+                placeholderTextColor={colors.subtle}
+                value={input}
+                onChangeText={setInput}
+                multiline maxLength={500}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                returnKeyType="default"
+              />
+              <TouchableOpacity
+                style={[s.sendBtn, input.trim() ? s.sendBtnActive : s.sendBtnInactive]}
+                onPress={() => handleSend()}
+                disabled={!input.trim() || sending}
+                activeOpacity={0.85}
+              >
+                {sending
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Feather name="send" size={16} color={input.trim() ? '#fff' : colors.subtle} />
+                }
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
-          <View style={[s.closedBar, { paddingBottom: insets.bottom + spacing[3] }]}>
+          <View style={[s.closedBar, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
             <Feather name="lock" size={14} color={colors.muted} />
             <Text style={s.closedTxt}>This conversation has been closed</Text>
           </View>
         )}
-        {session?.status !== 'closed' && <View style={{ height: insets.bottom }} />}
       </KeyboardAvoidingView>
 
       {/* ── Review Modal ── */}
@@ -621,13 +623,34 @@ const s = StyleSheet.create({
   emptyTxt:   { fontSize: RF(14), color: colors.muted },
 
   // Input
-  inputBar:        { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2], paddingHorizontal: spacing[3], paddingTop: spacing[2], paddingBottom: spacing[2], backgroundColor: 'transparent', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
-  inputBarFocused: { borderTopColor: colors.primary + '40' },
-  attachBtn:       { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F2F5' },
-  input:           { flex: 1, backgroundColor: 'transparent', borderRadius: 22, paddingHorizontal: spacing[4], paddingVertical: spacing[3], fontSize: RF(15), color: colors.dark, maxHeight: 120 },
-  sendBtn:         { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F0F2F5', alignItems: 'center', justifyContent: 'center' },
-  sendBtnActive:   { backgroundColor: colors.accent },
-  closedBar:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2], padding: spacing[4], backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: colors.border },
+  inputBar: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.07)',
+    paddingHorizontal: spacing[3],
+    paddingTop: spacing[2],
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing[2],
+    backgroundColor: '#F0F2F5',
+    borderRadius: 26,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  inputRowFocused: {
+    borderColor: colors.primary + '50',
+    backgroundColor: '#fff',
+  },
+  attachBtn:       { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  input:           { flex: 1, fontSize: RF(15), color: colors.dark, maxHeight: 120, paddingHorizontal: spacing[2], paddingVertical: spacing[2] + 2, lineHeight: 22 },
+  sendBtn:         { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 1 },
+  sendBtnActive:   { backgroundColor: colors.primary },
+  sendBtnInactive: { backgroundColor: 'transparent' },
+  closedBar:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2], paddingHorizontal: spacing[4], paddingTop: spacing[4], backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: colors.border },
   closedTxt:       { fontSize: RF(13), color: colors.muted },
 
   // Lightbox
