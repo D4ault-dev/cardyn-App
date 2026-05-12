@@ -25,8 +25,10 @@ async function deleteToken() {
 }
 
 // ── Login ──
+// Uses /tuka/auth/login (app-specific endpoint) instead of /login
+// /login is restricted to admin panel staff only
 export async function apiLogin(username: string, password: string): Promise<string> {
-  const res = await client.post('/login', { username, password, code: '', uuid: '' })
+  const res = await client.post('/tuka/auth/login', { username, password, code: '', uuid: '' })
   const token: string = res.data.token
   await saveToken(token)
   setAuthToken(token)

@@ -369,13 +369,24 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
           if ((e?.response?.status ?? 0) === 401) { setError('not_found') } else { showPasswordPanel() }
         }
       } else {
-        const raw = trimmed.replace(/\D/g, '')
-        setLoginMethod('phone'); setPhone(raw)
+        // Normalize phone for login — convert to international format to match sys_user.user_name
+        // e.g. 08147074025 → 2348147074025 (using selected country prefix)
+        const digitsOnly = trimmed.replace(/\D/g, '')
+        const prefix = selectedCountry.phonePrefix?.replace(/\D/g, '') || '234'
+        let fullPhone: string
+        if (digitsOnly.startsWith(prefix)) {
+          fullPhone = digitsOnly // already international
+        } else if (digitsOnly.startsWith('0') && digitsOnly.length > 7) {
+          fullPhone = prefix + digitsOnly.slice(1) // 08147074025 → 2348147074025
+        } else {
+          fullPhone = prefix + digitsOnly // no leading 0 — just prepend prefix
+        }
+        setLoginMethod('phone'); setPhone(fullPhone)
         try {
-          const res = await api.get('/tuka/user/checkPhone', { params: { phone: raw } })
+          const res = await api.get('/tuka/user/checkPhone', { params: { phone: fullPhone } })
           const r = res.data?.msg ?? res.data?.data
           if (r === 'available') { setError('not_found') } else {
-            storage.setItem('@tuka_last_phone', raw).catch(() => {})
+            storage.setItem('@tuka_last_phone', trimmed).catch(() => {})
             showPasswordPanel()
           }
         } catch (e: any) {
