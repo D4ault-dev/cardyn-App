@@ -365,7 +365,6 @@ function AppContent() {
 
         // Read user from SecureStore — avoids stale closure on user ref
         const token = await SecureStore.getItemAsync('cardyn_auth_token').catch(() => null)
-          ?? await SecureStore.getItemAsync('@tuka_auth_token').catch(() => null)
         if (!token) return  // Not logged in — no lock needed
 
         const elapsed = backgroundedAt.current

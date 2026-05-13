@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { View, Text, StyleSheet, Switch, Alert } from 'react-native'
+import React, { useState, useCallback } from 'react'
+import { View, Text, StyleSheet, Switch } from 'react-native'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
@@ -8,26 +8,22 @@ import * as SecureStore from 'expo-secure-store'
 import { useFocusEffect } from '@react-navigation/native'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { BIOMETRIC_KEY } from './auth/types'
+import { useToast } from '../util/useToast'
 
 export default function SecuritySettingsScreen(props: StackScreenProps<RootStackParams, 'SecuritySettings'>) {
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [supported, setSupported]               = useState(false)
   const [toggling, setToggling]                 = useState(false)
+  const { showSuccess, showError, Toast }        = useToast()
 
-  // useFocusEffect re-reads the stored value every time the screen comes into focus.
-  // This fixes the "toggle resets itself" bug — previously useEffect only ran on mount,
-  // so navigating away and back would show a stale value.
   useFocusEffect(
     useCallback(() => {
       let active = true
       Promise.all([
         LocalAuthentication.hasHardwareAsync(),
-        LocalAuthentication.isEnrolledAsync(),
         SecureStore.getItemAsync(BIOMETRIC_KEY),
-      ]).then(([hasHardware, isEnrolled, storedVal]) => {
+      ]).then(([hasHardware, storedVal]) => {
         if (!active) return
-        // On some Android devices isEnrolledAsync() returns false even when
-        // fingerprint is enrolled — treat hasHardware alone as sufficient
         setSupported(hasHardware)
         setBiometricEnabled(storedVal === 'true')
       }).catch(() => {})
@@ -41,7 +37,6 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
 
     try {
       if (val) {
-        // Ask user to confirm with biometric before enabling
         const result = await LocalAuthentication.authenticateAsync({
           promptMessage:         'Authenticate to enable biometric lock',
           fallbackLabel:         'Use Passcode',
@@ -49,19 +44,11 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
           disableDeviceFallback: false,
         })
 
-        if (!result.success) {
-          // user_cancel or lockout — don't change toggle
-          return
-        }
+        if (!result.success) return
 
         await SecureStore.setItemAsync(BIOMETRIC_KEY, 'true')
         setBiometricEnabled(true)
-
-        Alert.alert(
-          'Biometrics Enabled',
-          'The app will now ask for your fingerprint or Face ID when you return after 5 minutes.',
-          [{ text: 'OK' }]
-        )
+        showSuccess('Biometrics enabled')
 
       } else {
         const result = await LocalAuthentication.authenticateAsync({
@@ -75,10 +62,10 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
 
         await SecureStore.setItemAsync(BIOMETRIC_KEY, 'false')
         setBiometricEnabled(false)
+        showSuccess('Biometrics disabled')
       }
-    } catch (e) {
-      // Biometric unavailable — don't change state
-      console.warn('[Biometric] toggle error:', e)
+    } catch {
+      showError('Biometric unavailable')
     } finally {
       setToggling(false)
     }
@@ -94,7 +81,7 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>Facial or fingerprint verification</Text>
               {!supported && (
-                <Text style={s.rowSub}>Not available — set up Face ID or fingerprint in Settings</Text>
+                <Text style={s.rowSub}>Not available on this device</Text>
               )}
             </View>
             <Switch
@@ -111,6 +98,8 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
           When enabled, the app will lock after 5 minutes in the background and require your fingerprint or Face ID to unlock.
         </Text>
       </View>
+
+      {Toast}
     </View>
   )
 }

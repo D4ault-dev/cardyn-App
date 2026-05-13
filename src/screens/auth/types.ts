@@ -24,9 +24,9 @@ export const FALLBACK_COUNTRY: Country = {
   phonePrefix: '234',
 }
 
-export const BIOMETRIC_KEY  = '@fufu_biometric_enabled'
-export const BIOMETRIC_USER = '@fufu_biometric_user'
-export const BIOMETRIC_PASS = '@fufu_biometric_pass'
+export const BIOMETRIC_KEY  = 'cardyn_biometric_enabled'
+export const BIOMETRIC_USER = 'cardyn_biometric_user'
+export const BIOMETRIC_PASS = 'cardyn_biometric_pass'
 
 export const ONBOARDING_SLIDES = [
   {
