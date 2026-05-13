@@ -1254,7 +1254,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
   },
 
-  loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingBox: { flex: 1 },
 
   // Green gradient summary — sticky, outside ScrollView
   summaryCard: {

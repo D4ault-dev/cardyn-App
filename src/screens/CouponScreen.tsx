@@ -9,7 +9,8 @@ import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius } from '../theme'
 import { fetchAllCoupons, Coupon } from '../api/coupon'
 import { AppHeader } from '../components/AppHeader'
-import { GenericListSkeleton } from '../components/Skeleton'
+import { GenericListSkeleton, CouponSkeleton } from '../components/Skeleton'
+import { cacheGet, TTL } from '../util/cache'
 
 // ── Usage rules text ─────────────────────────────────────────────────────────
 const USAGE_RULES =
@@ -92,15 +93,16 @@ function CouponCard({ coupon, onUse }: { coupon: Coupon; onUse: () => void }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function CouponScreen({ navigation }: any) {
-  const [coupons, setCoupons]     = useState<Coupon[]>([])
-  const [loading, setLoading]     = useState(true)
+  const cachedCoupons = cacheGet<Coupon[]>('coupons:default', TTL.userInfo)
+  const [coupons, setCoupons]     = useState<Coupon[]>(cachedCoupons ?? [])
+  const [loading, setLoading]     = useState(!cachedCoupons)
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
-    else setLoading(true)
+    else if (!cachedCoupons) setLoading(true)
     try {
-      const data = await fetchAllCoupons()
+      const data = await fetchAllCoupons(undefined, fresh => setCoupons(fresh))
       setCoupons(data)
     } finally {
       setLoading(false)
@@ -118,7 +120,7 @@ export default function CouponScreen({ navigation }: any) {
       <AppHeader title="Coupon" onBack={() => navigation.goBack()} />
 
       {loading ? (
-        <GenericListSkeleton rows={4} />
+        <CouponSkeleton count={4} />
       ) : (
         <ScrollView
           contentContainerStyle={s.list}

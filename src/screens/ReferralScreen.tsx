@@ -10,7 +10,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import * as ExpoClipboard from 'expo-clipboard'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
-import { GenericListSkeleton } from '../components/Skeleton'
+import { GenericListSkeleton, ReferralSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import client from '../api/client'
@@ -214,7 +214,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#1A1A2E', paddingTop: getStatusBarHeight() }}>
-        <GenericListSkeleton rows={4} hasAvatar />
+        <ReferralSkeleton />
       </View>
     )
   }

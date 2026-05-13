@@ -36,19 +36,6 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
         return
       }
 
-      // Check if we have saved credentials — biometric auto-login needs them
-      const savedUser = await SecureStore.getItemAsync(BIOMETRIC_USER).catch(() => null)
-      const savedPass = await SecureStore.getItemAsync(BIOMETRIC_PASS).catch(() => null)
-
-      if (!savedUser || !savedPass) {
-        Alert.alert(
-          'Re-login Required',
-          'Please log out and log back in once to enable biometric login. This securely saves your credentials for auto-login.',
-          [{ text: 'OK' }]
-        )
-        return
-      }
-
       // Trigger native biometric prompt to confirm intent
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Authenticate to enable biometric login',
@@ -56,17 +43,34 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
         disableDeviceFallback: false,
       })
       if (!result.success) return
+
+      // Save the enabled flag — this activates the biometric lock on app resume
+      await SecureStore.setItemAsync(BIOMETRIC_KEY, 'true').catch(() => {})
+      setBiometricEnabled(true)
+
+      // Check if we have saved credentials for auto-login
+      const savedUser = await SecureStore.getItemAsync(BIOMETRIC_USER).catch(() => null)
+      const savedPass = await SecureStore.getItemAsync(BIOMETRIC_PASS).catch(() => null)
+
+      if (!savedUser || !savedPass) {
+        // Biometric lock is ON but auto-login won't work until next manual login
+        // This is fine — the lock still protects the app on resume
+        Alert.alert(
+          '✅ Biometrics Enabled',
+          'Biometric lock is now active. For automatic login on app open, log out and log back in once.',
+          [{ text: 'OK' }]
+        )
+      } else {
+        Alert.alert('✅ Biometrics Enabled', 'You can now log in with your fingerprint or Face ID.')
+      }
+      return
     }
 
-    setBiometricEnabled(val)
-    // Save to SecureStore — same store App.tsx reads from on app resume
-    await SecureStore.setItemAsync(BIOMETRIC_KEY, val ? 'true' : 'false').catch(() => {})
-
-    if (!val) {
-      // Disabling — clear saved credentials
-      await SecureStore.deleteItemAsync(BIOMETRIC_USER).catch(() => {})
-      await SecureStore.deleteItemAsync(BIOMETRIC_PASS).catch(() => {})
-    }
+    // Disabling biometrics
+    setBiometricEnabled(false)
+    await SecureStore.setItemAsync(BIOMETRIC_KEY, 'false').catch(() => {})
+    await SecureStore.deleteItemAsync(BIOMETRIC_USER).catch(() => {})
+    await SecureStore.deleteItemAsync(BIOMETRIC_PASS).catch(() => {})
   }
 
   return (

@@ -11,8 +11,9 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchArticles, Article } from '../api/discovery'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
-import { GenericListSkeleton } from '../components/Skeleton'
+import { GenericListSkeleton, DiscoverySkeleton } from '../components/Skeleton'
 import { tabBarClearance } from '../util/responsive'
+import { cacheGet, TTL } from '../util/cache'
 
 // ── Article list card ─────────────────────────────────────────────────────────
 function ArticleCard({ article, onPress }: { article: Article; onPress: () => void }) {
@@ -63,13 +64,14 @@ const ac = StyleSheet.create({
 // ── Main list screen ──────────────────────────────────────────────────────────
 export default function DiscoveryScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
   const insets = useSafeAreaInsets()
-  const [articles,   setArticles]   = useState<Article[]>([])
-  const [loading,    setLoading]    = useState(true)
+  const cachedArticles = cacheGet<Article[]>('articles:list', TTL.countries)
+  const [articles,   setArticles]   = useState<Article[]>(cachedArticles ?? [])
+  const [loading,    setLoading]    = useState(!cachedArticles)
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async (isRefresh = false) => {
-    if (!isRefresh) setLoading(true)
-    try { setArticles(await fetchArticles()) }
+    if (!isRefresh && !cachedArticles) setLoading(true)
+    try { setArticles(await fetchArticles(fresh => setArticles(fresh))) }
     catch { /* silently fail */ }
     finally { setLoading(false); setRefreshing(false) }
   }, [])
@@ -87,7 +89,7 @@ export default function DiscoveryScreen(props: StackScreenProps<RootStackParams,
       </View>
 
       {loading ? (
-        <GenericListSkeleton rows={4} />
+        <DiscoverySkeleton count={4} />
       ) : (
         <FlatList
           data={articles}

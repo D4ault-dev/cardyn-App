@@ -17,8 +17,9 @@ import {
   fetchBankAccounts, addBankAccount, deleteBankAccount, submitWithdrawal,
   BankAccount,
 } from '../api/wallet'
+import { cacheGet, TTL } from '../util/cache'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
-import { WalletBalanceSkeleton, GenericListSkeleton, Skeleton } from '../components/Skeleton'
+import { WalletBalanceSkeleton, GenericListSkeleton, WalletTransactionSkeleton, Skeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { useCountry } from '../context/CountryContext'
 
@@ -42,13 +43,17 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
   const sym = selectedCountry?.currencySymbol ?? '₦'
   const insets = useSafeAreaInsets()
 
-  const [wallet, setWallet]           = useState<WalletInfo>({
+  // Pre-populate from cache for instant open
+  const cachedWallet = cacheGet<WalletInfo>(`wallet:${selectedCountry?.name || 'default'}`, TTL.wallet)
+  const cachedTx     = cacheGet<{ list: Transaction[]; total: number }>('transactions:all:50', TTL.orders)
+
+  const [wallet, setWallet]           = useState<WalletInfo>(cachedWallet ?? {
     balance: 0, totalSales: 0, totalWithdrawn: 0,
     registerBonus: 0, totalEarned: 0,
     level: 1, exp: 0, realName: '', phone: '', inviteCode: '',
   })
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading]           = useState(true)
+  const [transactions, setTransactions] = useState<Transaction[]>(cachedTx?.list ?? [])
+  const [loading, setLoading]           = useState(!cachedWallet || !cachedTx)
   const [refreshing, setRefreshing]     = useState(false)
   const [tab, setTab]                   = useState<Tab>('giftcards')
   const [balanceVisible, setBalanceVisible] = useState(true)
@@ -83,7 +88,8 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
   // Reload when user logs in/out OR when country switches
   useEffect(() => {
     if (user.isPresent()) {
-      setLoading(true)
+      const hasCached = !!cacheGet(`wallet:${selectedCountry?.name || 'default'}`, TTL.wallet)
+      if (!hasCached) setLoading(true)
       load()
     }
   }, [user, selectedCountry?.name])
@@ -281,7 +287,7 @@ export default function WalletScreen(props: StackScreenProps<RootStackParams, 'T
 
           {/* List */}
           {loading ? (
-            <GenericListSkeleton rows={5} />
+            <WalletTransactionSkeleton count={5} />
           ) : displayed.length === 0 ? (
             <View style={s.emptyWrap}>
               <View style={s.emptyIcon}>

@@ -15,6 +15,7 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
 import { fetchWalletInfo, WalletInfo } from '../api/wallet'
 import client from '../api/client'
+import { cacheGet, TTL } from '../util/cache'
 import { DailyCheckInModal, useDailyCheckIn } from '../components/DailyCheckInModal'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { tabBarClearance, ms, RF } from '../util/responsive'
@@ -67,14 +68,21 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
   const isLoggedIn = user.isPresent()
 
   const [balanceVisible, setBalanceVisible]   = useState(true)
-  const [cards, setCards]                     = useState<CardCategory[]>([])
-  const [cardsLoading, setCardsLoading]       = useState(true)
   const [refreshing, setRefreshing]           = useState(false)
   const { selectedCountry, setSelectedCountry, countries } = useCountry()
   const [countryPickerOpen, setCountryPickerOpen] = useState(false)
   const [wallet, setWallet]                   = useState<WalletInfo | null>(null)
   const [walletLoading, setWalletLoading]     = useState(false)
   const [unreadCount, setUnreadCount]         = useState(0)
+
+  // Pre-populate cards from cache — eliminates skeleton flash on repeat visits
+  // Must be after useCountry() so selectedCountry is available
+  const cachedCards = cacheGet<CardCategory[]>(
+    `v3:${selectedCountry?.name || 'all'}`,
+    60_000  // matches CACHE_TTL in cards.ts
+  )
+  const [cards, setCards]                     = useState<CardCategory[]>(cachedCards ?? [])
+  const [cardsLoading, setCardsLoading]       = useState(!cachedCards)
 
   // ── Unread notification count — only poll when logged in ──────────────────
   useEffect(() => {
@@ -93,9 +101,12 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
   }, [isLoggedIn])
 
   const cardAnims = useRef<Animated.Value[]>([]).current
-  // Use a ref to track card existence — avoids dependency loop in loadCards
-  const hasCardsRef = useRef(false)
-  // Track previous rates to show ▲/▼ change indicators
+  // Pre-set to true if we have cached cards — prevents skeleton flash and stagger re-animation
+  const hasCardsRef = useRef((cachedCards?.length ?? 0) > 0)
+  // Pre-fill animation values for cached cards so they render at full opacity immediately
+  if (cardAnims.length === 0 && cachedCards && cachedCards.length > 0) {
+    cachedCards.forEach(() => cardAnims.push(new Animated.Value(1)))
+  }
   const prevRatesRef = useRef<Record<number, number>>({})
   const { show: showCheckIn, points: checkInPts, streak: checkInStreak, check: checkDailyIn, dismiss: dismissCheckIn } = useDailyCheckIn()
 
@@ -116,10 +127,12 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
       return
     }
     setWalletLoading(true)
-    fetchWalletInfo(selectedCountry?.name)
-      .then(w => setWallet(w))
-      .catch(() => {})
-      .finally(() => setWalletLoading(false))
+    fetchWalletInfo(selectedCountry?.name, fresh => {
+      setWallet(fresh)
+      setWalletLoading(false)
+    })
+      .then(w => { setWallet(w); setWalletLoading(false) })
+      .catch(() => setWalletLoading(false))
   }, [isLoggedIn, selectedCountry?.name])
 
   const loadCards = useCallback(async (force = false, silent = false) => {
@@ -166,10 +179,13 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
   }, [selectedCountry])
 
   useEffect(() => {
-    setCardsLoading(true)
-    // Country changed — reset ref so skeleton shows for new country, then reload
-    hasCardsRef.current = false
-    setCards([])
+    // Only show skeleton if no cache for this country
+    const hasCached = (cacheGet<CardCategory[]>(`v3:${selectedCountry?.name || 'all'}`, 60_000)?.length ?? 0) > 0
+    if (!hasCached) {
+      setCardsLoading(true)
+      hasCardsRef.current = false
+      setCards([])
+    }
     const country = selectedCountry?.name || ''
     const fetches: Promise<any>[] = [loadCards(true, false)]
     if (isLoggedIn) {

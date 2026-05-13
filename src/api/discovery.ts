@@ -1,5 +1,6 @@
 import client from './client'
 import { resolveImageUrl } from './cards'
+import { swrFetch, TTL } from '../util/cache'
 
 export type Banner = {
   id: number
@@ -30,17 +31,19 @@ export async function fetchBanners(): Promise<Banner[]> {
   }))
 }
 
-export async function fetchArticles(): Promise<Article[]> {
-  const res = await client.get('/tuka/article/public')
-  const list: any[] = res.data?.data || []
-  return list.map(a => ({
-    id:         a.id,
-    title:      a.title,
-    subtitle:   a.subtitle || null,
-    image:      resolveImageUrl(a.image),
-    readCount:  a.readCount || 0,
-    createDate: a.createDate || '',
-  }))
+export async function fetchArticles(onFresh?: (a: Article[]) => void): Promise<Article[]> {
+  return swrFetch('articles:list', TTL.countries, async () => {
+    const res = await client.get('/tuka/article/public')
+    const list: any[] = res.data?.data || []
+    return list.map(a => ({
+      id:         a.id,
+      title:      a.title,
+      subtitle:   a.subtitle || null,
+      image:      resolveImageUrl(a.image),
+      readCount:  a.readCount || 0,
+      createDate: a.createDate || '',
+    }))
+  }, onFresh)
 }
 
 export async function fetchArticleDetail(id: number): Promise<ArticleDetail> {

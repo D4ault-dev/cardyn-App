@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
+  TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
@@ -76,15 +76,15 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
 
   const canConfirm = otpCode.length >= 4 && !!pinId && !saving
 
-  const bottomPad = Math.max(insets.bottom, 16)
-
   return (
     <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Bind Phone Number" onBack={() => props.navigation.goBack()} />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing[4], paddingBottom: bottomPad + spacing[4] }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
+        <View style={s.body}>
           <Text style={s.notice}>
             Bind a phone number to your account for security verification and account recovery.
           </Text>
@@ -115,6 +115,8 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
                 maxLength={6}
                 value={otpCode}
                 onChangeText={setOtpCode}
+                returnKeyType="done"
+                onSubmitEditing={handleConfirm}
               />
               <TouchableOpacity
                 onPress={handleSend}
@@ -129,7 +131,10 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
               </TouchableOpacity>
             </View>
           </View>
+        </View>
 
+        {/* Button fixed above keyboard */}
+        <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[3] }]}>
           <TouchableOpacity
             style={[s.btn, !canConfirm && s.btnOff]}
             onPress={handleConfirm}
@@ -140,8 +145,8 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
               : <Text style={[s.btnTxt, !canConfirm && s.btnTxtOff]}>Bind Phone Number</Text>
             }
           </TouchableOpacity>
+        </View>
 
-        </ScrollView>
       </KeyboardAvoidingView>
 
       {Toast}
@@ -152,13 +157,16 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
 
+  body: { flex: 1, paddingTop: spacing[4] },
+
   notice: {
     fontSize: typography.size.sm, color: '#F59E0B',
-    lineHeight: 20, marginBottom: spacing[4],
+    lineHeight: 20, marginHorizontal: spacing[5], marginBottom: spacing[4],
   },
 
   card: {
     backgroundColor: colors.surface, borderRadius: radius.xl,
+    marginHorizontal: spacing[4],
     overflow: 'hidden', ...shadow.sm, marginBottom: spacing[5],
   },
   field: {
@@ -172,6 +180,11 @@ const s = StyleSheet.create({
   },
   sendTxt: { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.primary },
 
+  bottomBar: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[3],
+    backgroundColor: colors.background,
+  },
   btn: {
     backgroundColor: '#1A1A1A', borderRadius: radius.full,
     paddingVertical: spacing[4], alignItems: 'center',

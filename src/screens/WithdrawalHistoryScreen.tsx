@@ -9,11 +9,12 @@ import { Feather } from '@expo/vector-icons'
 import * as ExpoClipboard from 'expo-clipboard'
 import { AppHeader } from '../components/AppHeader'
 import { AppRefreshControl } from '../components/Spinner'
-import { GenericListSkeleton } from '../components/Skeleton'
+import { GenericListSkeleton, WithdrawalHistorySkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchMyWithdrawals, Withdrawal } from '../api/wallet'
 import { useCountry } from '../context/CountryContext'
 import { ms } from '../util/responsive'
+import { cacheGet, TTL } from '../util/cache'
 
 function fmt(n: number | undefined | null) {
   return (typeof n === 'number' && !isNaN(n) ? n : 0)
@@ -49,15 +50,16 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
   const { selectedCountry } = useCountry()
   const sym = selectedCountry?.currencySymbol ?? '₦'
 
-  const [list, setList]             = useState<Withdrawal[]>([])
-  const [loading, setLoading]       = useState(true)
+  const cachedList = cacheGet<Withdrawal[]>(`withdrawals:${selectedCountry?.name || 'default'}`, TTL.orders)
+  const [list, setList]             = useState<Withdrawal[]>(cachedList ?? [])
+  const [loading, setLoading]       = useState(!cachedList)
   const [refreshing, setRefreshing] = useState(false)
   const [copiedId, setCopiedId]     = useState<string | null>(null)
 
   const load = useCallback(async (isRefresh = false) => {
-    if (!isRefresh) setLoading(true)
+    if (!isRefresh && !cachedList) setLoading(true)
     try {
-      const data = await fetchMyWithdrawals(selectedCountry?.name)
+      const data = await fetchMyWithdrawals(selectedCountry?.name, fresh => setList(fresh))
       setList(data)
     } catch { /* keep */ }
     finally { setLoading(false); setRefreshing(false) }
@@ -122,7 +124,7 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
       <AppHeader title="Withdrawal Record" onBack={() => props.navigation.goBack()} />
 
       {loading ? (
-        <GenericListSkeleton rows={5} />
+        <WithdrawalHistorySkeleton count={5} />
       ) : (
         <FlatList
           data={list}

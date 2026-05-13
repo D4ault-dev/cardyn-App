@@ -12,7 +12,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { AppHeader } from '../components/AppHeader'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
-import { GenericListSkeleton } from '../components/Skeleton'
+import { Skeleton, GenericListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import {
   fetchStreakInfo, fetchBonusHistory, postCheckIn,
@@ -288,7 +288,55 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
     return (
       <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
         <AppHeader title="Daily Bonus" onBack={() => props.navigation.goBack()} light />
-        <View style={s.centered}><GenericListSkeleton rows={3} /></View>
+        <ScrollView scrollEnabled={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          {/* Balance card skeleton */}
+          <View style={[s.balanceCard, { gap: spacing[4] }]}>
+            <Skeleton width={100} height={64} radius={radius.xl} />
+            <View style={{ flex: 1, gap: spacing[2] }}>
+              <Skeleton width={80} height={11} radius={5} />
+              <Skeleton width={120} height={16} radius={6} />
+              <Skeleton width={100} height={11} radius={5} />
+            </View>
+          </View>
+          {/* Check-in card skeleton */}
+          <View style={s.card}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[5] }}>
+              <View style={{ gap: spacing[2] }}>
+                <Skeleton width={120} height={16} radius={6} />
+                <Skeleton width={90} height={22} radius={radius.full} />
+              </View>
+              <Skeleton width={80} height={22} radius={radius.full} />
+            </View>
+            {/* 7 day dots */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[5] }}>
+              {[1,2,3,4,5,6,7].map(i => (
+                <View key={i} style={{ alignItems: 'center', gap: 4 }}>
+                  <Skeleton circle size={ms(32)} />
+                  <Skeleton width={28} height={9} radius={4} />
+                </View>
+              ))}
+            </View>
+            <Skeleton width="100%" height={6} radius={3} style={{ marginBottom: spacing[4] }} />
+            <Skeleton width="100%" height={48} radius={radius.full} />
+          </View>
+          {/* History card skeleton */}
+          <View style={s.card}>
+            <Skeleton width={100} height={16} radius={6} style={{ marginBottom: spacing[4] }} />
+            <View style={{ flexDirection: 'row', gap: spacing[2], marginBottom: spacing[4] }}>
+              {[60, 60, 50].map((w, i) => <Skeleton key={i} width={w} height={30} radius={radius.full} />)}
+            </View>
+            {[1,2,3].map(i => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[4], borderBottomWidth: i < 3 ? 1 : 0, borderBottomColor: colors.border }}>
+                <Skeleton circle size={ms(36)} />
+                <View style={{ flex: 1, gap: spacing[2] }}>
+                  <Skeleton width="55%" height={14} radius={6} />
+                  <Skeleton width="35%" height={11} radius={5} />
+                </View>
+                <Skeleton width={60} height={14} radius={6} />
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </View>
     )
   }
@@ -461,8 +509,7 @@ export default function DailyBonusScreen(props: StackScreenProps<RootStackParams
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  safe:     { flex: 1, backgroundColor: GREEN },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  safe: { flex: 1, backgroundColor: GREEN },
 
   balanceCard: {
     flexDirection: 'row', alignItems: 'center',

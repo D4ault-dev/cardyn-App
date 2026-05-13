@@ -631,7 +631,13 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
     <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <Text style={s.pageTitle}>Transaction</Text>
 
-      {/* Tab pills + filter button */}
+      {/* Full-page skeleton — fills entire screen below title */}
+      {loading && (
+        <View style={{ flex: 1 }}>
+          <OrderListSkeleton />
+        </View>
+      )}
+      {!loading && (
       <View style={s.tabBarRow}>
         <View style={s.tabRow}>
           {(['giftcards', 'withdraw', 'commission'] as Tab[]).map(t => (
@@ -652,15 +658,15 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
           </TouchableOpacity>
         )}
       </View>
+      )}
 
+      {!loading && (
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ padding: spacing[4], paddingBottom: tabBarClearance(insets.bottom) }}>
 
-        {loading && tab !== 'commission' ? (
-          <OrderListSkeleton />
-        ) : tab === 'commission' ? (
+        {tab === 'commission' ? (
           // ── Commission tab ────────────────────────────────────────────────
           commLoading ? (
             <GenericListSkeleton rows={4} />
@@ -800,6 +806,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
           })
         )}
       </ScrollView>
+      )}
     </View>
 
     {/* ── Filter bottom sheet ── */}

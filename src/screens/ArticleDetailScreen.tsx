@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
-  View, Text, StyleSheet, ActivityIndicator,
+  View, Text, StyleSheet,
   TouchableOpacity, Dimensions, Platform} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
@@ -13,6 +13,8 @@ import { fetchArticleDetail, ArticleDetail } from '../api/discovery'
 import { fetchCoupon } from '../api/coupon'
 import { CouponClaimModal } from '../components/CouponClaimModal'
 import { BASE_URL } from '../api/client'
+import { swrFetch, TTL } from '../util/cache'
+import { Skeleton } from '../components/Skeleton'
 
 const { width: W } = Dimensions.get('window')
 
@@ -210,10 +212,12 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
   const [claimCode, setClaimCode] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchArticleDetail(articleId)
-      .then(setDetail)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    // Cache article details per ID — articles rarely change
+    swrFetch(`article:${articleId}`, TTL.countries, () => fetchArticleDetail(articleId),
+      fresh => { setDetail(fresh); setLoading(false) }
+    )
+      .then(d => { setDetail(d); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [articleId])
 
   const content     = detail?.content || ''
@@ -234,8 +238,24 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
       </View>
 
       {loading ? (
-        <View style={s.centered}>
-          <ActivityIndicator size="large" color={colors.accent} />
+        <View style={{ flex: 1, padding: spacing[4] }}>
+          {/* Title skeleton */}
+          <Skeleton width="90%" height={28} radius={8} style={{ marginBottom: spacing[2] }} />
+          <Skeleton width="65%" height={28} radius={8} style={{ marginBottom: spacing[4] }} />
+          {/* Meta card skeleton */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], backgroundColor: colors.surface, borderRadius: radius.lg, paddingHorizontal: spacing[4], paddingVertical: spacing[3] + 2, marginBottom: spacing[4] }}>
+            <Skeleton width={14} height={14} radius={7} />
+            <Skeleton width={80} height={11} radius={5} />
+            <View style={{ flex: 1 }} />
+            <Skeleton width={30} height={11} radius={5} />
+            <Skeleton width={14} height={14} radius={7} />
+          </View>
+          {/* Body skeleton */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing[5], gap: spacing[3] }}>
+            {[100, 90, 95, 80, 85, 70, 90, 60].map((w, i) => (
+              <Skeleton key={i} width={`${w}%`} height={14} radius={6} />
+            ))}
+          </View>
         </View>
       ) : !detail ? (
         <View style={s.centered}>

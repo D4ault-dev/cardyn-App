@@ -66,7 +66,17 @@ export async function fetchCardCategories(forceRefresh = false, country = ''): P
   const now = Date.now()
   const cached = _cache.get(key)
   const isStale = !cached || (now - cached.time > CACHE_TTL)
-  if (cached && !isStale && !forceRefresh) return cached.data
+
+  // Stale-while-revalidate: return cached data instantly (even if stale),
+  // then refresh in background. This makes SellCardScreen open instantly.
+  if (cached && !forceRefresh) {
+    if (isStale) {
+      // Refresh in background — don't block the caller
+      fetchCardCategories(true, country).catch(() => {})
+    }
+    return cached.data
+  }
+
   try {
     const params: any = {}
     if (country) params.country = country

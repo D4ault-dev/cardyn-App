@@ -1,4 +1,5 @@
 import client from './client'
+import { swrFetch, cacheSet, cacheGet, cacheInvalidate, TTL } from '../util/cache'
 
 export type WalletInfo = {
   balance: number
@@ -23,31 +24,34 @@ export type Transaction = {
 }
 
 // ── Fetch authenticated user's wallet ──────────────────────────────────────
-export async function fetchWalletInfo(country?: string): Promise<WalletInfo> {
-  try {
-    const params: any = {}
-    if (country) params.country = country
-    const res = await client.get('/tuka/wallet/my', { params })
-    const d = res.data?.data || res.data || {}
-    return {
-      balance:        d.balance        || 0,
-      totalSales:     d.totalSales     || 0,
-      totalWithdrawn: d.totalWithdrawn || 0,
-      registerBonus:  d.registerBonus  || 0,
-      totalEarned:    d.totalEarned    || 0,
-      level:          d.level          || 1,
-      exp:            d.exp            || 0,
-      realName:       d.realName       || '',
-      phone:          d.phone          || '',
-      inviteCode:     d.inviteCode     || '',
+export async function fetchWalletInfo(country?: string, onFresh?: (w: WalletInfo) => void): Promise<WalletInfo> {
+  const key = `wallet:${country || 'default'}`
+  return swrFetch(key, TTL.wallet, async () => {
+    try {
+      const params: any = {}
+      if (country) params.country = country
+      const res = await client.get('/tuka/wallet/my', { params })
+      const d = res.data?.data || res.data || {}
+      return {
+        balance:        d.balance        || 0,
+        totalSales:     d.totalSales     || 0,
+        totalWithdrawn: d.totalWithdrawn || 0,
+        registerBonus:  d.registerBonus  || 0,
+        totalEarned:    d.totalEarned    || 0,
+        level:          d.level          || 1,
+        exp:            d.exp            || 0,
+        realName:       d.realName       || '',
+        phone:          d.phone          || '',
+        inviteCode:     d.inviteCode     || '',
+      }
+    } catch {
+      return {
+        balance: 0, totalSales: 0, totalWithdrawn: 0,
+        registerBonus: 0, totalEarned: 0,
+        level: 1, exp: 0, realName: '', phone: '', inviteCode: '',
+      }
     }
-  } catch {
-    return {
-      balance: 0, totalSales: 0, totalWithdrawn: 0,
-      registerBonus: 0, totalEarned: 0,
-      level: 1, exp: 0, realName: '', phone: '', inviteCode: '',
-    }
-  }
+  }, onFresh)
 }
 
 // ── Fetch authenticated user's transaction history ─────────────────────────
@@ -56,15 +60,18 @@ export async function fetchTransactions(params?: {
   pageSize?: number
   type?: string
   category?: string
-}): Promise<{ list: Transaction[]; total: number }> {
-  try {
-    const res = await client.get('/tuka/wallet/transactions', {
-      params: { pageNum: 1, pageSize: 50, ...params },
-    })
-    return { list: res.data.rows || [], total: res.data.total || 0 }
-  } catch {
-    return { list: [], total: 0 }
-  }
+}, onFresh?: (r: { list: Transaction[]; total: number }) => void): Promise<{ list: Transaction[]; total: number }> {
+  const key = `transactions:${params?.category || 'all'}:${params?.pageSize || 50}`
+  return swrFetch(key, TTL.orders, async () => {
+    try {
+      const res = await client.get('/tuka/wallet/transactions', {
+        params: { pageNum: 1, pageSize: 50, ...params },
+      })
+      return { list: res.data.rows || [], total: res.data.total || 0 }
+    } catch {
+      return { list: [], total: 0 }
+    }
+  }, onFresh)
 }
 
 export type BankAccount = {
@@ -89,10 +96,13 @@ export type Withdrawal = {
 }
 
 export async function fetchBankAccounts(): Promise<BankAccount[]> {
-  try {
-    const res = await client.get('/tuka/bank/account/list')
-    return res.data?.data || []
-  } catch { return [] }
+  const key = 'banks:list'
+  return swrFetch(key, TTL.banks, async () => {
+    try {
+      const res = await client.get('/tuka/bank/account/list')
+      return res.data?.data || []
+    } catch { return [] }
+  })
 }
 
 export async function addBankAccount(data: {
@@ -102,10 +112,12 @@ export async function addBankAccount(data: {
   isDefault?: boolean
 }): Promise<void> {
   await client.post('/tuka/bank/add', data)
+  cacheInvalidate('banks:list')  // invalidate so next fetch is fresh
 }
 
 export async function deleteBankAccount(id: number): Promise<void> {
   await client.delete(`/tuka/bank/${id}`)
+  cacheInvalidate('banks:list')  // invalidate so next fetch is fresh
 }
 
 export async function submitWithdrawal(data: {
@@ -119,22 +131,28 @@ export async function submitWithdrawal(data: {
   return res.data?.data || ''
 }
 
-export async function fetchMyWithdrawals(country?: string): Promise<Withdrawal[]> {
-  try {
-    const params: any = { pageNum: 1, pageSize: 50 }
-    if (country) params.country = country
-    const res = await client.get('/tuka/withdrawal/my', { params })
-    return res.data.rows || []
-  } catch { return [] }
+export async function fetchMyWithdrawals(country?: string, onFresh?: (w: Withdrawal[]) => void): Promise<Withdrawal[]> {
+  const key = `withdrawals:${country || 'default'}`
+  return swrFetch(key, TTL.orders, async () => {
+    try {
+      const params: any = { pageNum: 1, pageSize: 50 }
+      if (country) params.country = country
+      const res = await client.get('/tuka/withdrawal/my', { params })
+      return res.data.rows || []
+    } catch { return [] }
+  }, onFresh)
 }
 
 export type NigerianBank = { name: string; code: string; logoUrl?: string }
 
 export async function fetchNigerianBanks(): Promise<NigerianBank[]> {
-  try {
-    const res = await client.get('/tuka/bank/banks')
-    return res.data?.data || []
-  } catch { return [] }
+  const key = 'nigerian:banks'
+  return swrFetch(key, TTL.banks, async () => {
+    try {
+      const res = await client.get('/tuka/bank/banks')
+      return res.data?.data || []
+    } catch { return [] }
+  })
 }
 
 export async function resolveAccountName(

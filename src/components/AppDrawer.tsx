@@ -11,6 +11,7 @@ import { useDrawer, DRAWER_W } from '../context/DrawerContext'
 import { apiGetUserInfo } from '../api/auth'
 import { BASE_URL } from '../api/client'
 import { colors, typography, spacing, radius, shadow } from '../theme'
+import { swrFetch, TTL } from '../util/cache'
 
 function resolveAvatar(path: string | null): string | null {
   if (!path) return null
@@ -29,25 +30,25 @@ export function AppDrawer() {
   const avatarFetchedRef = React.useRef(false)
 
   useEffect(() => {
-    // Only fetch avatar once per session, not on every drawer open
-    if (drawerVisible && user.isPresent() && !avatarFetchedRef.current) {
-      avatarFetchedRef.current = true
-      apiGetUserInfo().then(info => {
-        if (info.avatar) setAvatar(info.avatar)
-      }).catch(() => {})
-    }
-  }, [drawerVisible, user])
+    if (!user.isPresent()) return
+    // Use SWR cache — returns cached avatar instantly, refreshes in background
+    swrFetch('userInfo:avatar', TTL.userInfo, () => apiGetUserInfo(), fresh => {
+      if (fresh.avatar) setAvatar(fresh.avatar)
+    }).then(info => {
+      if (info.avatar) setAvatar(info.avatar)
+    }).catch(() => {})
+  }, [user])
 
   function navigate(screen: string, params?: any) {
     // Close drawer immediately without waiting for animation — then navigate
-    // This eliminates the 220ms animation delay before the new screen appears
     drawerAnim.stopAnimation()
     overlayAnim.stopAnimation()
     drawerAnim.setValue(-DRAWER_W)
     overlayAnim.setValue(0)
     close()
-    // Navigate on next frame — drawer is already visually gone
-    requestAnimationFrame(() => navigation.navigate(screen, params))
+    // Small delay ensures drawer state is fully settled before navigation
+    // requestAnimationFrame alone is too fast on slow Android devices
+    setTimeout(() => navigation.navigate(screen, params), 50)
   }
 
   function handleLogout() {

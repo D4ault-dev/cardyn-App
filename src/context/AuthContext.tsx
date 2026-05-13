@@ -12,9 +12,10 @@ import { SocialUser } from '../api/socialAuth'
 import { registerPushToken } from '../util/pushNotifications'
 import { Analytics } from '../util/analytics'
 import { trackAdEvent } from '../util/adManager'
-import { fetchCountries } from '../api/country'
 import { fetchCardCategories } from '../api/cards'
 import { fetchCurrencies } from '../api/currency'
+import { cacheClear } from '../util/cache'
+import { fetchCountries } from '../api/country'
 
 export type SignupPayload = {
   name: string
@@ -160,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     await apiLogout()
     await clearUserName()
+    cacheClear()  // clear all cached API data on logout
     setUser(Nothing())
     Analytics.logout()
   }

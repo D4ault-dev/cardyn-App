@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import * as ExpoClipboard from 'expo-clipboard'
 import { useAuth } from '../context/AuthContext'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
-import { LeaderboardSkeleton } from '../components/Skeleton'
+import { GenericListSkeleton, LeaderboardSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import client from '../api/client'
@@ -381,9 +381,9 @@ function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation
             <Text style={{ fontSize: typography.size.sm, color: colors.muted, textAlign: 'center', marginBottom: spacing[5] }}>
               Share your code and earn ₦{bonus.toLocaleString()} when friends complete their first trade
             </Text>
-            <TouchableOpacity style={it.shareBtn} onPress={handleShare} activeOpacity={0.85}>
+            <TouchableOpacity style={it.inviteBtn} onPress={handleShare} activeOpacity={0.85}>
               <Feather name="share-2" size={16} color="#fff" style={{ marginRight: spacing[2] }} />
-              <Text style={it.shareBtnTxt}>Invite Friends</Text>
+              <Text style={it.inviteBtnTxt}>Invite Friends</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -456,6 +456,15 @@ const it = StyleSheet.create({
     paddingVertical: spacing[4],
   },
   shareBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#fff' },
+
+  // Invite Friends CTA — primary green, more prominent than shareBtn
+  inviteBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.primary, borderRadius: radius.full,
+    paddingVertical: spacing[4], paddingHorizontal: spacing[8],
+    width: '100%',
+  },
+  inviteBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#fff' },
 
   // Steps — removed (how it works section deleted)
 
@@ -595,7 +604,7 @@ export default function LeaderboardScreen(props: StackScreenProps<RootStackParam
       {/* ── Content — fades when switching tabs ── */}
       <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
       {loading ? (
-        <View style={s.centered}><LeaderboardSkeleton /></View>
+        <View style={{ flex: 1 }}><LeaderboardSkeleton /></View>
       ) : tab === 'Leaderboard' ? (
         <FlatList
           data={rest}

@@ -14,6 +14,7 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { ms, RF } from '../util/responsive'
 import { clearBadge } from '../util/pushNotifications'
+import { swrFetch, cacheGet, TTL } from '../util/cache'
 
 const SCREEN_W = Dimensions.get('window').width
 
@@ -295,8 +296,9 @@ const dp = StyleSheet.create({
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'Alerts'>) {
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading,       setLoading]       = useState(true)
+  const cachedNotifs = cacheGet<Notification[]>('notifications:list', TTL.orders)
+  const [notifications, setNotifications] = useState<Notification[]>(cachedNotifs ?? [])
+  const [loading,       setLoading]       = useState(!cachedNotifs)
   const [refreshing,    setRefreshing]    = useState(false)
   const [selected,      setSelected]      = useState<Notification | null>(null)
   const [navigating,    setNavigating]    = useState(false)
@@ -307,13 +309,16 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
 
   const load = useCallback(async () => {
     try {
-      const res = await client.get('/tuka/user/notifications')
-      const raw: any[] = res.data?.data || []
-      setNotifications(raw.map(n => ({
-        ...n,
-        title: stripEmoji(n.title || ''),
-        isRead: !!n.isRead,
-      })))
+      const data = await swrFetch('notifications:list', TTL.orders, async () => {
+        const res = await client.get('/tuka/user/notifications')
+        const raw: any[] = res.data?.data || []
+        return raw.map(n => ({
+          ...n,
+          title: stripEmoji(n.title || ''),
+          isRead: !!n.isRead,
+        }))
+      }, fresh => setNotifications(fresh))
+      setNotifications(data)
     } catch { /* keep */ }
     finally { setLoading(false); setRefreshing(false) }
   }, [])
@@ -436,7 +441,9 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
         </View>
 
         {loading ? (
-          <NotificationSkeleton count={3} />
+          <View style={{ flex: 1, paddingHorizontal: spacing[4], paddingTop: spacing[3] }}>
+            <NotificationSkeleton count={5} />
+          </View>
         ) : (
           <FlatList
             data={notifications}

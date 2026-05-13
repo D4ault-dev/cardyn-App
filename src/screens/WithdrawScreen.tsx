@@ -12,7 +12,7 @@ import { BottomSheet } from '../components/BottomSheet'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
-import { WithdrawBalanceSkeleton, Skeleton } from '../components/Skeleton'
+import { WithdrawBalanceSkeleton, WithdrawScreenSkeleton, Skeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import {
@@ -20,9 +20,9 @@ import {
   submitWithdrawal, BankAccount, WalletInfo,
   fetchNigerianBanks, resolveAccountName, NigerianBank,
 } from '../api/wallet'
+import { cacheGet, TTL } from '../util/cache'
 import { useCountry } from '../context/CountryContext'
 import { hapticMedium, hapticLight, hapticHeavy } from '../util/haptics'
-
 function fmt(n: number | undefined | null) {
   return (typeof n === 'number' && !isNaN(n) ? n : 0)
     .toLocaleString('en-NG', { minimumFractionDigits: 2 })
@@ -118,10 +118,21 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
   const localSym = selectedCountry?.currencySymbol ?? '₦'
   const insets = useSafeAreaInsets()
 
-  const [wallet, setWallet]           = useState<WalletInfo | null>(null)
-  const [banks, setBanks]             = useState<BankAccount[]>([])
-  const [selectedBank, setSelectedBank] = useState<BankAccount | null>(null)
-  const [loading, setLoading]         = useState(true)
+  // Check if we already have cached data — if so, open instantly with no skeleton
+  const hasCachedWallet = !!cacheGet(`wallet:${selectedCountry?.name || 'default'}`, TTL.wallet)
+  const hasCachedBanks  = !!cacheGet('banks:list', TTL.banks)
+  const hasCache = hasCachedWallet && hasCachedBanks
+
+  // Pre-populate state from cache so content shows instantly on open
+  const cachedWallet = cacheGet<WalletInfo>(`wallet:${selectedCountry?.name || 'default'}`, TTL.wallet)
+  const cachedBanks  = cacheGet<BankAccount[]>('banks:list', TTL.banks)
+
+  const [wallet, setWallet]           = useState<WalletInfo | null>(cachedWallet ?? null)
+  const [banks, setBanks]             = useState<BankAccount[]>(cachedBanks ?? [])
+  const [selectedBank, setSelectedBank] = useState<BankAccount | null>(
+    cachedBanks ? (cachedBanks.find(b => b.isDefault) || cachedBanks[0] || null) : null
+  )
+  const [loading, setLoading]         = useState(!hasCache)  // skip skeleton if cached
   const [withdrawAmt, setWithdrawAmt] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
   // Use country's withdrawFee, fallback to systemConfig, then 50
@@ -165,12 +176,14 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
   const load = useCallback(async () => {
     try {
-      // Run all 4 calls in parallel — eliminates 2 sequential round trips
+      // SWR: fetchWalletInfo and fetchBankAccounts already return cached data instantly
+      // if available, then revalidate in background via onFresh callback.
+      // Only systemConfig and user/me need a real network call.
       const [w, b, cfgRes, meRes] = await Promise.allSettled([
-        fetchWalletInfo(selectedCountry?.name),
+        fetchWalletInfo(selectedCountry?.name, fresh => setWallet(fresh)),
         fetchBankAccounts(),
         selectedCountry?.withdrawFee
-          ? Promise.resolve(null)  // skip if country already has fee
+          ? Promise.resolve(null)
           : client.get('/tuka/systemConfig/public'),
         client.get('/tuka/user/me'),
       ])
@@ -181,7 +194,6 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
         setSelectedBank(b.value.find((x: BankAccount) => x.isDefault) || b.value[0] || null)
       }
 
-      // Fee — country fee takes priority, then systemConfig
       if (selectedCountry?.withdrawFee) {
         setWithdrawalFee(selectedCountry.withdrawFee)
       } else if (cfgRes.status === 'fulfilled' && cfgRes.value) {
@@ -189,7 +201,6 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
         if (!isNaN(fee)) setWithdrawalFee(fee)
       }
 
-      // Withdrawal PIN status
       if (meRes.status === 'fulfilled') {
         setHasWithdrawPin(!!meRes.value.data?.data?.hasWithdrawPassword)
       }
@@ -197,9 +208,11 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
     finally { setLoading(false) }
   }, [selectedCountry?.name, selectedCountry?.withdrawFee])
 
-  // Reload when country switches
+  // Reload when country switches — only show skeleton if no cache
   useEffect(() => {
-    setLoading(true)
+    const hasCached = !!cacheGet(`wallet:${selectedCountry?.name || 'default'}`, TTL.wallet)
+      && !!cacheGet('banks:list', TTL.banks)
+    if (!hasCached) setLoading(true)
     load()
   }, [selectedCountry?.name])
 
@@ -264,6 +277,16 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
   const canWithdraw = banks.length > 0 && !!selectedBank && !loading
 
+  // Show full-screen skeleton on initial load
+  if (loading) {
+    return (
+      <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
+        <AppHeader title="Wallet" onBack={() => props.navigation.goBack()} />
+        <WithdrawScreenSkeleton />
+      </View>
+    )
+  }
+
   return (
     <>
     <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
@@ -273,9 +296,6 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Balance card — clean white */}
-        {loading ? (
-          <WithdrawBalanceSkeleton />
-        ) : (
         <View style={s.balanceCard}>
           <View style={s.balanceCardTop}>
             <Text style={s.balanceLbl}>Total Balance</Text>
@@ -290,47 +310,29 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
           </View>
           <Text style={s.balanceAmt}>{localSym} {fmt(wallet?.balance)}</Text>
         </View>
-        )}
 
         {/* Bank Card section */}
-        <Text style={s.sectionLbl}>Bank Card ({loading ? '…' : banks.length})</Text>
+        <Text style={s.sectionLbl}>Bank Card ({banks.length})</Text>
 
-        {/* Skeleton bank cards while loading */}
-        {loading ? (
-          <>
-            {[1, 2].map(i => (
-              <View key={i} style={{ marginHorizontal: spacing[4], marginBottom: spacing[4] }}>
-                <Skeleton width="100%" height={160} radius={20} />
-              </View>
-            ))}
-            {/* Skeleton add bank row */}
-            <View style={{ marginHorizontal: spacing[4], marginBottom: spacing[2] }}>
-              <Skeleton width="100%" height={64} radius={radius.xl} />
-            </View>
-          </>
-        ) : (
-          <>
-            {/* Existing bank cards — swipe left to delete */}
-            {banks.map(bank => (
-              <SwipeableBank
-                key={bank.id}
-                bank={bank}
-                selected={selectedBank?.id === bank.id}
-                onSelect={() => { hapticLight(); setSelectedBank(bank) }}
-                onDelete={() => { hapticHeavy(); handleDeleteBank(bank.id) }}
-              />
-            ))}
+        {/* Existing bank cards — swipe left to delete */}
+        {banks.map(bank => (
+          <SwipeableBank
+            key={bank.id}
+            bank={bank}
+            selected={selectedBank?.id === bank.id}
+            onSelect={() => { hapticLight(); setSelectedBank(bank) }}
+            onDelete={() => { hapticHeavy(); handleDeleteBank(bank.id) }}
+          />
+        ))}
 
-            {/* Add bank card row */}
-            <TouchableOpacity style={s.addBankRow} onPress={() => props.navigation.navigate('AddBank' as any)} activeOpacity={0.8}>
-              <View style={s.bankIcon}>
-                <Feather name="credit-card" size={18} color="#fff" />
-              </View>
-              <Text style={s.addBankTxt}>Add bank card</Text>
-              <Feather name="plus" size={20} color={colors.dark} />
-            </TouchableOpacity>
-          </>
-        )}
+        {/* Add bank card row */}
+        <TouchableOpacity style={s.addBankRow} onPress={() => props.navigation.navigate('AddBank' as any)} activeOpacity={0.8}>
+          <View style={s.bankIcon}>
+            <Feather name="credit-card" size={18} color="#fff" />
+          </View>
+          <Text style={s.addBankTxt}>Add bank card</Text>
+          <Feather name="plus" size={20} color={colors.dark} />
+        </TouchableOpacity>
 
       </ScrollView>
 
@@ -757,18 +759,18 @@ const m = StyleSheet.create({
 // ── Bank card styles ──────────────────────────────────────────────────────────
 const sw = StyleSheet.create({
   cardOuter: {
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#2B3FD8',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowColor: '#1A3FD8',
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   card: {
-    height: 160,
-    borderRadius: 20,
-    padding: spacing[5],
+    height: 110,
+    borderRadius: 18,
+    padding: spacing[4],
     justifyContent: 'flex-end',
     overflow: 'hidden',
     position: 'relative',
@@ -778,40 +780,40 @@ const sw = StyleSheet.create({
   // Decorative circles
   circle1: {
     position: 'absolute', right: -20, top: -20,
-    width: 160, height: 160, borderRadius: 80,
+    width: 120, height: 120, borderRadius: 60,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
   circle2: {
-    position: 'absolute', right: 40, top: 20,
-    width: 120, height: 120, borderRadius: 60,
+    position: 'absolute', right: 30, top: 10,
+    width: 90, height: 90, borderRadius: 45,
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
 
   // Text
   bankName: {
-    fontSize: typography.size.xl,
+    fontSize: typography.size.base,
     fontWeight: typography.weight.extrabold,
     color: '#fff',
-    marginBottom: spacing[3],
+    marginBottom: spacing[1] + 2,
   },
   accNumber: {
-    fontSize: typography.size.lg,
+    fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
-    color: 'rgba(255,255,255,0.9)',
-    letterSpacing: 2,
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 1.5,
   },
 
   // Chip — top right
   chip: {
-    position: 'absolute', top: spacing[5], right: spacing[5],
-    width: 44, height: 34, borderRadius: 6,
+    position: 'absolute', top: spacing[4], right: spacing[4],
+    width: 36, height: 28, borderRadius: 5,
     backgroundColor: '#D4A017',
     justifyContent: 'center', alignItems: 'center',
     overflow: 'hidden',
   },
-  chipInner: { gap: 4, alignItems: 'center' },
+  chipInner: { gap: 3, alignItems: 'center' },
   chipLine: {
-    width: 32, height: 2,
+    width: 26, height: 2,
     backgroundColor: 'rgba(0,0,0,0.25)',
     borderRadius: 1,
   },
@@ -819,7 +821,7 @@ const sw = StyleSheet.create({
   // Selected badge
   selectedBadge: {
     position: 'absolute', top: spacing[3], left: spacing[3],
-    width: 22, height: 22, borderRadius: 11,
+    width: 20, height: 20, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.3)',
     alignItems: 'center', justifyContent: 'center',
   },

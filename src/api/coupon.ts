@@ -1,4 +1,5 @@
 import client from './client'
+import { swrFetch, cacheInvalidate, TTL } from '../util/cache'
 
 export type Coupon = {
   id: number
@@ -29,13 +30,16 @@ function mapCoupon(d: any): Coupon {
 }
 
 // All public coupons filtered by country (for CouponPicker at checkout)
-export async function fetchAllCoupons(country?: string): Promise<Coupon[]> {
-  try {
-    const params: any = {}
-    if (country) params.country = country
-    const res = await client.get('/tuka/coupon/public', { params })
-    return (res.data?.data || []).map(mapCoupon)
-  } catch { return [] }
+export async function fetchAllCoupons(country?: string, onFresh?: (c: Coupon[]) => void): Promise<Coupon[]> {
+  const key = `coupons:${country || 'default'}`
+  return swrFetch(key, TTL.userInfo, async () => {
+    try {
+      const params: any = {}
+      if (country) params.country = country
+      const res = await client.get('/tuka/coupon/public', { params })
+      return (res.data?.data || []).map(mapCoupon)
+    } catch { return [] }
+  }, onFresh)
 }
 
 // Single coupon by code
@@ -55,8 +59,9 @@ export async function fetchMyCoupons(): Promise<Coupon[]> {
   } catch { return [] }
 }
 
-// Claim a coupon by code
+// Claim a coupon — invalidate cache so next fetch is fresh
 export async function claimCoupon(code: string): Promise<{ creditAmount: number; code: string }> {
   const res = await client.post('/tuka/coupon/claim', { code })
+  cacheInvalidate('coupons:default')
   return res.data?.data
 }

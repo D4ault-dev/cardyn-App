@@ -97,7 +97,7 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
         <View style={{ width: 38 }} />
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={s.body}>
 
           {/* Card */}
@@ -139,7 +139,7 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
         </View>
 
         {/* Continue button */}
-        <View style={s.bottomBar}>
+        <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[3] }]}>
           <TouchableOpacity
             style={[s.continueBtn, !canContinue && s.continueBtnOff]}
             onPress={handleContinue}
@@ -196,7 +196,8 @@ const s = StyleSheet.create({
   sendTxtDisabled: { color: colors.muted },
 
   bottomBar: {
-    paddingHorizontal: spacing[5], paddingBottom: spacing[6], paddingTop: spacing[3],
+    paddingHorizontal: spacing[5], paddingTop: spacing[3],
+    backgroundColor: colors.background,
   },
   continueBtn: {
     backgroundColor: colors.primary, borderRadius: radius.full,
