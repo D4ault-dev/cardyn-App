@@ -26,7 +26,9 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
         SecureStore.getItemAsync(BIOMETRIC_KEY),
       ]).then(([hasHardware, isEnrolled, storedVal]) => {
         if (!active) return
-        setSupported(hasHardware && isEnrolled)
+        // On some Android devices isEnrolledAsync() returns false even when
+        // fingerprint is enrolled — treat hasHardware alone as sufficient
+        setSupported(hasHardware)
         setBiometricEnabled(storedVal === 'true')
       }).catch(() => {})
       return () => { active = false }
@@ -34,22 +36,11 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
   )
 
   async function handleToggle(val: boolean) {
-    if (toggling) return  // prevent double-tap
+    if (toggling) return
     setToggling(true)
 
     try {
       if (val) {
-        // Check enrollment first
-        const enrolled = await LocalAuthentication.isEnrolledAsync()
-        if (!enrolled) {
-          Alert.alert(
-            'Biometrics Not Set Up',
-            'Please set up Face ID or fingerprint in your device Settings first.',
-            [{ text: 'OK' }]
-          )
-          return
-        }
-
         // Ask user to confirm with biometric before enabling
         const result = await LocalAuthentication.authenticateAsync({
           promptMessage:         'Authenticate to enable biometric lock',
@@ -59,11 +50,10 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
         })
 
         if (!result.success) {
-          // User cancelled or failed — do NOT change the toggle
+          // user_cancel or lockout — don't change toggle
           return
         }
 
-        // Save the flag — this is all that's needed for the app lock to work
         await SecureStore.setItemAsync(BIOMETRIC_KEY, 'true')
         setBiometricEnabled(true)
 
@@ -74,7 +64,6 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
         )
 
       } else {
-        // Disabling — ask to confirm
         const result = await LocalAuthentication.authenticateAsync({
           promptMessage:         'Authenticate to disable biometric lock',
           fallbackLabel:         'Use Passcode',
@@ -82,13 +71,14 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
           disableDeviceFallback: false,
         })
 
-        if (!result.success) return  // cancelled — keep it enabled
+        if (!result.success) return
 
         await SecureStore.setItemAsync(BIOMETRIC_KEY, 'false')
         setBiometricEnabled(false)
       }
-    } catch {
+    } catch (e) {
       // Biometric unavailable — don't change state
+      console.warn('[Biometric] toggle error:', e)
     } finally {
       setToggling(false)
     }

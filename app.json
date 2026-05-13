@@ -108,18 +108,6 @@
           "sounds": [],
           "mode": "production"
         }
-      ],
-      [
-        "react-native-fbsdk-next",
-        {
-          "appID": "PASTE_YOUR_META_APP_ID_HERE",
-          "clientToken": "PASTE_YOUR_META_CLIENT_TOKEN_HERE",
-          "displayName": "Cardyn",
-          "scheme": "fb PASTE_YOUR_META_APP_ID_HERE",
-          "advertiserIDCollectionEnabled": true,
-          "autoLogAppEventsEnabled": true,
-          "isAutoInitEnabled": true
-        }
       ]
     ],
     "owner": "tuka21"

@@ -371,7 +371,7 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
       {/* ── Set PIN prompt — animated bottom sheet ── */}
       <BottomSheet visible={pinPromptOpen} onClose={() => setPinPromptOpen(false)}>
-        <View style={{ paddingHorizontal: spacing[6], paddingBottom: spacing[8], alignItems: 'center' }}>
+        <View style={{ paddingHorizontal: spacing[6], paddingTop: spacing[2], paddingBottom: spacing[8], alignItems: 'center' }}>
             <View style={pin.iconWrap}>
               <Feather name="lock" size={28} color={colors.primary} />
             </View>
@@ -853,6 +853,7 @@ const pin = StyleSheet.create({
     width: 64, height: 64, borderRadius: 32,
     backgroundColor: colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
+    marginTop: spacing[3],
     marginBottom: spacing[4],
     alignSelf: 'center',
   },
