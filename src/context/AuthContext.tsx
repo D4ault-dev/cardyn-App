@@ -105,18 +105,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (username: string, password: string) => {
     await apiLogin(username, password)
     const [u, savedName] = await Promise.all([apiGetUserInfo(), loadUserName()])
-    const pushToken = await registerPushToken().catch(() => null)
-    try {
-      const body: Record<string, string> = { platform: Platform.OS, device: Constants.deviceName || '' }
-      if (pushToken) body.pushToken = pushToken
-      const res = await client.put('/tuka/user/updateLogin', body)
-      const pts = res?.data?.data?.pointsAwarded
-      if (pts > 0) await storage.setItem('@tuka_login_points_awarded', String(pts))
-    } catch { /* non-critical */ }
     const mappedUser = apiUserToUser(u, savedName)
     setUser(Just(mappedUser))
     // Warm up caches in background — HomeScreen loads instantly
     prefetchStaticData(mappedUser.country)
+    // Fire-and-forget non-critical tasks — do NOT await these, they must not block login
+    Promise.resolve().then(async () => {
+      try {
+        const pushToken = await registerPushToken().catch(() => null)
+        const body: Record<string, string> = { platform: Platform.OS, device: Constants.deviceName || '' }
+        if (pushToken) body.pushToken = pushToken
+        const res = await client.put('/tuka/user/updateLogin', body)
+        const pts = res?.data?.data?.pointsAwarded
+        if (pts > 0) await storage.setItem('@tuka_login_points_awarded', String(pts))
+      } catch { /* non-critical — never block login */ }
+    })
     Analytics.login({ method: 'phone', country: mappedUser.country ?? 'Unknown', userId: mappedUser.uid }).catch(() => {})
     trackAdEvent('Login', { method: 'phone' })
   }

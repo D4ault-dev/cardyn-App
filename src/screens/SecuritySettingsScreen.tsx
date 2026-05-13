@@ -1,76 +1,97 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { View, Text, StyleSheet, Switch, Alert } from 'react-native'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import * as LocalAuthentication from 'expo-local-authentication'
 import * as SecureStore from 'expo-secure-store'
+import { useFocusEffect } from '@react-navigation/native'
 import { colors, typography, spacing, radius, shadow } from '../theme'
-import { BIOMETRIC_KEY, BIOMETRIC_USER, BIOMETRIC_PASS } from './auth/types'
+import { BIOMETRIC_KEY } from './auth/types'
 
 export default function SecuritySettingsScreen(props: StackScreenProps<RootStackParams, 'SecuritySettings'>) {
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [supported, setSupported]               = useState(false)
+  const [toggling, setToggling]                 = useState(false)
 
-  useEffect(() => {
-    Promise.all([
-      LocalAuthentication.hasHardwareAsync(),
-      LocalAuthentication.isEnrolledAsync(),
-    ]).then(([hasHardware, isEnrolled]) => {
-      setSupported(hasHardware && isEnrolled)
-    })
-    // Read from SecureStore — same store as App.tsx and AuthScreen use
-    SecureStore.getItemAsync(BIOMETRIC_KEY).then(v => setBiometricEnabled(v === 'true')).catch(() => {})
-  }, [])
+  // useFocusEffect re-reads the stored value every time the screen comes into focus.
+  // This fixes the "toggle resets itself" bug — previously useEffect only ran on mount,
+  // so navigating away and back would show a stale value.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true
+      Promise.all([
+        LocalAuthentication.hasHardwareAsync(),
+        LocalAuthentication.isEnrolledAsync(),
+        SecureStore.getItemAsync(BIOMETRIC_KEY),
+      ]).then(([hasHardware, isEnrolled, storedVal]) => {
+        if (!active) return
+        setSupported(hasHardware && isEnrolled)
+        setBiometricEnabled(storedVal === 'true')
+      }).catch(() => {})
+      return () => { active = false }
+    }, [])
+  )
 
   async function handleToggle(val: boolean) {
-    if (val) {
-      // Check enrollment
-      const enrolled = await LocalAuthentication.isEnrolledAsync()
-      if (!enrolled) {
+    if (toggling) return  // prevent double-tap
+    setToggling(true)
+
+    try {
+      if (val) {
+        // Check enrollment first
+        const enrolled = await LocalAuthentication.isEnrolledAsync()
+        if (!enrolled) {
+          Alert.alert(
+            'Biometrics Not Set Up',
+            'Please set up Face ID or fingerprint in your device Settings first.',
+            [{ text: 'OK' }]
+          )
+          return
+        }
+
+        // Ask user to confirm with biometric before enabling
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage:         'Authenticate to enable biometric lock',
+          fallbackLabel:         'Use Passcode',
+          cancelLabel:           'Cancel',
+          disableDeviceFallback: false,
+        })
+
+        if (!result.success) {
+          // User cancelled or failed — do NOT change the toggle
+          return
+        }
+
+        // Save the flag — this is all that's needed for the app lock to work
+        await SecureStore.setItemAsync(BIOMETRIC_KEY, 'true')
+        setBiometricEnabled(true)
+
         Alert.alert(
-          'Biometrics Not Set Up',
-          'Please set up Face ID or fingerprint in your device Settings first.',
+          'Biometrics Enabled',
+          'The app will now ask for your fingerprint or Face ID when you return after 5 minutes.',
           [{ text: 'OK' }]
         )
-        return
-      }
 
-      // Trigger native biometric prompt to confirm intent
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Authenticate to enable biometric login',
-        fallbackLabel: 'Use Passcode',
-        disableDeviceFallback: false,
-      })
-      if (!result.success) return
-
-      // Save the enabled flag — this activates the biometric lock on app resume
-      await SecureStore.setItemAsync(BIOMETRIC_KEY, 'true').catch(() => {})
-      setBiometricEnabled(true)
-
-      // Check if we have saved credentials for auto-login
-      const savedUser = await SecureStore.getItemAsync(BIOMETRIC_USER).catch(() => null)
-      const savedPass = await SecureStore.getItemAsync(BIOMETRIC_PASS).catch(() => null)
-
-      if (!savedUser || !savedPass) {
-        // Biometric lock is ON but auto-login won't work until next manual login
-        // This is fine — the lock still protects the app on resume
-        Alert.alert(
-          '✅ Biometrics Enabled',
-          'Biometric lock is now active. For automatic login on app open, log out and log back in once.',
-          [{ text: 'OK' }]
-        )
       } else {
-        Alert.alert('✅ Biometrics Enabled', 'You can now log in with your fingerprint or Face ID.')
-      }
-      return
-    }
+        // Disabling — ask to confirm
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage:         'Authenticate to disable biometric lock',
+          fallbackLabel:         'Use Passcode',
+          cancelLabel:           'Cancel',
+          disableDeviceFallback: false,
+        })
 
-    // Disabling biometrics
-    setBiometricEnabled(false)
-    await SecureStore.setItemAsync(BIOMETRIC_KEY, 'false').catch(() => {})
-    await SecureStore.deleteItemAsync(BIOMETRIC_USER).catch(() => {})
-    await SecureStore.deleteItemAsync(BIOMETRIC_PASS).catch(() => {})
+        if (!result.success) return  // cancelled — keep it enabled
+
+        await SecureStore.setItemAsync(BIOMETRIC_KEY, 'false')
+        setBiometricEnabled(false)
+      }
+    } catch {
+      // Biometric unavailable — don't change state
+    } finally {
+      setToggling(false)
+    }
   }
 
   return (
@@ -88,16 +109,16 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
             </View>
             <Switch
               value={biometricEnabled}
-              onValueChange={supported ? handleToggle : undefined}
+              onValueChange={supported && !toggling ? handleToggle : undefined}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#fff"
-              disabled={!supported}
+              disabled={!supported || toggling}
             />
           </View>
         </View>
 
         <Text style={s.hint}>
-          When enabled, you can use Face ID or fingerprint to unlock the app and log in automatically.
+          When enabled, the app will lock after 5 minutes in the background and require your fingerprint or Face ID to unlock.
         </Text>
       </View>
     </View>
