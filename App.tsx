@@ -11,6 +11,7 @@ import * as ExpoLinking from 'expo-linking'
 import * as SplashScreen from 'expo-splash-screen'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   TAB_BAR_HEIGHT, TAB_BAR_SIDE_MARGIN, TAB_BAR_BORDER_RADIUS,
   FAB_SIZE, ICON_SIZE, sw, ms,
@@ -363,8 +364,8 @@ function AppContent() {
         // Already locked — don't double-lock
         if (biometricLockedRef.current) return
 
-        // Read user from SecureStore — avoids stale closure on user ref
-        const token = await SecureStore.getItemAsync('cardyn_auth_token').catch(() => null)
+        // Read user from AsyncStorage — token is saved there by auth.ts
+        const token = await AsyncStorage.getItem('@tuka_auth_token').catch(() => null)
         if (!token) return  // Not logged in — no lock needed
 
         const elapsed = backgroundedAt.current
