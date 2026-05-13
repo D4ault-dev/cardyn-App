@@ -73,7 +73,8 @@ const SelectBankScreen        = React.lazy(() => import('./src/screens/SelectBan
 const WithdrawDetailScreen    = React.lazy(() => import('./src/screens/WithdrawDetailScreen'))
 const WithdrawalHistoryScreen = React.lazy(() => import('./src/screens/WithdrawalHistoryScreen'))
 const AccountSettingsScreen   = React.lazy(() => import('./src/screens/AccountSettingsScreen'))
-const ProfileEditScreen       = React.lazy(() => import('./src/screens/ProfileEditScreen'))
+// ProfileEditScreen eagerly imported — opened from drawer, must respond on first tap
+import ProfileEditScreen from './src/screens/ProfileEditScreen'
 const VerifyIdentityScreen    = React.lazy(() => import('./src/screens/VerifyIdentityScreen'))
 const ModifyPasswordScreen    = React.lazy(() => import('./src/screens/ModifyPasswordScreen'))
 const SecuritySettingsScreen  = React.lazy(() => import('./src/screens/SecuritySettingsScreen'))
@@ -83,7 +84,8 @@ const WithdrawPasswordScreen  = React.lazy(() => import('./src/screens/WithdrawP
 const UpdateEmailScreen       = React.lazy(() => import('./src/screens/UpdateEmailScreen'))
 const LeaderboardScreen       = React.lazy(() => import('./src/screens/LeaderboardScreen'))
 const DailyBonusScreen        = React.lazy(() => import('./src/screens/DailyBonusScreen'))
-const CouponScreen            = React.lazy(() => import('./src/screens/CouponScreen'))
+// CouponScreen eagerly imported — opened from drawer, must respond on first tap
+import CouponScreen from './src/screens/CouponScreen'
 const AlertsScreen            = React.lazy(() => import('./src/screens/AlertsScreen'))
 const HelpScreen              = React.lazy(() => import('./src/screens/HelpScreen'))
 const ChatScreen              = React.lazy(() => import('./src/screens/ChatScreen'))

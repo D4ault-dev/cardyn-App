@@ -357,49 +357,27 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
       : loginInput.replace(/\D/g, '').length >= 7
     if (!trimmed) { setError('Enter your phone number or email'); return }
     if (!canNext)  { setError(isEmailInput ? 'Enter a valid email address' : 'Enter a valid phone number'); return }
-    setLoading(true); setError('')
-    try {
-      const { default: api } = await import('../api/client')
-      if (isEmailInput) {
-        setLoginMethod('email'); setEmail(trimmed)
-        try {
-          const res = await api.get('/tuka/user/checkEmail', { params: { email: trimmed } })
-          const r = res.data?.msg ?? res.data?.data
-          if (r === 'available') { setError('not_found') } else { showPasswordPanel() }
-        } catch (e: any) {
-          if ((e?.response?.status ?? 0) === 401) { setError('not_found') } else { showPasswordPanel() }
-        }
+
+    // Skip the checkPhone/checkEmail round-trip — go straight to password panel.
+    // If the account doesn't exist, doLogin() will return the right error.
+    // This eliminates 300-500ms of latency on every login attempt.
+    if (isEmailInput) {
+      setLoginMethod('email'); setEmail(trimmed)
+    } else {
+      const digitsOnly = trimmed.replace(/\D/g, '')
+      const prefix = selectedCountry.phonePrefix?.replace(/\D/g, '') || '234'
+      let fullPhone: string
+      if (digitsOnly.startsWith(prefix)) {
+        fullPhone = digitsOnly
+      } else if (digitsOnly.startsWith('0') && digitsOnly.length > 7) {
+        fullPhone = prefix + digitsOnly.slice(1)
       } else {
-        // Normalize phone for login — convert to international format to match sys_user.user_name
-        // e.g. 08147074025 → 2348147074025 (using selected country prefix)
-        const digitsOnly = trimmed.replace(/\D/g, '')
-        const prefix = selectedCountry.phonePrefix?.replace(/\D/g, '') || '234'
-        let fullPhone: string
-        if (digitsOnly.startsWith(prefix)) {
-          fullPhone = digitsOnly // already international
-        } else if (digitsOnly.startsWith('0') && digitsOnly.length > 7) {
-          fullPhone = prefix + digitsOnly.slice(1) // 08147074025 → 2348147074025
-        } else {
-          fullPhone = prefix + digitsOnly // no leading 0 — just prepend prefix
-        }
-        setLoginMethod('phone'); setPhone(fullPhone)
-        try {
-          const res = await api.get('/tuka/user/checkPhone', { params: { phone: fullPhone } })
-          const r = res.data?.msg ?? res.data?.data
-          if (r === 'available') { setError('not_found') } else {
-            storage.setItem('@tuka_last_phone', trimmed).catch(() => {})
-            showPasswordPanel()
-          }
-        } catch (e: any) {
-          const msg: string = e?.message || ''
-          if (msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
-            setError('Connection failed. Check your internet and try again.')
-          } else {
-            showPasswordPanel()
-          }
-        }
+        fullPhone = prefix + digitsOnly
       }
-    } finally { setLoading(false) }
+      setLoginMethod('phone'); setPhone(fullPhone)
+      storage.setItem('@tuka_last_phone', trimmed).catch(() => {})
+    }
+    showPasswordPanel()
   }
 
   async function doLogin() {
@@ -408,6 +386,12 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
     try {
       const username = loginMethod === 'phone' ? phone : email
       await login(username, password)
+      // Save the login input for auto-fill after logout
+      const rawInput = loginInput.trim()
+      if (rawInput) storage.setItem('@tuka_last_phone', rawInput).catch(() => {})
+      // Save credentials for biometric auto-login
+      await SecureStore.setItemAsync(BIOMETRIC_USER, username).catch(() => {})
+      await SecureStore.setItemAsync(BIOMETRIC_PASS, password).catch(() => {})
       const alreadyEnabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
       if (!alreadyEnabled && biometricAvailable) { setPendingUsername(username); goTo('biometric_setup') }
     } catch (e: any) {
@@ -632,6 +616,12 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
         pendingUsername={pendingUsername}
         password={password}
         enableBiometric={enableBiometric}
+        onSkip={() => {
+          // Force navigation away — user state is already set in AuthContext
+          // so the navigator will switch to the authenticated stack
+          // This explicit goTo ensures Android responds on first tap
+          goTo('landing')
+        }}
       />
       </Animated.View>
     )

@@ -13,6 +13,7 @@ export interface BiometricStepProps {
   pendingUsername: string
   password: string
   enableBiometric: (username: string, pass: string) => Promise<boolean>
+  onSkip?: () => void
 }
 
 export function BiometricStep({
@@ -21,6 +22,7 @@ export function BiometricStep({
   pendingUsername,
   password,
   enableBiometric,
+  onSkip,
 }: BiometricStepProps) {
   return (
     <View style={[s.safe, { backgroundColor: colors.background }, { paddingTop: getStatusBarHeight() }]}>
@@ -60,8 +62,10 @@ export function BiometricStep({
           <TouchableOpacity
             style={s.bioSkipBtn}
             onPress={() => {
-              // User skips — AuthContext user state is already set,
-              // App.tsx navigator will switch to authenticated stack automatically
+              // Explicitly call onSkip so AuthContext navigates away on Android
+              // The navigator auto-switches when user state is set, but this
+              // ensures the button always responds on first tap
+              onSkip?.()
             }}
             activeOpacity={0.8}>
             <Text style={s.bioSkipTxt}>Not Now</Text>

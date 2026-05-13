@@ -57,17 +57,17 @@ export async function apiLogout(): Promise<void> {
   // Clear token
   await deleteToken()
   clearAuthToken()
-  // Clear all other sensitive cached data
+  // Clear sensitive data but KEEP last_phone and last_country for auto-fill on next login
   const keysToRemove = [
     '@tuka_user_name',
-    '@tuka_last_phone',
-    '@tuka_last_country',
     '@tuka_login_points_awarded',
     '@tuka_onboarding_done',
   ]
   await Promise.allSettled(
     keysToRemove.map(k => storage.removeItem(k))
   )
+  // Note: @tuka_last_phone and @tuka_last_country are intentionally kept
+  // so the login screen can auto-fill the phone number after logout
 }
 
 // ── Restore session from AsyncStorage on app start ──
