@@ -1,35 +1,31 @@
 import React, { useState, useEffect } from 'react'
-import {
-  View, Text, StyleSheet, TouchableOpacity, Switch, Alert, Platform} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { View, Text, StyleSheet, Switch, Alert } from 'react-native'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
-import { Feather } from '@expo/vector-icons'
-import storage from '../util/storage'
 import * as LocalAuthentication from 'expo-local-authentication'
+import * as SecureStore from 'expo-secure-store'
 import { colors, typography, spacing, radius, shadow } from '../theme'
-
-const BIOMETRIC_KEY = '@tuka_biometric_enabled'
+import { BIOMETRIC_KEY, BIOMETRIC_USER, BIOMETRIC_PASS } from './auth/types'
 
 export default function SecuritySettingsScreen(props: StackScreenProps<RootStackParams, 'SecuritySettings'>) {
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [supported, setSupported]               = useState(false)
 
   useEffect(() => {
-    // Check hardware support AND enrollment
     Promise.all([
       LocalAuthentication.hasHardwareAsync(),
       LocalAuthentication.isEnrolledAsync(),
     ]).then(([hasHardware, isEnrolled]) => {
       setSupported(hasHardware && isEnrolled)
     })
-    storage.getItem(BIOMETRIC_KEY).then(v => setBiometricEnabled(v === 'true'))
+    // Read from SecureStore — same store as App.tsx and AuthScreen use
+    SecureStore.getItemAsync(BIOMETRIC_KEY).then(v => setBiometricEnabled(v === 'true')).catch(() => {})
   }, [])
 
   async function handleToggle(val: boolean) {
     if (val) {
-      // Check enrollment first
+      // Check enrollment
       const enrolled = await LocalAuthentication.isEnrolledAsync()
       if (!enrolled) {
         Alert.alert(
@@ -40,19 +36,37 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
         return
       }
 
-      // Trigger the native Face ID / fingerprint prompt
+      // Check if we have saved credentials — biometric auto-login needs them
+      const savedUser = await SecureStore.getItemAsync(BIOMETRIC_USER).catch(() => null)
+      const savedPass = await SecureStore.getItemAsync(BIOMETRIC_PASS).catch(() => null)
+
+      if (!savedUser || !savedPass) {
+        Alert.alert(
+          'Re-login Required',
+          'Please log out and log back in once to enable biometric login. This securely saves your credentials for auto-login.',
+          [{ text: 'OK' }]
+        )
+        return
+      }
+
+      // Trigger native biometric prompt to confirm intent
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Authenticate to enable biometric login',
         fallbackLabel: 'Use Passcode',
         disableDeviceFallback: false,
       })
-      if (!result.success) {
-        // User cancelled or failed — don't enable
-        return
-      }
+      if (!result.success) return
     }
+
     setBiometricEnabled(val)
-    await storage.setItem(BIOMETRIC_KEY, val ? 'true' : 'false')
+    // Save to SecureStore — same store App.tsx reads from on app resume
+    await SecureStore.setItemAsync(BIOMETRIC_KEY, val ? 'true' : 'false').catch(() => {})
+
+    if (!val) {
+      // Disabling — clear saved credentials
+      await SecureStore.deleteItemAsync(BIOMETRIC_USER).catch(() => {})
+      await SecureStore.deleteItemAsync(BIOMETRIC_PASS).catch(() => {})
+    }
   }
 
   return (
@@ -72,14 +86,14 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
               value={biometricEnabled}
               onValueChange={supported ? handleToggle : undefined}
               trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={biometricEnabled ? '#fff' : '#fff'}
+              thumbColor="#fff"
               disabled={!supported}
             />
           </View>
         </View>
 
         <Text style={s.hint}>
-          After enabling biometrics, it will be prioritized for high-security operations.
+          When enabled, you can use Face ID or fingerprint to unlock the app and log in automatically.
         </Text>
       </View>
     </View>
@@ -88,9 +102,7 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-
   body: { flex: 1, paddingTop: spacing[4] },
-
   card: {
     backgroundColor: colors.surface,
     marginHorizontal: spacing[4],
@@ -109,7 +121,6 @@ const s = StyleSheet.create({
   rowSub: {
     fontSize: typography.size.xs, color: colors.muted, marginTop: 3,
   },
-
   hint: {
     fontSize: typography.size.xs, color: colors.muted,
     marginHorizontal: spacing[5], marginTop: spacing[3],

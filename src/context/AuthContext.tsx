@@ -129,18 +129,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                      || (Constants as any).platform?.android?.model
                      || deviceName
 
+    // Step 1: Register — backend is now fast (push is @Async, no blocking)
     await client.post('/register', {
       username: normalizedUsername, password, code: '', uuid: '',
       realName: name, phone: normalizedPhone, country,
       platform: platformStr, device: modelName,
       referralCode: referralCode || '',
     })
+
+    // Step 2: Login + get user info in parallel
     await apiLogin(normalizedUsername, password)
-    const u = await apiGetUserInfo()
-    await saveUserName(name)
-    try {
-      await client.put('/system/user/profile', { nickName: name, phonenumber: normalizedPhone || normalizedUsername })
-    } catch { /* non-critical */ }
+    const [u] = await Promise.all([
+      apiGetUserInfo(),
+      saveUserName(name),
+    ])
+
+    // Step 3: Update profile nickname — fire and forget, don't block navigation
+    client.put('/system/user/profile', {
+      nickName: name,
+      phonenumber: normalizedPhone || normalizedUsername,
+    }).catch(() => { /* non-critical */ })
+
     const mappedUser = apiUserToUser(u, name)
     setUser(Just(mappedUser))
     Analytics.signup({ method: phone ? 'phone' : 'email', country, userId: mappedUser.uid }).catch(() => {})

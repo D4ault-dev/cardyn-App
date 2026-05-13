@@ -62,36 +62,38 @@ import SellLandingScreen from './src/screens/SellLandingScreen'
 import OrdersScreen  from './src/screens/OrdersScreen'
 import DiscoveryScreen from './src/screens/DiscoveryScreen'
 import WithdrawScreen from './src/screens/WithdrawScreen'
-import WithdrawAmountScreen from './src/screens/WithdrawAmountScreen'
-import WithdrawPinScreen from './src/screens/WithdrawPinScreen'
-import OrderDetailScreen from './src/screens/OrderDetailScreen'
-import AddBankScreen from './src/screens/AddBankScreen'
-import SelectBankScreen from './src/screens/SelectBankScreen'
-import WithdrawDetailScreen from './src/screens/WithdrawDetailScreen'
-import WithdrawalHistoryScreen from './src/screens/WithdrawalHistoryScreen'
-import AccountSettingsScreen from './src/screens/AccountSettingsScreen'
-import ProfileEditScreen from './src/screens/ProfileEditScreen'
-import VerifyIdentityScreen from './src/screens/VerifyIdentityScreen'
-import ModifyPasswordScreen from './src/screens/ModifyPasswordScreen'
-import SecuritySettingsScreen from './src/screens/SecuritySettingsScreen'
-import AccountDeletionScreen from './src/screens/AccountDeletionScreen'
-import DeleteAccountConfirmScreen from './src/screens/DeleteAccountConfirmScreen'
-import WithdrawPasswordScreen from './src/screens/WithdrawPasswordScreen'
-import UpdateEmailScreen from './src/screens/UpdateEmailScreen'
-import LeaderboardScreen    from './src/screens/LeaderboardScreen'
-import DailyBonusScreen     from './src/screens/DailyBonusScreen'
-import CouponScreen         from './src/screens/CouponScreen'
-import AlertsScreen         from './src/screens/AlertsScreen'
-import HelpScreen           from './src/screens/HelpScreen'
-import ChatScreen           from './src/screens/ChatScreen'
-import ArticleDetailScreen  from './src/screens/ArticleDetailScreen'
-import ReferralScreen       from './src/screens/ReferralScreen'
-import CardPickerScreen     from './src/screens/CardPickerScreen'
-import RateCalculatorScreen  from './src/screens/RateCalculatorScreen'
-import BindPhoneScreen       from './src/screens/BindPhoneScreen'
-import RateAlertScreen       from './src/screens/RateAlertScreen'
-import RateAlertListScreen   from './src/screens/RateAlertListScreen'
 import SplashAnimationScreen from './src/screens/SplashAnimationScreen'
+
+// ── Lazy-loaded screens — only bundled when first navigated to ────────────────
+const WithdrawAmountScreen    = React.lazy(() => import('./src/screens/WithdrawAmountScreen'))
+const WithdrawPinScreen       = React.lazy(() => import('./src/screens/WithdrawPinScreen'))
+const OrderDetailScreen       = React.lazy(() => import('./src/screens/OrderDetailScreen'))
+const AddBankScreen           = React.lazy(() => import('./src/screens/AddBankScreen'))
+const SelectBankScreen        = React.lazy(() => import('./src/screens/SelectBankScreen'))
+const WithdrawDetailScreen    = React.lazy(() => import('./src/screens/WithdrawDetailScreen'))
+const WithdrawalHistoryScreen = React.lazy(() => import('./src/screens/WithdrawalHistoryScreen'))
+const AccountSettingsScreen   = React.lazy(() => import('./src/screens/AccountSettingsScreen'))
+const ProfileEditScreen       = React.lazy(() => import('./src/screens/ProfileEditScreen'))
+const VerifyIdentityScreen    = React.lazy(() => import('./src/screens/VerifyIdentityScreen'))
+const ModifyPasswordScreen    = React.lazy(() => import('./src/screens/ModifyPasswordScreen'))
+const SecuritySettingsScreen  = React.lazy(() => import('./src/screens/SecuritySettingsScreen'))
+const AccountDeletionScreen   = React.lazy(() => import('./src/screens/AccountDeletionScreen'))
+const DeleteAccountConfirmScreen = React.lazy(() => import('./src/screens/DeleteAccountConfirmScreen'))
+const WithdrawPasswordScreen  = React.lazy(() => import('./src/screens/WithdrawPasswordScreen'))
+const UpdateEmailScreen       = React.lazy(() => import('./src/screens/UpdateEmailScreen'))
+const LeaderboardScreen       = React.lazy(() => import('./src/screens/LeaderboardScreen'))
+const DailyBonusScreen        = React.lazy(() => import('./src/screens/DailyBonusScreen'))
+const CouponScreen            = React.lazy(() => import('./src/screens/CouponScreen'))
+const AlertsScreen            = React.lazy(() => import('./src/screens/AlertsScreen'))
+const HelpScreen              = React.lazy(() => import('./src/screens/HelpScreen'))
+const ChatScreen              = React.lazy(() => import('./src/screens/ChatScreen'))
+const ArticleDetailScreen     = React.lazy(() => import('./src/screens/ArticleDetailScreen'))
+const ReferralScreen          = React.lazy(() => import('./src/screens/ReferralScreen'))
+const CardPickerScreen        = React.lazy(() => import('./src/screens/CardPickerScreen'))
+const RateCalculatorScreen    = React.lazy(() => import('./src/screens/RateCalculatorScreen'))
+const BindPhoneScreen         = React.lazy(() => import('./src/screens/BindPhoneScreen'))
+const RateAlertScreen         = React.lazy(() => import('./src/screens/RateAlertScreen'))
+const RateAlertListScreen     = React.lazy(() => import('./src/screens/RateAlertListScreen'))
 
 const Tab   = createBottomTabNavigator()
 const Stack = createStackNavigator<RootStackParams>()
@@ -374,15 +376,15 @@ function AppContent() {
     return () => sub.remove()
   }, [user])
 
-  // While auth is loading, show light background — matches auth screens
+  // While auth is loading, show dark background — matches native splash
   if (isLoading) {
-    return <View style={{ flex: 1, backgroundColor: '#F5F6FA' }} />
+    return <View style={{ flex: 1, backgroundColor: '#0D1F24' }} />
   }
 
   // Show animated splash until it finishes
   if (!splashDone) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F5F6FA' }}>
+      <View style={{ flex: 1, backgroundColor: '#0D1F24' }}>
         <SplashAnimationScreen onFinish={() => setSplashDone(true)} />
       </View>
     )

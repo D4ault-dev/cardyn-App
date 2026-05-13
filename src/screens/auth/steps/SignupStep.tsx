@@ -478,7 +478,16 @@ export function SignupStep(props: SignupStepProps) {
 
               <TouchableOpacity
                 style={[flat.primaryBtn, (!otpFilled || loading) && flat.primaryBtnOff]}
-                onPress={async () => { const ok = await verifyOtpCode(otpValue); if (ok) goTo('signup_password') }}
+                onPress={async () => {
+                  if (!otpFilled || loading) return
+                  setLoading(true)
+                  try {
+                    const ok = await verifyOtpCode(otpValue)
+                    if (ok) goTo('signup_password')
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
                 disabled={!otpFilled || loading}
                 activeOpacity={0.85}>
                 {loading
@@ -604,15 +613,35 @@ export function SignupStep(props: SignupStepProps) {
                   setLoading(true)
                   try {
                     const fullPhone = getFullPhoneLocal(phone)
-                    await signup({ name: name.trim(), username: fullPhone, phone: fullPhone, country: selectedCountry.name, password })
+                    await signup({
+                      name: name.trim(),
+                      username: fullPhone,
+                      phone: fullPhone,
+                      country: selectedCountry.name,
+                      password,
+                    })
+                    // signup() calls setUser(Just(...)) in AuthContext which auto-navigates to home
                     storage.setItem('@tuka_last_phone', sanitizeLocalPhone(phone)).catch(() => {})
                     storage.setItem('@tuka_last_country', JSON.stringify(selectedCountry)).catch(() => {})
                     if (biometricAvailable) { setPendingUsername(fullPhone); goTo('biometric_setup') }
                   } catch (e: any) {
-                    const msg: string = e.message || ''
-                    if (msg.includes('already registered') || msg.includes('exists')) { setError('phone_exists_pw') }
-                    else if (msg.includes('Network') || msg.includes('timeout')) { setError('Check your internet connection and try again.') }
-                    else { setError(msg || 'Registration failed. Please try again.') }
+                    const msg: string = e?.message || ''
+                    const isExists = msg.includes('already registered') || msg.includes('exists') || msg.includes('保存用户')
+                    const isNetwork = msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNABORTED') || msg.includes('ECONNREFUSED')
+
+                    if (isExists) {
+                      // Account was created — direct to login
+                      setLoginMethod('phone')
+                      setError('phone_exists_pw')
+                    } else if (isNetwork) {
+                      // Network failed — show clean retry message, do NOT check if account exists
+                      // The backend is @Async for push notifications so the registration itself
+                      // should have completed. User should try again — if account exists they'll
+                      // see the sign-in prompt.
+                      setError('Connection failed. Please check your internet and try again.')
+                    } else {
+                      setError(msg || 'Registration failed. Please try again.')
+                    }
                   } finally { setLoading(false) }
                 }}
                 disabled={!isValid || loading} activeOpacity={0.85}>

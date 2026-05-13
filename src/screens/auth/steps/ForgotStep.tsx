@@ -341,8 +341,14 @@ export function ForgotStep(props: ForgotStepProps) {
             <TouchableOpacity
               style={[flat.primaryBtn, (!otpFilled || loading) && flat.primaryBtnOff]}
               onPress={async () => {
-                const ok = await verifyOtpCode(otpValue)
-                if (ok) { setPassword(''); setConfirmPw(''); goTo('forgot_newpassword') }
+                if (!otpFilled || loading) return
+                setLoading(true)
+                try {
+                  const ok = await verifyOtpCode(otpValue)
+                  if (ok) { setPassword(''); setConfirmPw(''); goTo('forgot_newpassword') }
+                } finally {
+                  setLoading(false)
+                }
               }}
               disabled={!otpFilled || loading}
               activeOpacity={0.85}>

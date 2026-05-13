@@ -213,7 +213,8 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
   }, [])
 
   useEffect(() => {
-    if (step !== 'landing') return
+    // Trigger on both 'landing' (first-time users) and 'login' (returning users who skipped onboarding)
+    if (step !== 'landing' && step !== 'login') return
     ;(async () => {
       try {
         const enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
@@ -449,6 +450,8 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
           selectedCountry={selectedCountry}
           onGoToSignup={() => { reset(); goTo('signup') }}
           onGoToLogin={() => { reset(); goTo('login') }}
+          onGoogleSignIn={handleGoogleSignIn}
+          onAppleSignIn={handleAppleSignIn}
         />
       </Animated.View>
     )

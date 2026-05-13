@@ -11,6 +11,7 @@ import { colors, spacing, radius } from '../../../theme'
 import { Country } from '../../../api/country'
 import storage from '../../../util/storage'
 import { Analytics } from '../../../util/analytics'
+import { hapticMedium, hapticLight } from '../../../util/haptics'
 
 const SCREEN_W = Dimensions.get('window').width
 
@@ -19,6 +20,8 @@ export interface OnboardingStepProps {
   selectedCountry: Country
   onGoToSignup: () => void
   onGoToLogin: () => void
+  onGoogleSignIn: () => void
+  onAppleSignIn: () => void
 }
 
 export function OnboardingStep({
@@ -26,12 +29,15 @@ export function OnboardingStep({
   selectedCountry,
   onGoToSignup,
   onGoToLogin,
+  onGoogleSignIn,
+  onAppleSignIn,
 }: OnboardingStepProps) {
   const insets = useSafeAreaInsets()
   const topPad = Platform.OS === 'ios' ? insets.top : getStatusBarHeight()
   const bottomPad = Math.max(insets.bottom, 16)
 
   function handleGetStarted() {
+    hapticMedium()
     storage.setItem('@tuka_onboarding_done', 'true').catch(() => {})
     Analytics.onboardingCompleted()
     Analytics.signupStarted('phone', selectedCountry.name)
@@ -39,6 +45,7 @@ export function OnboardingStep({
   }
 
   function handleLogin() {
+    hapticLight()
     storage.setItem('@tuka_onboarding_done', 'true').catch(() => {})
     Analytics.onboardingCompleted()
     onGoToLogin()
@@ -76,7 +83,8 @@ export function OnboardingStep({
         {/* Buttons */}
         <View style={st.btnWrap}>
           {/* Primary CTA */}
-          <TouchableOpacity style={st.primaryBtn} onPress={handleGetStarted} activeOpacity={0.85}>
+          <TouchableOpacity style={st.primaryBtn} onPress={handleGetStarted} activeOpacity={0.85}
+            accessible accessibilityLabel="Get started" accessibilityRole="button">
             <Text style={st.primaryBtnTxt}>Get Started</Text>
           </TouchableOpacity>
 
@@ -88,7 +96,8 @@ export function OnboardingStep({
           </View>
 
           {/* Google */}
-          <TouchableOpacity style={st.socialBtn} onPress={handleGetStarted} activeOpacity={0.8}>
+          <TouchableOpacity style={st.socialBtn} onPress={() => { hapticMedium(); onGoogleSignIn() }} activeOpacity={0.8}
+            accessible accessibilityLabel="Continue with Google" accessibilityRole="button">
             <Image
               source={require('../../../../assets/google-logo.png')}
               style={st.socialIcon}
@@ -99,7 +108,8 @@ export function OnboardingStep({
 
           {/* Apple — iOS only */}
           {Platform.OS === 'ios' && (
-            <TouchableOpacity style={st.socialBtn} onPress={handleGetStarted} activeOpacity={0.8}>
+            <TouchableOpacity style={st.socialBtn} onPress={() => { hapticMedium(); onAppleSignIn() }} activeOpacity={0.8}
+              accessible accessibilityLabel="Continue with Apple" accessibilityRole="button">
               <Image
                 source={require('../../../../assets/apple-logo.png')}
                 style={st.socialIcon}
@@ -114,7 +124,8 @@ export function OnboardingStep({
         <View style={[st.footer, { paddingBottom: ms(8) }]}>
           <Text style={st.footerTxt}>Have an account? </Text>
           <TouchableOpacity onPress={handleLogin} activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible accessibilityLabel="Sign in to existing account" accessibilityRole="button">
             <Text style={st.footerLink}>Sign in</Text>
           </TouchableOpacity>
         </View>

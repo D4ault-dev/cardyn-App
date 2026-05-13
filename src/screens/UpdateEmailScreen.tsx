@@ -4,7 +4,7 @@ import {
   TextInput, ActivityIndicator,
   KeyboardAvoidingView, Platform,
 } from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
@@ -144,7 +144,7 @@ export default function UpdateEmailScreen(props: StackScreenProps<RootStackParam
         </View>
 
         {/* Confirm button */}
-        <View style={s.bottomBar}>
+        <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[3] }]}>
           <TouchableOpacity
             style={[s.confirmBtn, !canConfirm && s.confirmBtnOff]}
             onPress={handleConfirm}
@@ -202,7 +202,7 @@ const s = StyleSheet.create({
   sendTxtOff: { color: colors.muted },
 
   bottomBar: {
-    paddingHorizontal: spacing[5], paddingBottom: spacing[8], paddingTop: spacing[3],
+    paddingHorizontal: spacing[5], paddingTop: spacing[3],
   },
   confirmBtn: {
     backgroundColor: '#1A1A1A', borderRadius: radius.full,

@@ -414,6 +414,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
     ].filter(Boolean).join(' · ')
 
     return (
+      <Modal visible animationType="slide" statusBarTranslucent onRequestClose={() => setSelected(null)}>
       <View style={[d.safe, { paddingTop: getStatusBarHeight() }]}>
         {/* ── Header — white, clean ── */}
         <View style={d.headerBg}>
@@ -603,6 +604,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
         )}
 
       </View>
+      </Modal>
     )
   }
 

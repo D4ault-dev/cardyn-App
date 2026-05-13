@@ -13,6 +13,7 @@ import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { useCountry } from '../context/CountryContext'
+import { hapticMedium } from '../util/haptics'
 
 function fmt(n: number | undefined | null) {
   return (typeof n === 'number' && !isNaN(n) ? n : 0)
@@ -39,6 +40,7 @@ export default function WithdrawAmountScreen(props: StackScreenProps<RootStackPa
 
   function handleNext() {
     if (!canNext) return
+    hapticMedium()
     props.navigation.navigate('WithdrawPin' as any, {
       bank,
       amount: parsed,

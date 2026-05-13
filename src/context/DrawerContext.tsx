@@ -28,6 +28,12 @@ export function DrawerProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const close = useCallback(() => {
+    // If already at closed position (snapped by navigate()), just update state immediately
+    const currentVal = (drawerAnim as any)._value
+    if (currentVal <= -DRAWER_W + 1) {
+      setDrawerVisible(false)
+      return
+    }
     Animated.parallel([
       Animated.timing(drawerAnim,  { toValue: -DRAWER_W, duration: 220, useNativeDriver: true }),
       Animated.timing(overlayAnim, { toValue: 0,         duration: 220, useNativeDriver: true }),

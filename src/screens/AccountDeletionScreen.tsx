@@ -1,7 +1,7 @@
 import React from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, Platform} from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
@@ -10,6 +10,7 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import { ms, RF } from '../util/responsive'
 
 export default function AccountDeletionScreen(props: StackScreenProps<RootStackParams, 'AccountDeletion'>) {
+  const insets = useSafeAreaInsets()
   return (
     <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
@@ -47,7 +48,7 @@ export default function AccountDeletionScreen(props: StackScreenProps<RootStackP
       </View>
 
       {/* Buttons */}
-      <View style={s.bottomBar}>
+      <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[3] }]}>
         <TouchableOpacity
           style={s.deleteBtn}
           onPress={() => props.navigation.navigate('DeleteAccountConfirm')}
@@ -137,7 +138,7 @@ const s = StyleSheet.create({
 
   // Buttons
   bottomBar: {
-    paddingHorizontal: spacing[5], paddingBottom: spacing[6], paddingTop: spacing[3],
+    paddingHorizontal: spacing[5], paddingTop: spacing[3],
     gap: spacing[3],
   },
   deleteBtn: {

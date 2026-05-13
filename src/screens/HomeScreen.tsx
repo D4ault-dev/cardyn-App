@@ -1,9 +1,8 @@
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Image,
-  Dimensions, Animated, Modal,
+  Image, Dimensions, Animated, Modal,
   Keyboard, TouchableWithoutFeedback, StatusBar, Platform,
 } from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
@@ -14,7 +13,6 @@ import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { HomeBalanceSkeleton, Skeleton as SkeletonBlock } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
-import { fetchCountries, Country } from '../api/country'
 import { fetchWalletInfo, WalletInfo } from '../api/wallet'
 import client from '../api/client'
 import { DailyCheckInModal, useDailyCheckIn } from '../components/DailyCheckInModal'
@@ -23,10 +21,11 @@ import { tabBarClearance, ms, RF } from '../util/responsive'
 import { FadeScreen } from '../components/FadeScreen'
 import { useCountry } from '../context/CountryContext'
 import { getStatusBarHeight } from '../util/statusBar'
+import { hapticMedium, hapticLight } from '../util/haptics'
 
 const { width: W } = Dimensions.get('window')
 
-// Soft background colors for card icons — cycles through these
+// Soft background colors
 const CARD_BG_COLORS = [
   '#FFF3E0', '#E8F5E9', '#E3F2FD', '#FCE4EC',
   '#F3E5F5', '#E0F7FA', '#FFF8E1', '#E8EAF6',
@@ -61,7 +60,7 @@ function fmt(n: number | undefined | null, symbol = '₦') {
 }
 
 export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const { drawerVisible, drawerAnim, overlayAnim, open: ctxOpen, close: ctxClose } = useDrawer()
   const swipeHandlers = useDrawerSwipe()
   const insets = useSafeAreaInsets()
@@ -71,7 +70,7 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
   const [cards, setCards]                     = useState<CardCategory[]>([])
   const [cardsLoading, setCardsLoading]       = useState(true)
   const [refreshing, setRefreshing]           = useState(false)
-  const { selectedCountry, setSelectedCountry, countries, homeCountry, isHomeCountry } = useCountry()
+  const { selectedCountry, setSelectedCountry, countries } = useCountry()
   const [countryPickerOpen, setCountryPickerOpen] = useState(false)
   const [wallet, setWallet]                   = useState<WalletInfo | null>(null)
   const [walletLoading, setWalletLoading]     = useState(false)
@@ -96,6 +95,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
   const cardAnims = useRef<Animated.Value[]>([]).current
   // Use a ref to track card existence — avoids dependency loop in loadCards
   const hasCardsRef = useRef(false)
+  // Track previous rates to show ▲/▼ change indicators
+  const prevRatesRef = useRef<Record<number, number>>({})
   const { show: showCheckIn, points: checkInPts, streak: checkInStreak, check: checkDailyIn, dismiss: dismissCheckIn } = useDailyCheckIn()
 
   // Trigger daily check-in check when user is logged in
@@ -110,6 +111,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
     if (!isLoggedIn) {
       setWallet(null)
       setWalletLoading(false)
+      // Reset card ref so the next login shows skeleton + stagger animation
+      hasCardsRef.current = false
       return
     }
     setWalletLoading(true)
@@ -125,7 +128,13 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
       // Only clear on explicit country switch — never on silent focus refresh
       if (force && !silent && !alreadyHasCards) setCards([])
       const data = await fetchCardCategories(force, selectedCountry?.name || '')
+      // Build new rate map and compare with previous to detect changes
+      const newRates: Record<number, number> = {}
+      data.forEach(c => { newRates[c.id] = c.displayRate ?? c.rate ?? 0 })
+      // prevRatesRef holds the rates from the last render — update after setting state
       setCards(data)
+      // Defer snapshot update so the current render can still diff against old values
+      setTimeout(() => { prevRatesRef.current = newRates }, 0)
       hasCardsRef.current = data.length > 0
 
       // Never animate when cards already exist — causes the blink
@@ -258,7 +267,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
 
                 {/* ── Header ── */}
                 <View style={s.header}>
-                  <TouchableOpacity style={s.headerBtn} onPress={openDrawer} activeOpacity={0.7}>
+                  <TouchableOpacity style={s.headerBtn} onPress={openDrawer} activeOpacity={0.7}
+                    accessible accessibilityLabel="Open menu" accessibilityRole="button">
                     <Feather name="menu" size={19} color={colors.dark} />
                   </TouchableOpacity>
                   <View style={{ flex: 1, marginLeft: spacing[3] }}>
@@ -272,6 +282,9 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                       style={s.countryPill}
                       onPress={() => setCountryPickerOpen(true)}
                       activeOpacity={0.8}
+                      accessible
+                      accessibilityLabel={`Selected country: ${selectedCountry?.name ?? 'Select country'}`}
+                      accessibilityRole="button"
                     >
                       {selectedCountry?.flag ? (
                         <Text style={s.countryFlag}>{selectedCountry.flag}</Text>
@@ -288,6 +301,7 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                     style={s.headerBtn}
                     onPress={() => props.navigation.navigate('DailyBonus' as any)}
                     activeOpacity={0.7}
+                    accessible accessibilityLabel="Daily bonus" accessibilityRole="button"
                   >
                     <Feather name="gift" size={19} color={colors.dark} />
                   </TouchableOpacity>
@@ -297,6 +311,9 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                     style={s.headerBtn}
                     onPress={() => { props.navigation.navigate('Alerts' as any); setUnreadCount(0) }}
                     activeOpacity={0.7}
+                    accessible
+                    accessibilityLabel={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+                    accessibilityRole="button"
                   >
                     <Feather name="bell" size={19} color={colors.dark} />
                     {unreadCount > 0 && (
@@ -313,6 +330,9 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                   <TouchableOpacity
                     onPress={() => isLoggedIn ? setBalanceVisible(v => !v) : props.navigation.navigate('Login')}
                     activeOpacity={0.8}
+                    accessible
+                    accessibilityLabel={isLoggedIn ? (balanceVisible ? 'Hide balance' : 'Show balance') : 'Login to view balance'}
+                    accessibilityRole="button"
                   >
                     {!isLoggedIn ? (
                       <>
@@ -340,8 +360,9 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                     {/* Withdraw button */}
                     <TouchableOpacity
                       style={s.withdrawBtn}
-                      onPress={() => requireAuth(() => props.navigation.navigate('Withdraw' as any))}
+                      onPress={() => { hapticMedium(); requireAuth(() => props.navigation.navigate('Withdraw' as any)) }}
                       activeOpacity={0.8}
+                      accessible accessibilityLabel="Withdraw funds" accessibilityRole="button"
                     >
                       <Feather name="arrow-up-circle" size={14} color={colors.dark} style={{ marginRight: 5 }} />
                       <Text style={s.withdrawBtnTxt}>Withdraw</Text>
@@ -396,6 +417,10 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                         const bgColor = CARD_BG_COLORS[i % CARD_BG_COLORS.length]
                         // Use existing anim or a static Value(1) for cards beyond the anim array
                         const anim = cardAnims[i] ?? new Animated.Value(1)
+                        // Rate change indicator
+                        const prevBase = prevRatesRef.current[card.id]
+                        const rateUp   = prevBase !== undefined && baseDisplayRate > prevBase
+                        const rateDown = prevBase !== undefined && baseDisplayRate < prevBase
                         return (
                           <Animated.View
                             key={card.id}
@@ -426,17 +451,34 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                                 )}
                               </View>
 
-                              {/* Name + rate */}
+                              {/* Name + rate + change indicator */}
                               <View style={{ flex: 1, marginLeft: spacing[3] }}>
                                 <Text style={s.cardName}>{card.name}</Text>
-                                <Text style={s.cardRate}>{fmt(rate, currencySymbol)}</Text>
+                                <View style={s.rateRow}>
+                                  <Text style={s.cardRate}>{fmt(rate, currencySymbol)}</Text>
+                                  {rateUp && (
+                                    <View style={[s.rateChip, { backgroundColor: colors.success + '18' }]}>
+                                      <Feather name="trending-up" size={ms(10)} color={colors.success} />
+                                      <Text style={[s.rateChipTxt, { color: colors.success }]}>Up</Text>
+                                    </View>
+                                  )}
+                                  {rateDown && (
+                                    <View style={[s.rateChip, { backgroundColor: colors.error + '18' }]}>
+                                      <Feather name="trending-down" size={ms(10)} color={colors.error} />
+                                      <Text style={[s.rateChipTxt, { color: colors.error }]}>Down</Text>
+                                    </View>
+                                  )}
+                                </View>
                               </View>
 
                               {/* Sell button */}
                               <TouchableOpacity
                                 style={s.sellBtn}
-                                onPress={() => requireAuth(() => props.navigation.navigate('SellCard' as any, { cardId: card.id }))}
+                                onPress={() => { hapticMedium(); requireAuth(() => props.navigation.navigate('SellCard' as any, { cardId: card.id })) }}
                                 activeOpacity={0.8}
+                                accessible
+                                accessibilityLabel={`Sell ${card.name}`}
+                                accessibilityRole="button"
                               >
                                 <Text style={s.sellBtnTxt}>Sell</Text>
                               </TouchableOpacity>
@@ -488,14 +530,15 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing[4] }}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing[4], paddingTop: spacing[2] }}>
                 {countries.map((country, idx) => {
                   const isSelected = selectedCountry?.id === country.id
                   return (
                     <TouchableOpacity
                       key={country.id}
-                      style={[cp.row, isSelected && cp.rowSelected, idx === 0 && { marginTop: spacing[2] }]}
+                      style={[cp.row, isSelected && cp.rowSelected]}
                       onPress={() => {
+                        hapticLight()
                         setSelectedCountry(country)
                         setCountryPickerOpen(false)
                       }}
@@ -618,6 +661,16 @@ const s = StyleSheet.create({
   cardIcon:     { width: ms(50), height: ms(50) },
   cardName:     { fontSize: ms(typography.size.lg), fontWeight: typography.weight.extrabold, color: colors.dark, marginBottom: 2 },
   cardRate:     { fontSize: ms(typography.size.base), color: colors.muted, fontWeight: typography.weight.semibold },
+  rateRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[1],
+  },
+  rateChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    borderRadius: radius.full, paddingHorizontal: spacing[1] + 2, paddingVertical: 2,
+  },
+  rateChipTxt: {
+    fontSize: ms(typography.size.xs - 1), fontWeight: typography.weight.bold,
+  },
   sellBtn: {
     backgroundColor: colors.accent, borderRadius: radius.md,
     paddingHorizontal: spacing[5], paddingVertical: spacing[2] + 3,
@@ -686,19 +739,21 @@ const cp = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
     gap: spacing[4],
   },
   rowSelected: {
     backgroundColor: colors.primaryLight,
+    borderRadius: radius.xl,
+    marginHorizontal: spacing[3],
+    paddingHorizontal: spacing[3],
   },
   flagWrap: {
     width: ms(48), height: ms(48),
-    borderRadius: ms(24),
+    borderRadius: ms(14),
     backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: colors.border,
+    overflow: 'hidden',
   },
   flagTxt: { fontSize: ms(26) },
   rowName: {

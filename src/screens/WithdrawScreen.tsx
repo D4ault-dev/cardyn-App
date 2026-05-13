@@ -21,6 +21,7 @@ import {
   fetchNigerianBanks, resolveAccountName, NigerianBank,
 } from '../api/wallet'
 import { useCountry } from '../context/CountryContext'
+import { hapticMedium, hapticLight, hapticHeavy } from '../util/haptics'
 
 function fmt(n: number | undefined | null) {
   return (typeof n === 'number' && !isNaN(n) ? n : 0)
@@ -140,33 +141,61 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
   const [bankSearch, setBankSearch]         = useState('')
   const [resolvingName, setResolvingName]   = useState(false)
 
+  // Load Nigerian banks list once on mount
+  useEffect(() => {
+    fetchNigerianBanks()
+      .then(list => { if (list.length > 0) setNigerianBanks(list) })
+      .catch(() => {})
+  }, [])
+
+  // Auto-resolve account name when account number is 10 digits and a bank is selected
+  useEffect(() => {
+    if (!selectedNgBank || newAccNumber.replace(/\D/g, '').length !== 10) {
+      setNewAccName('')
+      return
+    }
+    let cancelled = false
+    setResolvingName(true)
+    resolveAccountName(newAccNumber.trim(), selectedNgBank.code)
+      .then(name => { if (!cancelled) setNewAccName(name || '') })
+      .catch(() => { if (!cancelled) setNewAccName('') })
+      .finally(() => { if (!cancelled) setResolvingName(false) })
+    return () => { cancelled = true }
+  }, [newAccNumber, selectedNgBank])
+
   const load = useCallback(async () => {
     try {
-      const [w, b] = await Promise.all([
-        fetchWalletInfo(selectedCountry?.name),  // country-scoped wallet
+      // Run all 4 calls in parallel — eliminates 2 sequential round trips
+      const [w, b, cfgRes, meRes] = await Promise.allSettled([
+        fetchWalletInfo(selectedCountry?.name),
         fetchBankAccounts(),
+        selectedCountry?.withdrawFee
+          ? Promise.resolve(null)  // skip if country already has fee
+          : client.get('/tuka/systemConfig/public'),
+        client.get('/tuka/user/me'),
       ])
-      setWallet(w)
-      setBanks(b)
-      setSelectedBank(b.find(x => x.isDefault) || b[0] || null)
-      try {
-        // Use country's withdrawFee first, fallback to systemConfig
-        if (selectedCountry?.withdrawFee) {
-          setWithdrawalFee(selectedCountry.withdrawFee)
-        } else {
-          const cfgRes = await client.get('/tuka/systemConfig/public')
-          const fee = parseFloat(cfgRes.data?.data?.withdrawal_fee || '50')
-          if (!isNaN(fee)) setWithdrawalFee(fee)
-        }
-      } catch { /* use default */ }
-      // Check if withdrawal PIN is set
-      try {
-        const meRes = await client.get('/tuka/user/me')
-        setHasWithdrawPin(!!meRes.data?.data?.hasWithdrawPassword)
-      } catch { /* assume set */ }
+
+      if (w.status === 'fulfilled') setWallet(w.value)
+      if (b.status === 'fulfilled') {
+        setBanks(b.value)
+        setSelectedBank(b.value.find((x: BankAccount) => x.isDefault) || b.value[0] || null)
+      }
+
+      // Fee — country fee takes priority, then systemConfig
+      if (selectedCountry?.withdrawFee) {
+        setWithdrawalFee(selectedCountry.withdrawFee)
+      } else if (cfgRes.status === 'fulfilled' && cfgRes.value) {
+        const fee = parseFloat(cfgRes.value.data?.data?.withdrawal_fee || '50')
+        if (!isNaN(fee)) setWithdrawalFee(fee)
+      }
+
+      // Withdrawal PIN status
+      if (meRes.status === 'fulfilled') {
+        setHasWithdrawPin(!!meRes.value.data?.data?.hasWithdrawPassword)
+      }
     } catch { /* keep */ }
     finally { setLoading(false) }
-  }, [selectedCountry?.name])
+  }, [selectedCountry?.name, selectedCountry?.withdrawFee])
 
   // Reload when country switches
   useEffect(() => {
@@ -177,18 +206,25 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
   // Refresh when returning from AddBankScreen or WithdrawPassword
   useEffect(() => {
     const unsubscribe = props.navigation.addListener('focus', () => {
-      fetchBankAccounts().then(b => {
-        setBanks(b)
-        setSelectedBank(prev => b.find(x => x.id === prev?.id) || b.find(x => x.isDefault) || b[0] || null)
+      // Run all 3 refresh calls in parallel — no sequential blocking
+      Promise.allSettled([
+        fetchBankAccounts(),
+        fetchWalletInfo(selectedCountry?.name),
+        client.get('/tuka/user/me'),
+      ]).then(([banksRes, walletRes, meRes]) => {
+        if (banksRes.status === 'fulfilled') {
+          const b = banksRes.value
+          setBanks(b)
+          setSelectedBank(prev => b.find((x: BankAccount) => x.id === prev?.id) || b.find((x: BankAccount) => x.isDefault) || b[0] || null)
+        }
+        if (walletRes.status === 'fulfilled') setWallet(walletRes.value)
+        if (meRes.status === 'fulfilled') {
+          setHasWithdrawPin(!!meRes.value.data?.data?.hasWithdrawPassword)
+        }
       })
-      // Also refresh balance silently with current country
-      fetchWalletInfo(selectedCountry?.name).then(w => setWallet(w)).catch(() => {})
-      client.get('/tuka/user/me').then(res => {
-        setHasWithdrawPin(!!res.data?.data?.hasWithdrawPassword)
-      }).catch(() => {})
     })
     return unsubscribe
-  }, [props.navigation])
+  }, [props.navigation, selectedCountry?.name])
 
   async function handleAddBank() {
     if (!selectedNgBank) { Alert.alert('Error', 'Please select a bank'); return }
@@ -280,8 +316,8 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
                 key={bank.id}
                 bank={bank}
                 selected={selectedBank?.id === bank.id}
-                onSelect={() => setSelectedBank(bank)}
-                onDelete={() => handleDeleteBank(bank.id)}
+                onSelect={() => { hapticLight(); setSelectedBank(bank) }}
+                onDelete={() => { hapticHeavy(); handleDeleteBank(bank.id) }}
               />
             ))}
 
@@ -300,10 +336,20 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
 
       {/* Withdraw button — same pattern as AddBank: fixed bottom, no border */}
       <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[3] }]}>
+        {/* Min withdrawal hint — shown when a bank is selected */}
+        {canWithdraw && (
+          <View style={s.minHintRow}>
+            <Feather name="info" size={12} color={colors.muted} />
+            <Text style={s.minHintTxt}>
+              Min. withdrawal: {localSym}5,000 · Fee: {localSym}{withdrawalFee.toLocaleString('en-NG')}
+            </Text>
+          </View>
+        )}
         <TouchableOpacity
           style={[s.withdrawBtn, !canWithdraw && s.withdrawBtnOff]}
           onPress={() => {
             if (!canWithdraw) return
+            hapticMedium()
             if (!hasWithdrawPin) { setPinPromptOpen(true); return }
             props.navigation.navigate('WithdrawAmount' as any, {
               bank: selectedBank,
@@ -312,7 +358,11 @@ export default function WithdrawScreen(props: StackScreenProps<RootStackParams, 
             })
           }}
           disabled={!canWithdraw}
-          activeOpacity={0.85}>
+          activeOpacity={0.85}
+          accessible
+          accessibilityLabel={canWithdraw ? `Withdraw to ${selectedBank?.bankName}` : 'Select a bank account to withdraw'}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canWithdraw }}>
           <Text style={[s.withdrawBtnTxt, !canWithdraw && { color: '#AAAAAA' }]}>Withdraw</Text>
         </TouchableOpacity>
       </View>
@@ -577,6 +627,17 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing[4],
     paddingTop: spacing[3],
     backgroundColor: colors.background,
+  },
+  minHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    justifyContent: 'center',
+    marginBottom: spacing[2],
+  },
+  minHintTxt: {
+    fontSize: typography.size.xs,
+    color: colors.muted,
   },
   withdrawBtn: {
     backgroundColor: colors.accent,

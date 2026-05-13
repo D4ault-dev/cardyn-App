@@ -12,6 +12,7 @@ import { ms, RF } from '../../../util/responsive'
 import { isValidEmail } from '../phoneUtils'
 import { Country } from '../../../api/country'
 import { Step } from '../types'
+import { hapticMedium, hapticLight, hapticError } from '../../../util/haptics'
 
 export interface LoginStepProps {
   loginInput: string
@@ -77,6 +78,7 @@ export function LoginStep({
   const [rememberMe, setRememberMe] = useState(false)
 
   function onBtnPressIn() {
+    hapticMedium()
     Animated.spring(liBtnScale, { toValue: 0.97, useNativeDriver: true, tension: 300, friction: 10 }).start()
   }
   function onBtnPressOut() {

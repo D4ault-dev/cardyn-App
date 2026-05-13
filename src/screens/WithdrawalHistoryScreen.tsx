@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Platform} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+  ActivityIndicator,
+} from 'react-native'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
@@ -57,7 +57,6 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true)
     try {
-      // Same function used by OrdersScreen withdraw tab — filtered by selected country
       const data = await fetchMyWithdrawals(selectedCountry?.name)
       setList(data)
     } catch { /* keep */ }
@@ -72,7 +71,8 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  function renderItem({ item }: { item: Withdrawal }) {
+  // Stable renderItem — useCallback prevents new reference on every render
+  const renderItem = useCallback(({ item }: { item: Withdrawal }) => {
     const sc = statusColor(item.status)
     const sl = statusLabel(item.status)
     const isCopied = copiedId === item.withdrawNo
@@ -83,7 +83,6 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
         onPress={() => props.navigation.navigate('WithdrawDetail' as any, { withdrawal: JSON.stringify(item) })}
         activeOpacity={0.85}
       >
-        {/* Top: ID + copy */}
         <View style={s.cardTop}>
           <View style={s.idRow}>
             <Text style={s.idLabel}>ID: </Text>
@@ -95,40 +94,28 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
             activeOpacity={0.7}
           >
             <View style={[s.copyBtn, isCopied && s.copyBtnDone]}>
-              <Feather
-                name={isCopied ? 'check' : 'copy'}
-                size={14}
-                color={isCopied ? '#fff' : colors.primary}
-              />
+              <Feather name={isCopied ? 'check' : 'copy'} size={14} color={isCopied ? '#fff' : colors.primary} />
             </View>
           </TouchableOpacity>
         </View>
-
-        {/* Amount */}
         <View style={s.amtRow}>
           <View style={s.amtDot} />
           <Text style={s.amtLabel}>Price: </Text>
           <Text style={s.amtValue}>{sym} {fmt(item.amount)}</Text>
         </View>
-
-        {/* Bank info */}
         {item.bankName ? (
           <View style={s.bankRow}>
             <Feather name="credit-card" size={13} color={colors.muted} />
-            <Text style={s.bankTxt} numberOfLines={1}>
-              {item.bankName}  ·  {item.accountName}
-            </Text>
+            <Text style={s.bankTxt} numberOfLines={1}>{item.bankName}  ·  {item.accountName}</Text>
           </View>
         ) : null}
-
-        {/* Bottom: date + status */}
         <View style={s.cardBottom}>
           <Text style={s.dateText}>{formatDateTime(item.createTime)}</Text>
           <Text style={[s.statusText, { color: sc }]}>{sl}</Text>
         </View>
       </TouchableOpacity>
     )
-  }
+  }, [copiedId, sym, props.navigation])
 
   return (
     <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
@@ -143,6 +130,9 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
           renderItem={renderItem}
           contentContainerStyle={s.listContent}
           showsVerticalScrollIndicator={false}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
           refreshControl={
             <AppRefreshControl
               refreshing={refreshing}

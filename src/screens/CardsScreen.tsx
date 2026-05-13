@@ -1,9 +1,9 @@
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, RefreshControl, FlatList, Platform} from 'react-native'
+  Image, FlatList, Platform} from 'react-native'
 import { StackScreenProps } from '@react-navigation/stack'
 import { useIsFocused } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
@@ -11,7 +11,6 @@ import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { CardListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
-import { fetchCountries, Country } from '../api/country'
 import { currSym, currLabel } from '../util/currency'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { FadeScreen } from '../components/FadeScreen'
@@ -21,17 +20,23 @@ import { useCountry } from '../context/CountryContext'
 const CARD_BG = ['#E8F5E9','#FFF3E0','#E3F2FD','#FCE4EC','#F3E5F5','#E0F7FA','#FFF8E1','#E8EAF6']
 
 // ── Rate Table ────────────────────────────────────────────────────────────────
-function RateTable({
+const RateTable = React.memo(function RateTable({
   card, country, mode, onSell,
 }: {
-  card: CardCategory; country: Country | null; mode: 'Fast' | 'Slow'
+  card: CardCategory; country: any | null; mode: 'Fast' | 'Slow'
   onSell: (currency: string, inputType: string, mode: 'Fast' | 'Slow') => void
 }) {
   const [currency, setCurrency] = useState(card.currencies?.[0] || 'USD')
 
   const sym        = country?.currencySymbol || '₦'
-  const rateConfig = card.rateConfigs?.find(r => r.currency === currency)
-  const rows       = (rateConfig?.rows || []).filter(r => r.mode === mode)
+  const rateConfig = useMemo(
+    () => card.rateConfigs?.find((r: any) => r.currency === currency),
+    [card, currency]
+  )
+  const rows = useMemo(
+    () => (rateConfig?.rows || []).filter((r: any) => r.mode === mode),
+    [rateConfig, mode]
+  )
 
   function getRate(row: any, type: string): number {
     const r = row.rates?.[type] || row.rates?.['All'] || ''
@@ -49,12 +54,41 @@ function RateTable({
     return [`${row.min}-${row.max}`, 'range']
   }
 
+  // Stable renderItem for the rate rows FlatList
+  const renderRateRow = useCallback(({ item: row, index: i }: { item: any; index: number }) => {
+    const types = row.inputTypes?.length ? row.inputTypes : ['All']
+    const [val, type] = rangeLabel(row)
+    return (
+      <TouchableOpacity
+        style={t.rateCard}
+        onPress={() => onSell(currency, types[0], mode)}
+        activeOpacity={0.8}>
+        <View style={{ flex: 1.3 }}>
+          <Text style={t.rangeVal}>{val}</Text>
+          <Text style={t.rangeType}>{type}</Text>
+        </View>
+        <View style={{ flex: 1.2 }}>
+          {types.map((tp: string, j: number) => (
+            <Text key={j} style={t.typeVal}>{tp}</Text>
+          ))}
+        </View>
+        <View style={{ flex: 1.5, alignItems: 'flex-end' }}>
+          {types.map((tp: string, j: number) => (
+            <Text key={j} style={t.rateVal}>
+              {currSym(currency)}1 ≈ {getRate(row, tp).toFixed(2)}
+            </Text>
+          ))}
+        </View>
+      </TouchableOpacity>
+    )
+  }, [currency, mode, onSell, country, card])
+
   return (
     <View style={t.wrap}>
       {/* Currency chips */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={t.chipsScroll}>
         <View style={{ flexDirection: 'row', gap: spacing[2], paddingVertical: spacing[3], paddingRight: spacing[2] }}>
-          {card.currencies.map(cur => (
+          {card.currencies.map((cur: string) => (
             <TouchableOpacity key={cur}
               style={[t.chip, currency === cur && t.chipOn]}
               onPress={() => setCurrency(cur)} activeOpacity={0.8}>
@@ -74,39 +108,17 @@ function RateTable({
       {rows.length === 0 ? (
         <Text style={t.noRates}>No rates for {currLabel(currency)} · {mode}</Text>
       ) : (
-        rows.map((row, i) => {
-          const types = row.inputTypes?.length ? row.inputTypes : ['All']
-          const [val, type] = rangeLabel(row)
-          return (
-            <TouchableOpacity
-              key={i}
-              style={t.rateCard}
-              // Pass currency + first type of this row + mode so SellCard pre-fills
-              onPress={() => onSell(currency, types[0], mode)}
-              activeOpacity={0.8}>
-              <View style={{ flex: 1.3 }}>
-                <Text style={t.rangeVal}>{val}</Text>
-                <Text style={t.rangeType}>{type}</Text>
-              </View>
-              <View style={{ flex: 1.2 }}>
-                {types.map((tp: string, j: number) => (
-                  <Text key={j} style={t.typeVal}>{tp}</Text>
-                ))}
-              </View>
-              <View style={{ flex: 1.5, alignItems: 'flex-end' }}>
-                {types.map((tp: string, j: number) => (
-                  <Text key={j} style={t.rateVal}>
-                    {currSym(currency)}1 ≈ {getRate(row, tp).toFixed(2)}
-                  </Text>
-                ))}
-              </View>
-            </TouchableOpacity>
-          )
-        })
+        <FlatList
+          data={rows}
+          keyExtractor={(_item, index) => String(index)}
+          renderItem={renderRateRow}
+          scrollEnabled={false}
+          removeClippedSubviews={false}
+        />
       )}
     </View>
   )
-}
+})
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Tabs'>) {
@@ -155,12 +167,23 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
 
   const onRefresh = () => { setRefreshing(true); load(true) }
 
-  const getCountry = (card: CardCategory) =>
-    countries.find(c => c.name === card.country) || selectedCountry || countries[0] || null
+  const getCountry = useCallback((card: CardCategory) =>
+    countries.find(c => c.name === card.country) || selectedCountry || countries[0] || null,
+  [countries, selectedCountry])
 
-  const selectedCard        = cards.find(c => c.id === selectedId) || null
-  const selectedCardCountry = selectedCard ? getCountry(selectedCard) : (selectedCountry || null)
-  const imgUrl              = resolveImageUrl(selectedCard?.icon ?? null)
+  const selectedCard        = useMemo(() => cards.find(c => c.id === selectedId) || null, [cards, selectedId])
+  const selectedCardCountry = useMemo(() => selectedCard ? getCountry(selectedCard) : (selectedCountry || null), [selectedCard, getCountry, selectedCountry])
+  const imgUrl              = useMemo(() => resolveImageUrl(selectedCard?.icon ?? null), [selectedCard])
+
+  const handleSell = useCallback((currency: string, inputType: string, rowMode: 'Fast' | 'Slow') => {
+    if (!selectedCard) return
+    props.navigation.navigate('SellCard' as any, {
+      cardId: selectedCard.id,
+      currency,
+      inputType,
+      mode: rowMode,
+    })
+  }, [selectedCard, props.navigation])
 
   const swipeHandlers = useDrawerSwipe()
 
@@ -239,14 +262,7 @@ export default function CardsScreen(props: StackScreenProps<RootStackParams, 'Ta
             card={selectedCard}
             country={selectedCardCountry}
             mode={mode}
-            onSell={(currency, inputType, rowMode) =>
-              props.navigation.navigate('SellCard' as any, {
-                cardId: selectedCard.id,
-                currency,
-                inputType,
-                mode: rowMode,
-              })
-            }
+            onSell={handleSell}
           />
         )}
       </ScrollView>

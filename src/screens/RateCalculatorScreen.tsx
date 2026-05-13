@@ -1,9 +1,9 @@
 import { RF, ms } from '../util/responsive'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Image, ActivityIndicator, Modal, FlatList, TextInput, Platform} from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
@@ -80,12 +80,16 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
     ? selectedCard.configInfo.join('\n')
     : 'Trade Terms: Please keep your card safe!'
 
-  const rateConfig = selectedCard?.rateConfigs?.find(r => r.currency === selectedCurrency)
+  const rateConfig = useMemo(
+    () => selectedCard?.rateConfigs?.find(r => r.currency === selectedCurrency),
+    [selectedCard, selectedCurrency]
+  )
 
-  // Filter rows by selected mode
-  const faceValueRows = rateConfig
-    ? rateConfig.rows.filter(r => r.mode === selectedMode)
-    : []
+  // Filter rows by selected mode — memoized
+  const faceValueRows = useMemo(
+    () => rateConfig ? rateConfig.rows.filter(r => r.mode === selectedMode) : [],
+    [rateConfig, selectedMode]
+  )
 
   function rowLabel(row: any): string {
     if (row.rangeType === 'fixed')    return `${row.value}`
@@ -93,14 +97,13 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
     return `${row.min} – ${row.max}`
   }
 
-  const faceValueOptions = faceValueRows.map(rowLabel)
+  const faceValueOptions = useMemo(() => faceValueRows.map(rowLabel), [faceValueRows])
 
   const selectedRowIndex = faceValueOptions.indexOf(faceValue)
   const selectedRow = selectedRowIndex >= 0 ? faceValueRows[selectedRowIndex] : null
 
-  function getRate(): number {
+  const rate = useMemo(() => {
     if (!selectedRow) return 0
-    // Admin stores base rate (e.g. 5.15 per $1), apply country rate mode
     const r = selectedRow.rates?.[selectedType] || selectedRow.rates?.['All'] || ''
     if (!r) return 0
     const baseRate  = parseFloat(r)
@@ -109,7 +112,7 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
       return todayRate > 0 ? baseRate / todayRate : baseRate
     }
     return baseRate * todayRate
-  }
+  }, [selectedRow, selectedType, cardCountry])
 
   function getRowRate(row: any): number {
     const r = row.rates?.[selectedType] || row.rates?.['All'] || ''
@@ -122,17 +125,15 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
     return baseRate * todayRate
   }
 
-  function getLimits(): { min: number; max: number } | null {
+  const limits = useMemo(() => {
     if (!selectedRow) return null
     if (selectedRow.rangeType === 'fixed') return { min: parseFloat(selectedRow.value), max: parseFloat(selectedRow.value) }
     if (selectedRow.rangeType === 'multiple') return { min: parseFloat(selectedRow.min), max: parseFloat(selectedRow.max) }
     return { min: parseFloat(selectedRow.min), max: parseFloat(selectedRow.max) }
-  }
+  }, [selectedRow])
 
-  const limits = getLimits()
-  const rate   = getRate()
   const amtNum = parseFloat(amount) || 0
-  const result = amtNum > 0 && rate > 0 ? amtNum * rate : 0
+  const result = useMemo(() => amtNum > 0 && rate > 0 ? amtNum * rate : 0, [amtNum, rate])
 
   // Validate amount against limits — also enforces multiples for 'multiple' rangeType
   function handleAmountChange(v: string) {

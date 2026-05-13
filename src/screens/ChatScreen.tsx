@@ -17,7 +17,7 @@ import { resolveImageUrl } from '../api/cards'
 import {
   ChatMessage, ChatSession, ChatPoller, PollResult,
   getOrCreateSession, getMessages, sendMessage, sendImageMessage,
-  submitReview, getReview,
+  submitReview,
 } from '../api/chat'
 
 type Props = StackScreenProps<RootStackParams, 'Chat'>

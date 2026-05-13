@@ -4,12 +4,11 @@ import {
   TextInput, ActivityIndicator,
   KeyboardAvoidingView, Platform,
 } from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
-import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { useToast } from '../util/useToast'
@@ -135,7 +134,7 @@ export default function ModifyPasswordScreen(props: StackScreenProps<RootStackPa
         </View>
 
         {/* Confirm button */}
-        <View style={s.bottomBar}>
+        <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[3] }]}>
           <TouchableOpacity
             style={[s.confirmBtn, !canConfirm && s.confirmBtnOff]}
             onPress={handleConfirm}
@@ -171,7 +170,7 @@ const s = StyleSheet.create({
   },
 
   bottomBar: {
-    paddingHorizontal: spacing[5], paddingBottom: spacing[8], paddingTop: spacing[3],
+    paddingHorizontal: spacing[5], paddingTop: spacing[3],
   },
   confirmBtn: {
     backgroundColor: '#1A1A1A',

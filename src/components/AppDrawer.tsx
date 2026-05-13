@@ -1,4 +1,3 @@
-import { RF } from '../util/responsive'
 import { getStatusBarHeight } from '../util/statusBar'
 import React, { useEffect, useState } from 'react'
 import {
@@ -26,9 +25,13 @@ export function AppDrawer() {
   const { drawerVisible, drawerAnim, overlayAnim, close } = useDrawer()
   const navigation = useNavigation<any>()
   const [avatar, setAvatar] = useState<string | null>(null)
+  // Track if avatar has been fetched this session — avoid re-fetching on every open
+  const avatarFetchedRef = React.useRef(false)
 
   useEffect(() => {
-    if (drawerVisible && user.isPresent()) {
+    // Only fetch avatar once per session, not on every drawer open
+    if (drawerVisible && user.isPresent() && !avatarFetchedRef.current) {
+      avatarFetchedRef.current = true
       apiGetUserInfo().then(info => {
         if (info.avatar) setAvatar(info.avatar)
       }).catch(() => {})
@@ -36,12 +39,15 @@ export function AppDrawer() {
   }, [drawerVisible, user])
 
   function navigate(screen: string, params?: any) {
+    // Close drawer immediately without waiting for animation — then navigate
+    // This eliminates the 220ms animation delay before the new screen appears
     drawerAnim.stopAnimation()
     overlayAnim.stopAnimation()
     drawerAnim.setValue(-DRAWER_W)
     overlayAnim.setValue(0)
     close()
-    setTimeout(() => navigation.navigate(screen, params), 50)
+    // Navigate on next frame — drawer is already visually gone
+    requestAnimationFrame(() => navigation.navigate(screen, params))
   }
 
   function handleLogout() {
@@ -65,7 +71,6 @@ export function AppDrawer() {
 
   const u        = user.isPresent() ? user.getOrThrow() : null
   const name     = u?.name || 'Guest'
-  const initials = name.split(' ').map((w: string) => w[0] || '').join('').toUpperCase().slice(0, 2)
   const avatarUri = avatar ? resolveAvatar(avatar) : null
 
   const menuItems = [
@@ -106,9 +111,11 @@ export function AppDrawer() {
                   onError={() => setAvatar(null)}
                 />
               ) : (
-                <View style={d.avatarFallback}>
-                  <Text style={d.avatarInitials}>{initials || '?'}</Text>
-                </View>
+                <Image
+                  source={require('../../assets/default-avatar.png')}
+                  style={d.avatarImg}
+                  resizeMode="cover"
+                />
               )}
               {/* Edit badge */}
               <TouchableOpacity
@@ -201,16 +208,6 @@ const d = StyleSheet.create({
     width: 72, height: 72,
     borderRadius: 18,
     borderWidth: 2.5, borderColor: colors.primaryLight,
-  },
-  avatarFallback: {
-    width: 72, height: 72,
-    borderRadius: 18,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2.5, borderColor: colors.primary,
-  },
-  avatarInitials: {
-    fontSize: RF(24), fontWeight: typography.weight.extrabold, color: colors.primary,
   },
   editBadge: {
     position: 'absolute', bottom: -4, right: -4,

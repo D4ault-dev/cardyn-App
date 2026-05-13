@@ -1,4 +1,4 @@
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import React, { useState, useEffect, useRef } from 'react'
 import {
@@ -11,17 +11,14 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { BottomSheet } from '../components/BottomSheet'
 import { Feather } from '@expo/vector-icons'
-import { LinearGradient } from 'expo-linear-gradient'
 import * as ImagePicker from 'expo-image-picker'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 const { width: W } = Dimensions.get('window')
 import { useAuth } from '../context/AuthContext'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
-import { fetchCountries, Country } from '../api/country'
-import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { SellCardSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
-import client, { BASE_URL } from '../api/client'
+import client from '../api/client'
 import { currSym, currLabel } from '../util/currency'
 import { fetchCurrencies, buildCurrencyLogoMap } from '../api/currency'
 import { Analytics } from '../util/analytics'
@@ -30,6 +27,10 @@ import { ms, RF } from '../util/responsive'
 import CouponPicker from '../components/CouponPicker'
 import type { Coupon } from '../api/coupon'
 import { useCountry } from '../context/CountryContext'
+import { SpeedSelector } from './sell/SpeedSelector'
+import { CardCodeInputs } from './sell/CardCodeInputs'
+import { ImageUploadSection } from './sell/ImageUploadSection'
+import { ConfirmSheet } from './sell/ConfirmSheet'
 
 const CARD_BG = ['#E8F5E9','#FFF3E0','#E3F2FD','#FCE4EC','#F3E5F5','#E0F7FA','#FFF8E1','#E8EAF6']
 
@@ -93,6 +94,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   const [imageViewerOpen, setImageViewerOpen]     = useState(false)
   const [imageViewerIdx, setImageViewerIdx]       = useState(0)
   const [imageGuideOpen, setImageGuideOpen]       = useState(false)
+  const [speedTooltipOpen, setSpeedTooltipOpen]   = useState(false)
   const [cameraPermission, requestCameraPermission] = useCameraPermissions()
 
   // Currency logos — fetched once and cached
@@ -166,6 +168,8 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     setCardImages([])
     setAttempted(false)
     setAmountError('')
+    // Clear stale refs — new TextInput nodes will re-populate via ref callback
+    codeRefs.current = []
     const country = countries.find(c => c.name === card.country) || countries[0]
     Analytics.cardViewed({
       cardId:   card.id,
@@ -221,7 +225,12 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
       if (prev.length < quantity) return [...prev, ...Array(quantity - prev.length).fill('')]
       return prev.slice(0, quantity)
     })
-    codeRefs.current = codeRefs.current.slice(0, quantity)
+    // Only trim refs when shrinking — never pre-fill when growing.
+    // The ref callback (ref={el => codeRefs.current[idx] = el}) populates
+    // new slots automatically when the new TextInput nodes mount.
+    if (codeRefs.current.length > quantity) {
+      codeRefs.current = codeRefs.current.slice(0, quantity)
+    }
   }, [quantity])
 
   // Get the applicable rate config for selected currency
@@ -781,18 +790,12 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
             {/* Payout preview removed */}
 
             {/* 4. Speed */}
-            <View style={s.speedField}>
-              <Text style={s.speedLabel}>Speed</Text>
-              <View style={s.speedToggle}>
-                {(['Fast', 'Slow'] as const).map(m => (
-                  <TouchableOpacity key={m}
-                    style={[s.speedBtn, selectedMode === m && s.speedBtnOn]}
-                    onPress={() => setSelectedMode(m)} activeOpacity={0.8}>
-                    <Text style={[s.speedBtnTxt, selectedMode === m && s.speedBtnTxtOn]}>{m}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+            <SpeedSelector
+              selectedMode={selectedMode}
+              tooltipOpen={speedTooltipOpen}
+              onChangeMode={setSelectedMode}
+              onToggleTooltip={() => setSpeedTooltipOpen(v => !v)}
+            />
 
             {/* 4b. Quantity — new field */}
             <View style={s.quantityField}>
@@ -820,115 +823,34 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
             {/* 7. Upload Photo — show for all types except Code */}
             {selectedInputType && selectedInputType !== 'Code' && (
-              <>
-                <Text style={s.sectionLabel}>Upload card image</Text>
-                <View style={s.imagesRow}>
-                  {cardImages.map((uri, idx) => (
-                    <TouchableOpacity key={uri} style={s.imageThumbnailWrap}
-                      onPress={() => { setImageViewerIdx(idx); setImageViewerOpen(true) }}
-                      activeOpacity={0.9}>
-                      <Image
-                        source={{ uri }}
-                        style={{ width: 64, height: 64, borderRadius: radius.md }}
-                        resizeMode="cover"
-                      />
-                      <TouchableOpacity
-                        style={s.imageThumbnailRemove}
-                        onPress={() => setCardImages(prev => prev.filter((_, i) => i !== idx))}>
-                        <Feather name="x" size={10} color="#fff" />
-                      </TouchableOpacity>
-                    </TouchableOpacity>
-                  ))}
-                  {/* Add button */}
-                  <TouchableOpacity style={s.imageAddBtn} onPress={openPhotoSheet} activeOpacity={0.8}>
-                    {uploadingImage ? (
-                      <ActivityIndicator color={colors.primary} size="small" />
-                    ) : (
-                      <>
-                        <Feather name="camera" size={18} color={colors.muted} />
-                        <Text style={s.imageAddTxt}>Add</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {/* Inline error — only after submit attempt */}
-                {attempted && cardImages.length === 0 && (
-                  <View style={s.inlineError}>
-                    <Feather name="alert-circle" size={13} color={colors.error} />
-                    <Text style={s.inlineErrorTxt}>Upload at least 1 image to continue</Text>
-                  </View>
-                )}
-
-                <TouchableOpacity onPress={() => setImageGuideOpen(true)} activeOpacity={0.7}>
-                  <Text style={s.uploadHelpTxt}>Need help? View sample images.</Text>
-                </TouchableOpacity>
-              </>
+              <ImageUploadSection
+                cardImages={cardImages}
+                uploadingImage={uploadingImage}
+                attempted={attempted}
+                onAddImage={openPhotoSheet}
+                onRemoveImage={idx => setCardImages(prev => prev.filter((_, i) => i !== idx))}
+                onViewImage={idx => { setImageViewerIdx(idx); setImageViewerOpen(true) }}
+                onViewGuide={() => setImageGuideOpen(true)}
+              />
             )}
 
             {/* 6. Code input — multiple inputs for Code type */}
             {selectedInputType === 'Code' && (
-              <View style={s.codesSection}>
-                <View style={s.codesSectionHeader}>
-                  <Text style={s.codesSectionTitle}>Card Codes</Text>
-                  <View style={s.codesProgress}>
-                    <Text style={[s.codesSectionSub, allFilled && { color: colors.success }]}>
-                      {codesFilledCount}/{quantity} filled
-                    </Text>
-                    {allFilled && <Feather name="check-circle" size={14} color={colors.success} style={{ marginLeft: 4 }} />}
-                  </View>
-                </View>
-
-                {cardCodes.map((code, idx) => (
-                  <View key={idx} style={s.codeInputRow}>
-                    <View style={[s.codeInputWrap, code.trim().length > 0 && s.codeInputWrapFilled, inputFocusIdx === idx && s.codeInputWrapFocused]}>
-                      <View style={[s.codeInputNumWrap, code.trim().length > 0 && s.codeInputNumWrapFilled]}>
-                        <Text style={[s.codeInputNum, code.trim().length > 0 && s.codeInputNumFilled]}>{idx + 1}</Text>
-                      </View>
-                      <TextInput
-                        ref={el => { codeRefs.current[idx] = el }}
-                        style={s.codeInput}
-                        placeholder={`Code ${idx + 1}`}
-                        placeholderTextColor={colors.subtle}
-                        value={code}
-                        onChangeText={v => {
-                          const next = [...cardCodes]
-                          next[idx] = v
-                          setCardCodes(next)
-                        }}
-                        maxLength={30}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                        spellCheck={false}
-                        returnKeyType={idx < cardCodes.length - 1 ? 'next' : 'done'}
-                        onFocus={() => setInputFocusIdx(idx)}
-                        onBlur={() => setInputFocusIdx(-1)}
-                        onSubmitEditing={() => {
-                          if (idx < cardCodes.length - 1) {
-                            codeRefs.current[idx + 1]?.focus()
-                          }
-                        }}
-                        blurOnSubmit={idx === cardCodes.length - 1}
-                      />
-                      {code.length > 0 && (
-                        <TouchableOpacity onPress={() => {
-                          const next = [...cardCodes]; next[idx] = ''; setCardCodes(next)
-                        }} style={s.codeClearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Feather name="x-circle" size={16} color={colors.muted} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <Text style={[s.codeCharCount, code.length >= 28 && { color: colors.warning }]}>{code.length}/30</Text>
-                  </View>
-                ))}
-
-                {attempted && cardCodes.every(c => !c.trim()) && (
-                  <View style={s.inlineError}>
-                    <Feather name="alert-circle" size={13} color={colors.error} />
-                    <Text style={s.inlineErrorTxt}>Enter at least one card code to continue</Text>
-                  </View>
-                )}
-              </View>
+              <CardCodeInputs
+                cardCodes={cardCodes}
+                quantity={quantity}
+                inputFocusIdx={inputFocusIdx}
+                attempted={attempted}
+                codeRefs={codeRefs}
+                onChangeCode={(idx, v) => {
+                  const next = [...cardCodes]; next[idx] = v; setCardCodes(next)
+                }}
+                onClearCode={idx => {
+                  const next = [...cardCodes]; next[idx] = ''; setCardCodes(next)
+                }}
+                onFocus={setInputFocusIdx}
+                onBlur={() => setInputFocusIdx(-1)}
+              />
             )}
 
             {/* Optional code for non-Code types that also accept code */}
@@ -988,82 +910,23 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
       </View>
 
       {/* ── Confirm Trade Modal — redesigned ── */}
-      <BottomSheet visible={confirmOpen} onClose={() => setConfirmOpen(false)}>
-        <View style={{ paddingHorizontal: spacing[5], paddingBottom: spacing[4] }}>
-            {/* Header */}
-            <View style={cm.header}>
-              <Text style={cm.title}>Confirm Trade</Text>
-              <TouchableOpacity onPress={() => setConfirmOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="x" size={20} color={colors.muted} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Settlement amount — hero */}
-            <View style={cm.amtWrap}>
-              <Text style={cm.amtLabel}>You will receive</Text>
-              <Text style={cm.amt}>{fmt(settlement, currencySymbol)}</Text>
-              {couponDiscount > 0 && (
-                <View style={cm.couponBadge}>
-                  <Feather name="tag" size={12} color={colors.success} />
-                  <Text style={cm.couponBadgeTxt}>+{fmt(couponDiscount, currencySymbol)} coupon applied</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Details grid */}
-            <View style={cm.rows}>
-              {[
-                { label: 'Category',         value: selectedCard?.name || '—' },
-                { label: 'Sales Price',       value: fmt(salesPrice, currencySymbol) },
-                { label: 'Settlement Amount', value: fmt(settlement, currencySymbol), green: true },
-              ].map((item, i, arr) => (
-                <View key={item.label} style={[cm.row, i < arr.length - 1 && cm.rowBorder]}>
-                  <Text style={cm.rowLbl}>{item.label}</Text>
-                  <Text style={[cm.rowVal, (item as any).green && cm.rowValGreen]}>{item.value}</Text>
-                </View>
-              ))}
-
-              {/* Coupon row */}
-              <TouchableOpacity
-                style={[cm.row, cm.couponRow]}
-                onPress={() => {
-                  // Close confirm modal first, then open coupon picker
-                  // On confirm, we'll reopen confirm modal
-                  setReturnToConfirm(true)
-                  setConfirmOpen(false)
-                  setTimeout(() => setCouponPickerOpen(true), 320)
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={cm.couponIcon}>
-                  <Feather name="tag" size={14} color={colors.accent} />
-                </View>
-                <Text style={cm.couponLbl}>Coupon</Text>
-                <Text style={cm.couponVal}>
-                  {appliedCoupon
-                    ? `+${fmt(couponDiscount, currencySymbol)} applied`
-                    : 'Select coupon'
-                  }
-                </Text>
-                <Feather name="chevron-right" size={16} color={colors.accent} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Submit button — full width black pill */}
-            <TouchableOpacity
-              style={[cm.submitBtn, submitting && { opacity: 0.7 }]}
-              disabled={submitting}
-              onPress={async () => { setConfirmOpen(false); await handleSubmit() }}
-              activeOpacity={0.85}
-            >
-              {submitting
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={cm.submitTxt}>Submit</Text>
-              }
-            </TouchableOpacity>
-        </View>
-
-      </BottomSheet>
+      <ConfirmSheet
+        visible={confirmOpen}
+        submitting={submitting}
+        cardName={selectedCard?.name || ''}
+        salesPrice={salesPrice}
+        settlement={settlement}
+        currencySymbol={currencySymbol}
+        appliedCoupon={appliedCoupon}
+        couponDiscount={couponDiscount}
+        onClose={() => setConfirmOpen(false)}
+        onSubmit={async () => { setConfirmOpen(false); await handleSubmit() }}
+        onOpenCoupon={() => {
+          setReturnToConfirm(true)
+          setConfirmOpen(false)
+          setTimeout(() => setCouponPickerOpen(true), 320)
+        }}
+      />
 
       {/* ── Coupon Picker Modal — separate full modal ── */}
       <Modal
@@ -1461,10 +1324,14 @@ const s = StyleSheet.create({
   },
   // Speed row — same height as other fields
   speedField: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: colors.surface, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], height: 52, marginBottom: spacing[3],
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    marginBottom: spacing[3],
     borderWidth: 1, borderColor: colors.border,
+  },
+  speedLabelRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: spacing[2],
   },
   speedLabel:  { fontSize: typography.size.lg, color: colors.muted, fontWeight: typography.weight.extrabold },
   speedToggle: { flexDirection: 'row', gap: spacing[2] },
@@ -1476,6 +1343,27 @@ const s = StyleSheet.create({
   speedBtnOn:    { backgroundColor: colors.primary, borderColor: colors.primary },
   speedBtnTxt:   { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.body },
   speedBtnTxtOn: { color: '#fff' },
+  speedTooltip: {
+    marginTop: spacing[3],
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing[3],
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  speedTooltipRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2],
+  },
+  speedTooltipDot: {
+    width: 8, height: 8, borderRadius: 4, marginTop: 5, flexShrink: 0,
+  },
+  speedTooltipTitle: {
+    fontSize: typography.size.sm, fontWeight: typography.weight.bold,
+    color: colors.dark, marginBottom: 2,
+  },
+  speedTooltipDesc: {
+    fontSize: typography.size.xs, color: colors.muted, lineHeight: 16,
+  },
 
   // Quantity field
   quantityField: {
@@ -2113,98 +2001,6 @@ const hb = StyleSheet.create({
     fontWeight: typography.weight.extrabold,
     color: '#fff',
   },
-})
-
-// ── Confirm modal styles ─────────────────────────────────────────────────────
-const cm = StyleSheet.create({
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: spacing[3],
-  },
-  title: {
-    fontSize: typography.size.xl, fontWeight: typography.weight.extrabold,
-    color: colors.dark,
-  },
-  amtWrap: {
-    backgroundColor: colors.primaryLight, borderRadius: radius.xl,
-    paddingVertical: spacing[4], paddingHorizontal: spacing[5],
-    alignItems: 'center', marginBottom: spacing[3],
-  },
-  amtLabel: {
-    fontSize: typography.size.sm, color: colors.primary,
-    fontWeight: typography.weight.semibold, marginBottom: spacing[1],
-    letterSpacing: 0.3,
-  },
-  amt: {
-    fontSize: RF(40), fontWeight: typography.weight.extrabold,
-    color: colors.primary, letterSpacing: -1.5,
-  },
-  couponBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[1],
-    backgroundColor: colors.successLight, borderRadius: radius.full,
-    paddingHorizontal: spacing[3], paddingVertical: spacing[1],
-    marginTop: spacing[2],
-  },
-  couponBadgeTxt: {
-    fontSize: typography.size.xs, color: colors.success,
-    fontWeight: typography.weight.semibold,
-  },
-  rows: {
-    backgroundColor: colors.background, borderRadius: radius.xl,
-    paddingHorizontal: spacing[4], marginBottom: spacing[4],
-  },
-  row: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: spacing[3],
-  },
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border,
-  },
-  rowLbl: { fontSize: typography.size.base, color: colors.muted },
-  rowVal: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: colors.dark, maxWidth: '60%', textAlign: 'right' },
-  rowValGreen: { color: '#22C55E' },
-
-  // Coupon row
-  couponRow: {
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border,
-    paddingVertical: spacing[4],
-  },
-  couponIcon: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#FFF3E0',
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: spacing[2],
-  },
-  couponLbl: { fontSize: typography.size.base, color: colors.dark, flex: 1 },
-  couponVal: { fontSize: typography.size.sm, color: colors.accent, fontWeight: typography.weight.semibold, marginRight: spacing[1] },
-
-  // Warning note
-  noteRow: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2],
-    backgroundColor: '#E6F7F5', borderRadius: radius.lg,
-    padding: spacing[3], marginBottom: spacing[4],
-  },
-  noteTxt: { flex: 1, fontSize: typography.size.xs, color: colors.muted, lineHeight: 18 },
-
-  // Submit button
-  submitBtn: {
-    backgroundColor: '#1A191E', borderRadius: 100,
-    paddingVertical: spacing[4] + 2, alignItems: 'center',
-    marginTop: spacing[2],
-  },
-  submitTxt: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: '#fff' },
-
-  btnRow: { flexDirection: 'row', gap: spacing[3] },
-  cancelBtn: {
-    flex: 1, borderWidth: 2, borderColor: colors.dark,
-    borderRadius: radius.full, paddingVertical: spacing[4], alignItems: 'center',
-  },
-  cancelTxt: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: colors.dark },
-  confirmBtn: {
-    flex: 2, backgroundColor: colors.accent,
-    borderRadius: radius.full, paddingVertical: spacing[4], alignItems: 'center',
-  },
-  confirmTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#fff' },
 })
 
 // ── Photo sheet styles ────────────────────────────────────────────────────────

@@ -8,7 +8,6 @@ import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
-import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { useToast } from '../util/useToast'
@@ -77,12 +76,14 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
 
   const canConfirm = otpCode.length >= 4 && !!pinId && !saving
 
+  const bottomPad = Math.max(insets.bottom, 16)
+
   return (
     <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
       <AppHeader title="Bind Phone Number" onBack={() => props.navigation.goBack()} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing[4] }}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing[4], paddingBottom: bottomPad + spacing[4] }}>
 
           <Text style={s.notice}>
             Bind a phone number to your account for security verification and account recovery.

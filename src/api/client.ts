@@ -33,9 +33,38 @@ function emitSessionExpired() {
 // ── Axios instance ────────────────────────────────────────────────────────────
 const client = axios.create({
   baseURL: BASE_URL,
-  timeout: 20000,  // 20s for production (was 15s)
+  timeout: 15000,  // 15s per attempt — retries handle flaky connections
   headers: { 'Content-Type': 'application/json' },
 })
+
+// ── Exponential backoff retry — critical for Nigerian mobile data ─────────────
+// Retries up to 2 times on network errors or 5xx responses.
+// Delays: 800ms → 2000ms. Total max wait: ~18s before giving up.
+client.interceptors.request.use(config => {
+  // Attach retry metadata on first attempt
+  if ((config as any).__retryCount === undefined) {
+    (config as any).__retryCount = 0
+  }
+  return config
+})
+
+const MAX_RETRIES = 2
+const RETRY_DELAYS = [800, 2000]  // ms
+
+function shouldRetry(error: any): boolean {
+  const status = error?.response?.status
+  const isNetworkError = !error.response && (
+    error.code === 'ECONNABORTED' ||
+    error.code === 'ERR_NETWORK' ||
+    error.message?.includes('Network') ||
+    error.message?.includes('timeout')
+  )
+  const isServerError = status >= 500 && status < 600
+  // Never retry auth endpoints — wrong password should fail immediately
+  const url: string = error?.config?.url || ''
+  const isAuthEndpoint = url.includes('/login') || url.includes('/register')
+  return (isNetworkError || isServerError) && !isAuthEndpoint
+}
 
 // ── Auth token management ─────────────────────────────────────────────────────
 export function setAuthToken(token: string) {
@@ -113,6 +142,14 @@ client.interceptors.response.use(
         m.default.removeItem('@tuka_auth_token').catch(() => {})
       )
       emitSessionExpired()
+    }
+
+    // ── Exponential backoff retry ──────────────────────────────────────────
+    const config = err.config as any
+    if (config && shouldRetry(err) && config.__retryCount < MAX_RETRIES) {
+      config.__retryCount += 1
+      const delay = RETRY_DELAYS[config.__retryCount - 1] ?? 2000
+      return new Promise(resolve => setTimeout(resolve, delay)).then(() => client(config))
     }
 
     const translated = translateMsg(msg)
