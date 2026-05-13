@@ -1,43 +1,60 @@
 /**
  * BiometricLockScreen
  *
- * Shown as a full-screen overlay when the app returns from background
- * and the user has biometrics enabled. The user must authenticate to
- * continue — they cannot dismiss it any other way.
+ * Full-screen overlay shown when the app returns from background and the
+ * user has biometrics enabled. Purely a device lock — no backend call,
+ * no account re-authentication. Just LocalAuthentication.authenticateAsync().
  *
- * Trigger: AppState 'active' after being in 'background' for > LOCK_AFTER_MS
+ * Flow:
+ *   1. App goes to background → backgroundedAt timestamp saved
+ *   2. App returns to foreground after LOCK_AFTER_MS → this screen shown
+ *   3. User scans face/finger → onUnlocked() called → overlay removed
+ *   4. After MAX_FAILURES attempts → device passcode fallback offered
+ *      (LocalAuthentication handles this natively with disableDeviceFallback: false)
+ *
+ * What was broken before and why:
+ *   - AuthScreen was calling login(savedUser, savedPass) on biometric success.
+ *     This re-authenticated the account on every app open, and when the JWT
+ *     expired or credentials changed, it failed and kicked the user out.
+ *   - The AppState listener had a stale closure on `user` — it captured the
+ *     value at mount time, so it never saw the logged-in user and never locked.
+ *   - Fix: biometric lock is now 100% local. onUnlocked() just removes the
+ *     overlay. No login(), no SecureStore credential read, no backend.
  */
 
 import React, { useEffect, useRef, useState } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Platform, ActivityIndicator,
+  Animated, ActivityIndicator, Platform,
 } from 'react-native'
 import * as LocalAuthentication from 'expo-local-authentication'
-import * as SecureStore from 'expo-secure-store'
 import Svg, { Path } from 'react-native-svg'
 import { Feather } from '@expo/vector-icons'
 import { colors, spacing, typography, radius } from '../theme'
 import { ms, RF } from '../util/responsive'
 import { getStatusBarHeight } from '../util/statusBar'
-import { BIOMETRIC_KEY } from '../screens/auth/types'
 
 interface Props {
   onUnlocked: () => void
 }
 
-export function BiometricLockScreen({ onUnlocked }: Props) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [biometricType, setBiometricType] = useState<'fingerprint' | 'face' | 'iris' | null>(null)
+// After this many failures, show the device passcode option prominently
+const MAX_FAILURES = 3
 
-  // Fade in animation
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const scaleAnim = useRef(new Animated.Value(0.92)).current
+export function BiometricLockScreen({ onUnlocked }: Props) {
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState('')
+  const [failures, setFailures]       = useState(0)
+  const [biometricType, setBiometricType] = useState<'fingerprint' | 'face' | null>(null)
+
+  const fadeAnim  = useRef(new Animated.Value(0)).current
+  const scaleAnim = useRef(new Animated.Value(0.94)).current
+  const shakeAnim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
+    // Entrance animation
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 260, useNativeDriver: true }),
       Animated.spring(scaleAnim, { toValue: 1, tension: 80, friction: 12, useNativeDriver: true }),
     ]).start()
 
@@ -45,72 +62,118 @@ export function BiometricLockScreen({ onUnlocked }: Props) {
     LocalAuthentication.supportedAuthenticationTypesAsync().then(types => {
       if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
         setBiometricType('face')
-      } else if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
-        setBiometricType('iris')
       } else {
         setBiometricType('fingerprint')
       }
     }).catch(() => setBiometricType('fingerprint'))
 
-    // Auto-trigger biometric prompt on mount
-    setTimeout(() => authenticate(), 400)
+    // Auto-trigger on mount with a short delay so the animation is visible first
+    const t = setTimeout(() => authenticate(), 350)
+    return () => clearTimeout(t)
   }, [])
 
+  function shake() {
+    shakeAnim.setValue(0)
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue:  10, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue:   8, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue:  -8, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue:   0, duration: 40, useNativeDriver: true }),
+    ]).start()
+  }
+
   async function authenticate() {
+    if (loading) return
     setLoading(true)
     setError('')
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Cardyn',
-        fallbackLabel: 'Use Password',
-        cancelLabel: 'Cancel',
-        disableDeviceFallback: false,
+        promptMessage:          'Unlock Cardyn',
+        fallbackLabel:          'Use Passcode',   // shown after biometric fails
+        cancelLabel:            'Cancel',
+        // false = allow device passcode as fallback (iOS PIN / Android pattern)
+        disableDeviceFallback:  false,
       })
 
       if (result.success) {
-        // Fade out then unlock
-        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
-          onUnlocked()
-        })
+        // Fade out then call onUnlocked — no login(), no backend, purely local
+        Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true })
+          .start(() => onUnlocked())
+        return
+      }
+
+      // Handle failure
+      const newFailures = failures + 1
+      setFailures(newFailures)
+
+      if (result.error === 'user_cancel' || result.error === 'system_cancel') {
+        setError('Tap below to try again')
+      } else if (result.error === 'not_enrolled') {
+        // Device has no biometric enrolled — just unlock
+        onUnlocked()
+        return
+      } else if (result.error === 'lockout' || result.error === 'lockout_permanent') {
+        setError('Too many attempts. Use your device passcode.')
       } else {
-        if (result.error === 'user_cancel' || result.error === 'system_cancel') {
-          setError('Tap the button below to try again')
-        } else if (result.error === 'not_enrolled') {
-          // Biometric not enrolled — just unlock
-          onUnlocked()
-        } else {
-          setError('Authentication failed. Please try again.')
-        }
+        setError(newFailures >= MAX_FAILURES
+          ? 'Too many failures. Use your device passcode below.'
+          : 'Authentication failed. Try again.')
+        shake()
       }
     } catch {
-      setError('Biometric authentication unavailable')
+      setError('Biometric unavailable. Use your device passcode.')
+      setFailures(f => f + 1)
     } finally {
       setLoading(false)
     }
   }
 
-  const iconName = biometricType === 'face' ? 'smile' : 'fingerprint-outline'
+  // Use device passcode — triggers the native OS passcode/PIN prompt
+  async function usePasscode() {
+    setLoading(true)
+    setError('')
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage:         'Enter your device passcode',
+        disableDeviceFallback: false,
+        // On iOS this shows the PIN/passcode entry directly
+        // On Android this shows the device credential screen
+      })
+      if (result.success) {
+        Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true })
+          .start(() => onUnlocked())
+      } else {
+        setError('Passcode incorrect. Try again.')
+        shake()
+      }
+    } catch {
+      setError('Could not verify passcode.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const showPasscodeOption = failures >= MAX_FAILURES
 
   return (
-    <Animated.View style={[
-      StyleSheet.absoluteFillObject,
-      styles.container,
-      { opacity: fadeAnim },
-    ]}>
+    <Animated.View style={[StyleSheet.absoluteFillObject, styles.container, { opacity: fadeAnim }]}>
       <View style={[styles.inner, { paddingTop: getStatusBarHeight() + spacing[4] }]}>
 
-        {/* Lock icon at top */}
+        {/* Top label */}
         <View style={styles.lockWrap}>
-          <Feather name="lock" size={ms(22)} color="rgba(255,255,255,0.6)" />
+          <Feather name="lock" size={ms(16)} color="rgba(255,255,255,0.55)" />
           <Text style={styles.lockTxt}>Cardyn is locked</Text>
         </View>
 
-        {/* Biometric icon — centered */}
-        <Animated.View style={[styles.iconSection, { transform: [{ scale: scaleAnim }] }]}>
+        {/* Biometric icon */}
+        <Animated.View style={[
+          styles.iconSection,
+          { transform: [{ scale: scaleAnim }, { translateX: shakeAnim }] },
+        ]}>
           <View style={styles.iconOuter}>
             <View style={styles.iconMiddle}>
               <View style={styles.iconInner}>
-                {/* Fingerprint SVG */}
                 <Svg width={ms(52)} height={ms(52)} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M7 16V11.3615C7 10.8518 7.10026 10.3624 7.28451 9.90769M17 16V12.8154M9.22222 7.73446C10.0167 7.27055 10.9721 7 12 7C14.2795 7 16.2027 8.33062 16.8046 10.15"
@@ -120,7 +183,7 @@ export function BiometricLockScreen({ onUnlocked }: Props) {
                     d="M10 17V14.8235M14 17V11.8529C14 10.8296 13.1046 10 12 10C10.8954 10 10 10.8296 10 11.8529V12.6471"
                     stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
                   />
-                  <Path d="M6 3H3V6" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M6 3H3V6"   stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   <Path d="M18 3H21V6" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   <Path d="M6 21H3V18" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   <Path d="M18 21H21V18" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -137,15 +200,15 @@ export function BiometricLockScreen({ onUnlocked }: Props) {
           </Text>
         </Animated.View>
 
-        {/* Error message */}
+        {/* Error */}
         {!!error && (
           <View style={styles.errorRow}>
-            <Feather name="alert-circle" size={14} color="rgba(255,255,255,0.7)" />
+            <Feather name="alert-circle" size={14} color="rgba(255,255,255,0.75)" />
             <Text style={styles.errorTxt}>{error}</Text>
           </View>
         )}
 
-        {/* Unlock button */}
+        {/* Primary unlock button */}
         <TouchableOpacity
           style={[styles.unlockBtn, loading && styles.unlockBtnLoading]}
           onPress={authenticate}
@@ -156,13 +219,30 @@ export function BiometricLockScreen({ onUnlocked }: Props) {
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <>
-              <Feather name={biometricType === 'face' ? 'smile' : 'zap'} size={18} color={colors.primary} />
+              <Feather
+                name={biometricType === 'face' ? 'smile' : 'zap'}
+                size={18}
+                color={colors.primary}
+              />
               <Text style={styles.unlockTxt}>
                 {biometricType === 'face' ? 'Unlock with Face ID' : 'Unlock with Fingerprint'}
               </Text>
             </>
           )}
         </TouchableOpacity>
+
+        {/* Passcode fallback — shown after MAX_FAILURES attempts */}
+        {showPasscodeOption && (
+          <TouchableOpacity
+            style={styles.passcodeBtn}
+            onPress={usePasscode}
+            disabled={loading}
+            activeOpacity={0.75}
+          >
+            <Feather name="grid" size={16} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.passcodeTxt}>Use Device Passcode</Text>
+          </TouchableOpacity>
+        )}
 
       </View>
     </Animated.View>
@@ -192,7 +272,7 @@ const styles = StyleSheet.create({
   },
   lockTxt: {
     fontSize: RF(13),
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.55)',
     fontWeight: '500',
   },
 
@@ -240,7 +320,7 @@ const styles = StyleSheet.create({
   },
   errorTxt: {
     fontSize: RF(13),
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.85)',
   },
 
   unlockBtn: {
@@ -255,12 +335,27 @@ const styles = StyleSheet.create({
     minWidth: ms(220),
     justifyContent: 'center',
   },
-  unlockBtnLoading: {
-    opacity: 0.8,
-  },
+  unlockBtnLoading: { opacity: 0.75 },
   unlockTxt: {
     fontSize: RF(16),
     fontWeight: '700',
     color: colors.primary,
+  },
+
+  passcodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[5],
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    marginTop: spacing[2],
+  },
+  passcodeTxt: {
+    fontSize: RF(14),
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '600',
   },
 })

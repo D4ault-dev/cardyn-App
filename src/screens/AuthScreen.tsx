@@ -212,31 +212,12 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
     })
   }, [])
 
-  useEffect(() => {
-    // Trigger on both 'landing' (first-time users) and 'login' (returning users who skipped onboarding)
-    if (step !== 'landing' && step !== 'login') return
-    ;(async () => {
-      try {
-        const enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
-        if (enabled !== 'true' || !biometricAvailable) return
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Log in to Cardyn',
-          fallbackLabel: 'Use Password',
-          cancelLabel: 'Cancel',
-        })
-        if (result.success) {
-          const savedUser = await SecureStore.getItemAsync(BIOMETRIC_USER)
-          const savedPass = await SecureStore.getItemAsync(BIOMETRIC_PASS)
-          if (savedUser && savedPass) {
-            setLoading(true)
-            try { await login(savedUser, savedPass) }
-            catch { /* fall through to normal login */ }
-            finally { setLoading(false) }
-          }
-        }
-      } catch { /* biometric not available */ }
-    })()
-  }, [step, biometricAvailable])
+  // NOTE: We intentionally do NOT auto-trigger biometric login from AuthScreen.
+  // Biometric is used ONLY as an app lock (in BiometricLockScreen overlay).
+  // Auto-login via biometric from the login screen caused the logout bug:
+  // when saved credentials expired, login() failed and kicked the user out.
+  // The correct flow is: user logs in once with password → biometric only
+  // unlocks the app overlay after that, never re-authenticates the account.
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 

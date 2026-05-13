@@ -342,32 +342,42 @@ function AppContent() {
   const appState = useRef(AppState.currentState)
 
   // ── Biometric lock on background/foreground ────────────────────────────────
+  // IMPORTANT: use a ref for the lock state so the AppState closure always
+  // reads the latest value — avoids the stale-closure bug.
+  const biometricLockedRef = useRef(false)
+  const setBiometricLockedBoth = (v: boolean) => {
+    biometricLockedRef.current = v
+    setBiometricLocked(v)
+  }
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', async nextState => {
       const prev = appState.current
       appState.current = nextState
 
       if (nextState === 'background' || nextState === 'inactive') {
-        // Record when app went to background
         backgroundedAt.current = Date.now()
       }
 
       if (nextState === 'active' && prev !== 'active') {
-        // App came back to foreground — check if we should lock
-        const isLoggedIn = user.isPresent()
-        if (!isLoggedIn) return  // Not logged in — no lock needed
+        // Already locked — don't double-lock
+        if (biometricLockedRef.current) return
+
+        // Read user from SecureStore — avoids stale closure on user ref
+        const token = await SecureStore.getItemAsync('cardyn_auth_token').catch(() => null)
+          ?? await SecureStore.getItemAsync('@tuka_auth_token').catch(() => null)
+        if (!token) return  // Not logged in — no lock needed
 
         const elapsed = backgroundedAt.current
           ? Date.now() - backgroundedAt.current
-          : 0
+          : Infinity  // cold launch — always check
 
         if (elapsed < LOCK_AFTER_MS) return  // Not long enough — no lock
 
-        // Check if biometric is enabled
         try {
           const enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
           if (enabled === 'true') {
-            setBiometricLocked(true)
+            setBiometricLockedBoth(true)
           }
         } catch {
           // SecureStore unavailable — don't lock
@@ -376,7 +386,7 @@ function AppContent() {
     })
 
     return () => sub.remove()
-  }, [user])
+  }, [])  // empty deps — intentional, we use refs to avoid stale closures
 
   // While auth is loading, show dark background — matches native splash
   if (isLoading) {
@@ -407,7 +417,7 @@ function AppContent() {
       <RootNavigator />
       {/* Biometric lock overlay — shown on top of everything when app returns from background */}
       {biometricLocked && (
-        <BiometricLockScreen onUnlocked={() => setBiometricLocked(false)} />
+        <BiometricLockScreen onUnlocked={() => setBiometricLockedBoth(false)} />
       )}
     </>
   )
