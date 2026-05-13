@@ -426,7 +426,7 @@ export default function ChatScreen(props: Props) {
 
       {/* ── Messages ── */}
       <KeyboardAvoidingView style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
 
         {loading ? (
