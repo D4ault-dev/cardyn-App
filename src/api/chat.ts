@@ -74,18 +74,30 @@ export async function pollMessages(sessionId: number, lastId: number): Promise<C
   return r.messages
 }
 
+// ── WebSocket-based real-time chat poller ─────────────────────────────────────
+// Connects via WebSocket for instant delivery.
+// Falls back to HTTP polling automatically if WS is unavailable.
+
+const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 15000]
+
 export class ChatPoller {
   private sessionId:    number
   private lastId:       number
-  private timer:        ReturnType<typeof setTimeout> | null = null
-  private running:      boolean = false
   private onUpdate:     (result: PollResult) => void
-  private emptyStreak:  number = 0   // consecutive empty polls — used for backoff
+  private running:      boolean = false
 
-  // Intervals: fast when active, slow when idle
-  private static readonly FAST_MS  = 1500   // 1.5s — active chat
-  private static readonly SLOW_MS  = 4000   // 4s   — idle (no messages for a while)
-  private static readonly IDLE_AFTER = 5    // switch to slow after 5 empty polls
+  // WebSocket
+  private ws:           WebSocket | null = null
+  private wsConnected:  boolean = false
+  private reconnectIdx: number = 0
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+  // HTTP fallback poll
+  private pollTimer:    ReturnType<typeof setTimeout> | null = null
+  private emptyStreak:  number = 0
+  private static readonly FAST_MS   = 1500
+  private static readonly SLOW_MS   = 4000
+  private static readonly IDLE_AFTER = 5
 
   constructor(
     sessionId: number,
@@ -100,49 +112,144 @@ export class ChatPoller {
   start() {
     this.running = true
     this.emptyStreak = 0
-    this.poll()
+    this.connectWs()
+    // Always start fallback poll — it skips itself when WS is connected
+    this.schedulePoll(ChatPoller.FAST_MS)
   }
 
   stop() {
     this.running = false
-    if (this.timer) clearTimeout(this.timer)
+    if (this.pollTimer)    clearTimeout(this.pollTimer)
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.ws?.close()
+    this.ws = null
   }
 
-  /** Call this after the user sends a message to immediately poll for the echo */
   kickPoll() {
     if (!this.running) return
-    if (this.timer) clearTimeout(this.timer)
-    this.emptyStreak = 0  // reset backoff — user is active
-    this.timer = setTimeout(() => this.poll(), 300)  // poll in 300ms
+    if (this.pollTimer) clearTimeout(this.pollTimer)
+    this.emptyStreak = 0
+    if (!this.wsConnected) this.schedulePoll(300)
+  }
+
+  updateLastId(id: number) {
+    this.lastId = id
+    this.emptyStreak = 0
+  }
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+
+  private connectWs() {
+    if (!this.running) return
+    try {
+      const token = this.getToken()
+      if (!token) { this.wsConnected = false; return }
+
+      const base = this.getWsBase()
+      const url  = `${base}/ws/chat?token=${encodeURIComponent(token)}`
+      this.ws = new WebSocket(url)
+
+      this.ws.onopen = () => {
+        this.wsConnected = true
+        this.reconnectIdx = 0
+        // Subscribe to this session
+        this.ws?.send(JSON.stringify({ type: 'join', sessionId: this.sessionId }))
+      }
+
+      this.ws.onmessage = (event) => {
+        try {
+          const frame = JSON.parse(event.data)
+          if (frame.type === 'ping') {
+            this.ws?.send(JSON.stringify({ type: 'pong' }))
+            return
+          }
+          if (frame.type === 'message') {
+            const msg = frame.data as ChatMessage
+            this.lastId = msg.id
+            this.emptyStreak = 0
+            this.onUpdate({ messages: [msg], status: 'open', agentId: null, agentName: null })
+          } else if (frame.type === 'status') {
+            const { status, agentId, agentName } = frame.data
+            this.onUpdate({ messages: [], status, agentId, agentName })
+          }
+        } catch { /* ignore */ }
+      }
+
+      this.ws.onclose = () => {
+        this.wsConnected = false
+        if (this.running) this.scheduleWsReconnect()
+      }
+
+      this.ws.onerror = () => {
+        this.wsConnected = false
+        // onclose fires after onerror
+      }
+    } catch {
+      this.wsConnected = false
+    }
+  }
+
+  private scheduleWsReconnect() {
+    const delay = RECONNECT_DELAYS[Math.min(this.reconnectIdx, RECONNECT_DELAYS.length - 1)]
+    this.reconnectIdx++
+    this.reconnectTimer = setTimeout(() => {
+      if (this.running) this.connectWs()
+    }, delay)
+  }
+
+  // ── HTTP fallback poll ────────────────────────────────────────────────────
+
+  private schedulePoll(delay: number) {
+    if (this.pollTimer) clearTimeout(this.pollTimer)
+    this.pollTimer = setTimeout(() => this.poll(), delay)
   }
 
   private async poll() {
     if (!this.running) return
+    // Skip HTTP poll when WebSocket is delivering messages
+    if (this.wsConnected) {
+      this.schedulePoll(ChatPoller.SLOW_MS)
+      return
+    }
     try {
       const result = await pollSession(this.sessionId, this.lastId)
       if (result.messages.length > 0) {
         this.lastId = result.messages[result.messages.length - 1].id
-        this.emptyStreak = 0  // reset backoff on activity
+        this.emptyStreak = 0
         this.onUpdate(result)
       } else {
         this.emptyStreak++
-        // Still call onUpdate for status changes even with no messages
         if (result.status) this.onUpdate(result)
       }
     } catch { /* silently retry */ }
 
     if (this.running) {
-      // Use fast interval when active, slow when idle
       const delay = this.emptyStreak >= ChatPoller.IDLE_AFTER
         ? ChatPoller.SLOW_MS
         : ChatPoller.FAST_MS
-      this.timer = setTimeout(() => this.poll(), delay)
+      this.schedulePoll(delay)
     }
   }
 
-  updateLastId(id: number) {
-    this.lastId = id
-    this.emptyStreak = 0  // reset backoff — activity detected
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  private getToken(): string | null {
+    try {
+      // React Native AsyncStorage is async — token is stored in memory by client.ts
+      // Access it via the module-level variable exported from client
+      const { getStoredToken } = require('./client')
+      return getStoredToken?.() || null
+    } catch { return null }
+  }
+
+  private getWsBase(): string {
+    try {
+      const { BASE_URL } = require('./client')
+      const base = BASE_URL || 'https://api.cardyn.net'
+      return base
+        .replace(/^https:\/\//, 'wss://')
+        .replace(/^http:\/\//, 'ws://')
+    } catch { return 'wss://api.cardyn.net' }
   }
 }
 

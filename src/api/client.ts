@@ -67,12 +67,21 @@ function shouldRetry(error: any): boolean {
 }
 
 // ── Auth token management ─────────────────────────────────────────────────────
+let _storedToken: string | null = null
+
 export function setAuthToken(token: string) {
+  _storedToken = token
   client.defaults.headers.common['Authorization'] = `Bearer ${token}`
 }
 
 export function clearAuthToken() {
+  _storedToken = null
   delete client.defaults.headers.common['Authorization']
+}
+
+/** Returns the current JWT token — used by ChatPoller for WebSocket auth */
+export function getStoredToken(): string | null {
+  return _storedToken
 }
 
 // ── Chinese → English error translation ──────────────────────────────────────
