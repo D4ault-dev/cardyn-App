@@ -75,12 +75,21 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
     if (accNumber.length === 10 && selectedBank?.code) {
       setResolving(true)
       setAccName('')
+      setErrorMsg('')
       resolveAccountName(accNumber, selectedBank.code).then(name => {
-        if (name) setAccName(name)
+        if (name) {
+          setAccName(name)
+        } else {
+          setErrorMsg('Could not fetch account name. Check the account number and bank, then try again.')
+        }
+        setResolving(false)
+      }).catch(() => {
+        setErrorMsg('Account name lookup failed. Check your internet connection.')
         setResolving(false)
       })
     } else if (accNumber.length < 10) {
       setAccName('')
+      setErrorMsg('')
     }
   }, [accNumber, selectedBank])
 
