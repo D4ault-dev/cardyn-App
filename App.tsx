@@ -335,58 +335,103 @@ SplashScreen.preventAutoHideAsync().catch(() => {})
 // How long the app can be in background before requiring biometric re-auth (5 minutes)
 const LOCK_AFTER_MS = 5 * 60 * 1000
 
+// ── Shared biometric lock check — used by both cold launch and AppState listener ──
+async function shouldShowBiometricLock(): Promise<boolean> {
+  try {
+    // 1. Must be logged in
+    const token = await AsyncStorage.getItem('@tuka_auth_token')
+    if (!token) return false
+    // 2. Must have biometric enabled
+    const enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
+    return enabled === 'true'
+  } catch {
+    return false  // storage error — don't lock, don't crash
+  }
+}
+
 function AppContent() {
   const { isLoading, user } = useAuth()
-  const [splashDone, setSplashDone] = useState(false)
+  const [splashDone, setSplashDone]         = useState(false)
   const [biometricLocked, setBiometricLocked] = useState(false)
-  const backgroundedAt = useRef<number | null>(null)
-  const appState = useRef(AppState.currentState)
 
-  // ── Biometric lock on background/foreground ────────────────────────────────
-  // IMPORTANT: use a ref for the lock state so the AppState closure always
-  // reads the latest value — avoids the stale-closure bug.
-  const biometricLockedRef = useRef(false)
-  const setBiometricLockedBoth = (v: boolean) => {
-    biometricLockedRef.current = v
-    setBiometricLocked(v)
-  }
+  // Refs — never cause re-renders, safe to read inside closures
+  const biometricLockedRef = useRef(false)   // mirrors biometricLocked state
+  const backgroundedAt     = useRef<number | null>(null)
+  const appState           = useRef(AppState.currentState)
+  const checkInProgress    = useRef(false)   // prevents duplicate concurrent checks
 
+  // Keep ref in sync with state — single source of truth
+  // useCallback ensures the AppState closure always calls the latest version
+  const lock = useCallback(() => {
+    biometricLockedRef.current = true
+    setBiometricLocked(true)
+  }, [])
+
+  const unlock = useCallback(() => {
+    biometricLockedRef.current = false
+    setBiometricLocked(false)
+    // Reset backgroundedAt so the 5-min timer starts fresh after unlock
+    backgroundedAt.current = Date.now()
+  }, [])
+
+  // ── Cold launch check ─────────────────────────────────────────────────────
+  // AppState 'change' never fires for the initial 'active' state on cold launch.
+  // This effect runs once when auth finishes loading (isLoading: true → false).
+  useEffect(() => {
+    if (isLoading) return  // wait for session restore to complete
+    let cancelled = false
+    ;(async () => {
+      if (biometricLockedRef.current || checkInProgress.current) return
+      checkInProgress.current = true
+      try {
+        if (!cancelled && await shouldShowBiometricLock()) {
+          lock()
+        }
+      } finally {
+        checkInProgress.current = false
+      }
+    })()
+    return () => { cancelled = true }
+  }, [isLoading])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Background/foreground AppState listener ───────────────────────────────
   useEffect(() => {
     const sub = AppState.addEventListener('change', async nextState => {
       const prev = appState.current
       appState.current = nextState
 
+      // Record when app goes to background
       if (nextState === 'background' || nextState === 'inactive') {
         backgroundedAt.current = Date.now()
+        return
       }
 
+      // App came back to foreground
       if (nextState === 'active' && prev !== 'active') {
-        // Already locked — don't double-lock
-        if (biometricLockedRef.current) return
-
-        // Read user from AsyncStorage — token is saved there by auth.ts
-        const token = await AsyncStorage.getItem('@tuka_auth_token').catch(() => null)
-        if (!token) return  // Not logged in — no lock needed
-
-        const elapsed = backgroundedAt.current
-          ? Date.now() - backgroundedAt.current
-          : Infinity  // cold launch — always check
-
-        if (elapsed < LOCK_AFTER_MS) return  // Not long enough — no lock
-
+        // Prevent duplicate concurrent checks (e.g. rapid background/foreground)
+        if (biometricLockedRef.current || checkInProgress.current) return
+        checkInProgress.current = true
         try {
-          const enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
-          if (enabled === 'true') {
-            setBiometricLockedBoth(true)
+          // Calculate how long the app was in background
+          const elapsed = backgroundedAt.current != null
+            ? Date.now() - backgroundedAt.current
+            : 0
+
+          // Only lock if backgrounded long enough
+          if (elapsed < LOCK_AFTER_MS) return
+
+          if (await shouldShowBiometricLock()) {
+            lock()
           }
-        } catch {
-          // SecureStore unavailable — don't lock
+        } finally {
+          checkInProgress.current = false
         }
       }
     })
 
+    // Cleanup — prevents memory leak on unmount
     return () => sub.remove()
-  }, [])  // empty deps — intentional, we use refs to avoid stale closures
+  }, [])  // empty deps — intentional, all state accessed via refs
 
   // While auth is loading, show dark background — matches native splash
   if (isLoading) {
@@ -417,7 +462,7 @@ function AppContent() {
       <RootNavigator />
       {/* Biometric lock overlay — shown on top of everything when app returns from background */}
       {biometricLocked && (
-        <BiometricLockScreen onUnlocked={() => setBiometricLockedBoth(false)} />
+        <BiometricLockScreen onUnlocked={unlock} />
       )}
     </>
   )
