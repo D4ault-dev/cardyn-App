@@ -37,15 +37,17 @@ import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
 import { getAnalytics, isSupported, Analytics } from 'firebase/analytics'
 
 // ── Paste your Firebase project config here ──────────────────────────────────
-// Get this from: Firebase Console → Project Settings → Your apps → Web app
+// Project: cardyn-f8b9f
+// Get measurementId from: Firebase Console → Project Settings → Your apps → Web app
+// If no web app exists yet: Add app → Web → register → copy config
 const FIREBASE_CONFIG = {
-  apiKey:            'AIzaSyDk-p6m4kUZVSg5NvekoGBlbAz6nwwkBXc',
-  authDomain:        'tuka-7838a.firebaseapp.com',
-  projectId:         'tuka-7838a',
-  storageBucket:     'tuka-7838a.firebasestorage.app',
-  messagingSenderId: '22148600535',
-  appId:             '1:22148600535:web:352bbc8f4844c20bbfd692',
-  measurementId:     'G-G5X2BBP1NH',
+  apiKey:            'AIzaSyDJfaQvftn9uDo9P4b1knXYsMqPNDbN2M0',  // from google-services.json
+  authDomain:        'cardyn-f8b9f.firebaseapp.com',
+  projectId:         'cardyn-f8b9f',
+  storageBucket:     'cardyn-f8b9f.firebasestorage.app',
+  messagingSenderId: '100088840513',
+  appId:             '1:100088840513:android:ca72e5f4446998f35461c0',  // Android app ID
+  // measurementId: 'G-XXXXXXXXXX',  // ← Add this from Firebase Console → Web app config
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -57,9 +59,9 @@ export async function initFirebase(): Promise<void> {
   if (_initialized) return
   _initialized = true
 
-  // Don't crash the app if Firebase config is not yet filled in
-  if (FIREBASE_CONFIG.appId === 'YOUR_WEB_APP_ID') {
-    console.warn('[Firebase] Web appId not configured yet — analytics disabled. See firebaseInit.ts for setup guide.')
+  // Config is set — proceed with initialization
+  if (!FIREBASE_CONFIG.projectId || FIREBASE_CONFIG.projectId === 'YOUR_PROJECT_ID') {
+    console.warn('[Firebase] Project ID not configured — analytics disabled.')
     return
   }
 

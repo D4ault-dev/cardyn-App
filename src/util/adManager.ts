@@ -1,23 +1,14 @@
 /**
- * adManager.ts — Backend-controlled ad configuration
+ * adManager.ts — Ad SDK initialization and event tracking
  *
- * All ad IDs and enable/disable flags come from the backend.
- * No hardcoded IDs in the app — admin pastes real IDs in the admin panel.
+ * SDKs:
+ *  - Firebase Analytics  → already wired in analytics.ts (Google Ads attribution)
+ *  - Meta (Facebook)     → react-native-fbsdk-next
+ *  - TikTok              → tiktok-business-react-native-plugin
  *
- * Flow:
- *  1. App launches → fetchAdConfig() called in App.tsx
- *  2. Config stored in memory (and cached in SecureStore)
- *  3. Ad networks initialized only if enabled === true
- *  4. When admin enables/disables an ad network → next app launch picks it up
- *
- * SDK Integration Status:
- *  - Google AdMob:  Requires expo-ads-admob or react-native-google-mobile-ads
- *                   + AdMob account + app approval
- *  - Meta Ads:      Requires react-native-fbsdk-next + Facebook App ID
- *  - TikTok Ads:    Requires tiktok-business-react-native-plugin + TikTok for Business account
- *
- * For now: config is fetched and stored. SDK calls are stubbed with TODO markers.
- * When you have real accounts, uncomment the SDK calls and paste IDs in admin panel.
+ * IDs come from the backend admin panel — no hardcoded IDs in the app.
+ * app.json plugin config handles the native Meta SDK initialization.
+ * TikTok SDK is initialized here after fetching config.
  */
 
 import client from '../api/client'
@@ -28,12 +19,13 @@ const CACHE_KEY = '@tuka_ad_config'
 const CACHE_TTL = 60 * 60 * 1000 // 1 hour
 
 export type AdNetworkConfig = {
-  enabled: boolean
-  appId:   string
-  bannerId?: string
+  enabled:         boolean
+  appId:           string
+  bannerId?:       string
   interstitialId?: string
-  rewardedId?: string
-  pixelId?: string
+  rewardedId?:     string
+  pixelId?:        string
+  clientToken?:    string
 }
 
 export type AdConfig = {
@@ -47,16 +39,17 @@ export type AdConfig = {
   }
 }
 
-// In-memory config — set once on app launch
 let _config: AdConfig | null = null
+let _metaReady   = false
+let _tiktokReady = false
 
 const DEFAULT_CONFIG: AdConfig = {
-  google: { enabled: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
-  meta:   { enabled: false, appId: '', bannerId: '' },
-  tiktok: { enabled: false, appId: '', pixelId: '' },
+  google: { enabled: false, appId: '' },
+  meta:   { enabled: false, appId: '' },
+  tiktok: { enabled: false, appId: '' },
   links: {
-    iosStoreUrl:     'https://apps.apple.com/app/tuka',
-    androidStoreUrl: 'https://play.google.com/store/apps/details?id=com.tuka.giftcard',
+    iosStoreUrl:     'https://apps.apple.com/app/cardyn',
+    androidStoreUrl: 'https://play.google.com/store/apps/details?id=com.cardyn.app',
     websiteUrl:      'https://cardyn.net',
   },
 }
@@ -70,16 +63,16 @@ export async function fetchAdConfig(): Promise<AdConfig> {
     if (data) {
       _config = {
         google: {
-          enabled:         !!data.google?.enabled,
-          appId:           data.google?.appId         || '',
-          bannerId:        data.google?.bannerId       || '',
-          interstitialId:  data.google?.interstitialId || '',
-          rewardedId:      data.google?.rewardedId     || '',
+          enabled:        !!data.google?.enabled,
+          appId:          data.google?.appId         || '',
+          bannerId:       data.google?.bannerId       || '',
+          interstitialId: data.google?.interstitialId || '',
+          rewardedId:     data.google?.rewardedId     || '',
         },
         meta: {
-          enabled:  !!data.meta?.enabled,
-          appId:    data.meta?.appId    || '',
-          bannerId: data.meta?.bannerId || '',
+          enabled:     !!data.meta?.enabled,
+          appId:       data.meta?.appId       || '',
+          clientToken: data.meta?.clientToken || '',
         },
         tiktok: {
           enabled: !!data.tiktok?.enabled,
@@ -92,20 +85,15 @@ export async function fetchAdConfig(): Promise<AdConfig> {
           websiteUrl:      data.links?.websiteUrl      || DEFAULT_CONFIG.links.websiteUrl,
         },
       }
-      // Cache for offline use
       await storage.setItem(CACHE_KEY, JSON.stringify({ config: _config, time: Date.now() }))
       return _config
     }
   } catch {
-    // Network error — try cache
     try {
       const cached = await storage.getItem(CACHE_KEY)
       if (cached) {
         const { config, time } = JSON.parse(cached)
-        if (Date.now() - time < CACHE_TTL) {
-          _config = config
-          return config
-        }
+        if (Date.now() - time < CACHE_TTL) { _config = config; return config }
       }
     } catch { /* ignore */ }
   }
@@ -113,84 +101,152 @@ export async function fetchAdConfig(): Promise<AdConfig> {
   return DEFAULT_CONFIG
 }
 
-export function getAdConfig(): AdConfig {
-  return _config ?? DEFAULT_CONFIG
-}
+export function getAdConfig(): AdConfig { return _config ?? DEFAULT_CONFIG }
 
-// ── Initialize ad SDKs based on config ───────────────────────────────────────
+// ── Initialize SDKs ───────────────────────────────────────────────────────────
 
 export async function initializeAdSDKs(config: AdConfig): Promise<void> {
-  // ── Google AdMob ──────────────────────────────────────────────────────────
-  if (config.google.enabled && config.google.appId) {
-    try {
-      // TODO: Uncomment when expo-ads-admob or react-native-google-mobile-ads is installed
-      // import MobileAds from 'react-native-google-mobile-ads'
-      // await MobileAds().initialize()
-      console.log('[Ads] Google AdMob initialized with app:', config.google.appId.slice(0, 20) + '...')
-    } catch (e) {
-      console.warn('[Ads] Google AdMob init failed:', e)
-    }
-  }
 
-  // ── Meta (Facebook) Ads ───────────────────────────────────────────────────
+  // ── Meta (Facebook) ───────────────────────────────────────────────────────
+  // The react-native-fbsdk-next Expo plugin handles native init via app.json.
+  // We just need to confirm the SDK is ready and set advertiser tracking.
   if (config.meta.enabled && config.meta.appId) {
     try {
-      // TODO: Uncomment when react-native-fbsdk-next is installed
-      // import { Settings } from 'react-native-fbsdk-next'
-      // Settings.setAppID(config.meta.appId)
-      // Settings.initializeSDK()
-      console.log('[Ads] Meta Ads initialized with app:', config.meta.appId)
+      const { Settings } = await import('react-native-fbsdk-next')
+      // Enable advertiser tracking (required for iOS 14+ ATT — add ATT prompt separately)
+      Settings.setAdvertiserTrackingEnabled(true)
+      _metaReady = true
+      console.log('[Ads] Meta SDK ready, appId:', config.meta.appId)
     } catch (e) {
-      console.warn('[Ads] Meta Ads init failed:', e)
+      console.warn('[Ads] Meta SDK init failed:', e)
     }
   }
 
-  // ── TikTok Ads ────────────────────────────────────────────────────────────
+  // ── TikTok ────────────────────────────────────────────────────────────────
   if (config.tiktok.enabled && config.tiktok.appId) {
     try {
-      // TODO: Uncomment when tiktok-business-react-native-plugin is installed
-      // import TikTokBusiness from 'tiktok-business-react-native-plugin'
-      // TikTokBusiness.initializeSdk({ appId: config.tiktok.appId })
-      console.log('[Ads] TikTok Ads initialized with app:', config.tiktok.appId)
+      const TikTokBusiness = (await import('tiktok-business-react-native-plugin')).default
+      await TikTokBusiness.initializeSdk({
+        appId:   config.tiktok.appId,
+        tiktokAppId: config.tiktok.appId,
+        // debug mode — set to false in production
+        debugMode: __DEV__,
+      })
+      _tiktokReady = true
+      console.log('[Ads] TikTok SDK ready, appId:', config.tiktok.appId)
     } catch (e) {
-      console.warn('[Ads] TikTok Ads init failed:', e)
+      console.warn('[Ads] TikTok SDK init failed:', e)
     }
   }
 }
 
-// ── Ad event tracking ─────────────────────────────────────────────────────────
+// ── Event tracking ────────────────────────────────────────────────────────────
+
+type AdEventName =
+  | 'INSTALL_APP'
+  | 'REGISTER'
+  | 'LOGIN'
+  | 'PURCHASE'
+  | 'VIEW_CONTENT'
+  | 'ADD_TO_CART'
 
 /**
- * Track a conversion event across all enabled ad networks.
- * Call this alongside Analytics.* events for ad attribution.
+ * Track a conversion event across Meta + TikTok.
+ * Firebase/Google Ads attribution is handled automatically via analytics.ts.
+ *
+ * Call this alongside Analytics.* events.
  */
-export function trackAdEvent(
-  eventName: 'AppInstall' | 'Registration' | 'Login' | 'Purchase' | 'ViewContent' | 'AddToCart',
+export async function trackAdEvent(
+  eventName: AdEventName | string,
   params?: Record<string, any>
-) {
-  const config = getAdConfig()
+): Promise<void> {
 
-  // Google — via Firebase Analytics (already wired in analytics.ts)
-  // No extra call needed — Firebase events are picked up by Google Ads automatically
-
-  // Meta
-  if (config.meta.enabled) {
+  // ── Meta ──────────────────────────────────────────────────────────────────
+  if (_metaReady) {
     try {
-      // TODO: import { AppEventsLogger } from 'react-native-fbsdk-next'
-      // AppEventsLogger.logEvent(eventName, params)
-    } catch { /* ignore */ }
+      const { AppEventsLogger } = await import('react-native-fbsdk-next')
+      // Map to Facebook standard events
+      const fbEventMap: Record<string, string> = {
+        INSTALL_APP:  'fb_mobile_activate_app',
+        REGISTER:     'fb_mobile_complete_registration',
+        LOGIN:        'fb_mobile_login',
+        PURCHASE:     'fb_mobile_purchase',
+        VIEW_CONTENT: 'fb_mobile_content_view',
+        ADD_TO_CART:  'fb_mobile_add_to_cart',
+      }
+      const fbEvent = fbEventMap[eventName] || eventName
+      AppEventsLogger.logEvent(fbEvent, params)
+    } catch (e) {
+      console.warn('[Ads] Meta event failed:', e)
+    }
   }
 
-  // TikTok
-  if (config.tiktok.enabled) {
+  // ── TikTok ────────────────────────────────────────────────────────────────
+  if (_tiktokReady) {
     try {
-      // TODO: import TikTokBusiness from 'tiktok-business-react-native-plugin'
-      // TikTokBusiness.trackEvent(eventName, params)
-    } catch { /* ignore */ }
+      const TikTokBusiness = (await import('tiktok-business-react-native-plugin')).default
+      // Map to TikTok standard events
+      const ttEventMap: Record<string, string> = {
+        INSTALL_APP:  'InstallApp',
+        REGISTER:     'Registration',
+        LOGIN:        'Login',
+        PURCHASE:     'PlaceAnOrder',
+        VIEW_CONTENT: 'ViewContent',
+        ADD_TO_CART:  'AddToCart',
+      }
+      const ttEvent = ttEventMap[eventName] || eventName
+      TikTokBusiness.trackEvent(ttEvent, params || {})
+    } catch (e) {
+      console.warn('[Ads] TikTok event failed:', e)
+    }
   }
 }
 
-// ── Store URL helper ──────────────────────────────────────────────────────────
+// ── Specific event helpers ────────────────────────────────────────────────────
+
+/** Call once on first app open — tracks install attribution */
+export async function trackInstall(): Promise<void> {
+  await trackAdEvent('INSTALL_APP')
+}
+
+/** Call after successful registration */
+export async function trackRegistration(params: {
+  method: string
+  country: string
+  userId: string
+}): Promise<void> {
+  await trackAdEvent('REGISTER', {
+    fb_registration_method: params.method,
+    country: params.country,
+  })
+}
+
+/** Call after successful login */
+export async function trackLogin(params: {
+  method: string
+  country: string
+}): Promise<void> {
+  await trackAdEvent('LOGIN', {
+    fb_login_method: params.method,
+    country: params.country,
+  })
+}
+
+/** Call after a trade is submitted */
+export async function trackPurchase(params: {
+  orderId:  string
+  value:    number
+  currency: string
+  cardName: string
+}): Promise<void> {
+  await trackAdEvent('PURCHASE', {
+    fb_order_id:      params.orderId,
+    fb_content_type:  'gift_card',
+    fb_content:       params.cardName,
+    value:            params.value,
+    currency:         params.currency,
+  })
+}
 
 export function getStoreUrl(): string {
   const config = getAdConfig()

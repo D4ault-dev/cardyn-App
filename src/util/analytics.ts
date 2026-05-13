@@ -23,6 +23,7 @@ import {
 import storage from './storage'
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
+import { trackInstall, trackRegistration, trackLogin, trackPurchase } from './adManager'
 
 // ── Session / attribution storage keys ───────────────────────────────────────
 const ATTR_KEY        = '@tuka_attribution'      // { source, medium, campaign, content }
@@ -116,6 +117,8 @@ export const Analytics = {
         campaign: attr.campaign ?? 'none',
         content:  attr.content  ?? 'none',
       })
+      // Fire install event on Meta + TikTok (once per install)
+      trackInstall().catch(() => {})
     }
 
     // Every open
@@ -196,6 +199,9 @@ export const Analytics = {
       method:  params.method,
       country: params.country,
     })
+
+    // Fire on Meta + TikTok
+    trackRegistration({ method: params.method, country: params.country, userId: params.userId }).catch(() => {})
   },
 
   /**
