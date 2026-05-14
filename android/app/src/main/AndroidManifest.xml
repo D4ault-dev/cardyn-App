@@ -39,7 +39,6 @@
         <action android:name="android.intent.action.VIEW"/>
         <data android:scheme="https" android:host="cardyn.net" android:pathPrefix="/ref"/>
         <data android:scheme="https" android:host="cardyn.net" android:pathPrefix="/invite"/>
-        <data android:scheme="cardyn"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
