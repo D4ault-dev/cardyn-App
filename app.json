@@ -14,10 +14,11 @@
       "translucent": false
     },
     "androidNavigationBar": {
-      "backgroundColor": "#F5F6FA",
-      "barStyle": "dark-content"
+      "backgroundColor": "#000000",
+      "barStyle": "light-content"
     },
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0D1F24"
     },
@@ -90,9 +91,11 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/splash.png",
           "backgroundColor": "#0D1F24",
           "resizeMode": "contain",
           "dark": {
+            "image": "./assets/splash.png",
             "backgroundColor": "#0D1F24"
           }
         }

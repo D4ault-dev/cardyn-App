@@ -12,7 +12,7 @@ import { AppHeader } from '../components/AppHeader'
 import { BottomSheet } from '../components/BottomSheet'
 import { Feather } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
-import { CameraView, useCameraPermissions } from 'expo-camera'
+import { CameraView } from 'expo-camera'
 const { width: W } = Dimensions.get('window')
 import { useAuth } from '../context/AuthContext'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
@@ -95,7 +95,6 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   const [imageViewerIdx, setImageViewerIdx]       = useState(0)
   const [imageGuideOpen, setImageGuideOpen]       = useState(false)
   const [speedTooltipOpen, setSpeedTooltipOpen]   = useState(false)
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions()
 
   // Currency logos — fetched once and cached
   const [currencyLogoMap, setCurrencyLogoMap] = useState<Record<string, string | null>>({})
@@ -117,6 +116,12 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     pendingPick.current = action
     Animated.timing(photoSheetAnim, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
       setPhotoSheetOpen(false)
+      // Delay to let Modal fully unmount before opening system pickers.
+      // Android needs more time — 600ms is safe even on slow devices.
+      setTimeout(() => {
+        if (action === 'gallery') pickFromLibrary()
+        if (action === 'camera')  pickFromCamera()
+      }, Platform.OS === 'android' ? 600 : 50)
     })
   }
 
@@ -382,13 +387,8 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   const allFilled = codesFilledCount === quantity
 
   async function handleOpenScanner() {
-    if (!cameraPermission?.granted) {
-      const { granted } = await requestCameraPermission()
-      if (!granted) {
-        Alert.alert('Permission needed', 'Please allow camera access to scan card codes.')
-        return
-      }
-    }
+    // Don't pre-check permissions — let the camera view handle it.
+    // Pre-checking can silently fail in Expo Go if previously denied.
     setScannerOpen(true)
   }
 
@@ -410,21 +410,17 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   async function pickFromLibrary() {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow access to your photo library.')
-        return
-      }
+      // launchImageLibraryAsync handles permissions internally on both platforms
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: false,
-        quality: 0.8,
+        quality: 0.7,
         base64: false,
         exif: false,
       })
-      if (result.canceled || result.assets.length === 0) return
+      if (result.canceled || !result.assets || result.assets.length === 0) return
       await uploadImageAsset(result.assets[0])
-    } catch {
+    } catch (e: any) {
       setUploadingImage(false)
       Alert.alert('Error', 'Failed to pick image. Please try again.')
     }
@@ -432,16 +428,38 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   async function pickFromCamera() {
     try {
-      if (!cameraPermission?.granted) {
-        const { granted } = await requestCameraPermission()
-        if (!granted) { Alert.alert('Permission needed', 'Please allow camera access.'); return }
+      if (Platform.OS === 'ios') {
+        // iOS requires explicit permission grant before launchCameraAsync
+        const { status } = await ImagePicker.requestCameraPermissionsAsync()
+        if (status !== 'granted') {
+          Alert.alert(
+            'Camera Permission Required',
+            'Camera access was denied. Please go to Settings → Cardyn → Camera → Allow.',
+            [{ text: 'OK' }]
+          )
+          return
+        }
+      } else {
+        // Android: if previously denied, Android won't show dialog — direct to Settings
+        const { status } = await ImagePicker.getCameraPermissionsAsync()
+        if (status === 'denied') {
+          Alert.alert(
+            'Camera Permission Required',
+            'Camera access was denied. Please go to Settings → Apps → Cardyn → Permissions → Camera → Allow.',
+            [{ text: 'OK' }]
+          )
+          return
+        }
+        // 'undetermined' or 'granted' — launchCameraAsync handles the prompt
       }
+
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true, quality: 0.8,
+        allowsEditing: true,
+        quality: 0.8,
       })
-      if (result.canceled || result.assets.length === 0) return
+      if (result.canceled || !result.assets || result.assets.length === 0) return
       await uploadImageAsset(result.assets[0])
-    } catch {
+    } catch (e: any) {
       setUploadingImage(false)
       Alert.alert('Error', 'Failed to capture image. Please try again.')
     }
@@ -451,33 +469,50 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     const localUri = asset.uri
     setUploadingImage(true)
     try {
+      let uploadUri = localUri
+      if (Platform.OS === 'android' && localUri.startsWith('content://')) {
+        const { cacheDirectory, copyAsync } = await import('expo-file-system') as any
+        const mimeType = asset.mimeType || 'image/jpeg'
+        const ext = mimeType.includes('png') ? 'png' : mimeType.includes('gif') ? 'gif' : 'jpg'
+        const destUri = `${cacheDirectory}card_upload_${Date.now()}.${ext}`
+        await copyAsync({ from: localUri, to: destUri })
+        uploadUri = destUri
+      }
+
+      const mimeType = asset.mimeType || 'image/jpeg'
+      const ext = mimeType.includes('png') ? 'png' : mimeType.includes('gif') ? 'gif' : 'jpg'
+      const fileName = asset.fileName || `card_${Date.now()}.${ext}`
+
       const formData = new FormData()
       formData.append('file', {
-        uri: localUri,
-        type: asset.mimeType || 'image/jpeg',
-        name: asset.fileName || `card_${Date.now()}.jpg`,
+        uri: uploadUri,
+        type: mimeType,
+        name: fileName,
       } as any)
+
       const uploadRes = await client.post('/common/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 30000,
       })
-      const serverUrl = uploadRes.data?.url || uploadRes.data?.data?.url || uploadRes.data?.fileName
+
+      const serverUrl = uploadRes.data?.url
+        || uploadRes.data?.data?.url
+        || uploadRes.data?.fileName
+        || uploadRes.data?.data?.fileName
+
       if (serverUrl) {
-        // Use resolveImageUrl to:
-        // 1. Replace any server host with BASE_URL
-        // 2. Rewrite /profile/ → /files/ (public serving endpoint)
-        // 3. Handle localhost/emulator rewrites
         const resolvedUrl = resolveImageUrl(serverUrl)
         if (resolvedUrl) {
           setCardImages(prev => [...prev, resolvedUrl])
         } else {
-          Alert.alert('Upload Failed', 'Image could not be uploaded. Please try again.')
+          Alert.alert('Upload Failed', 'Image URL could not be resolved. Please try again.')
         }
       } else {
-        Alert.alert('Upload Failed', 'Image could not be uploaded. Please try again.')
+        Alert.alert('Upload Failed', 'Server did not return an image URL. Please try again.')
       }
     } catch (e: any) {
-      Alert.alert('Upload Failed', e?.message || 'Could not upload image. Check your connection and try again.')
+      const errMsg = e?.response?.data?.msg || e?.message || 'Unknown error'
+      Alert.alert('Upload Failed', `${errMsg}\n\nCheck your internet connection and try again.`)
     }
     setUploadingImage(false)
   }

@@ -376,7 +376,8 @@ function AppContent() {
 
   // ── Cold launch check ─────────────────────────────────────────────────────
   // AppState 'change' never fires for the initial 'active' state on cold launch.
-  // This effect runs once when auth finishes loading (isLoading: true → false).
+  // On cold launch (app fully closed/killed), always lock if biometric is enabled.
+  // We don't check elapsed time here — a cold launch IS a lock event.
   useEffect(() => {
     if (isLoading) return  // wait for session restore to complete
     let cancelled = false
@@ -395,6 +396,7 @@ function AppContent() {
   }, [isLoading])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Background/foreground AppState listener ───────────────────────────────
+  // Handles the case where app goes to background and comes back (not killed).
   useEffect(() => {
     const sub = AppState.addEventListener('change', async nextState => {
       const prev = appState.current
@@ -406,18 +408,15 @@ function AppContent() {
         return
       }
 
-      // App came back to foreground
+      // App came back to foreground from background (not a cold launch)
       if (nextState === 'active' && prev !== 'active') {
-        // Prevent duplicate concurrent checks (e.g. rapid background/foreground)
         if (biometricLockedRef.current || checkInProgress.current) return
         checkInProgress.current = true
         try {
-          // Calculate how long the app was in background
           const elapsed = backgroundedAt.current != null
             ? Date.now() - backgroundedAt.current
-            : 0
+            : LOCK_AFTER_MS + 1  // backgroundedAt not set = treat as long absence → lock
 
-          // Only lock if backgrounded long enough
           if (elapsed < LOCK_AFTER_MS) return
 
           if (await shouldShowBiometricLock()) {
@@ -429,7 +428,6 @@ function AppContent() {
       }
     })
 
-    // Cleanup — prevents memory leak on unmount
     return () => sub.remove()
   }, [])  // empty deps — intentional, all state accessed via refs
 
@@ -482,8 +480,14 @@ export default function App() {
       RNStatusBar.setTranslucent(true)
       RNStatusBar.setBackgroundColor('rgba(13, 31, 36, 0.85)', true)
       RNStatusBar.setBarStyle('light-content', true)
-      // Note: NavigationBar color/button APIs are no-ops in SDK 53+ (edge-to-edge)
-      // The system handles nav bar appearance automatically
+      // Set navigation bar to black with light (white) buttons
+      // Note: NavigationBar APIs are no-ops in SDK 53+ edge-to-edge on some devices.
+      // The app.json androidNavigationBar config handles this at build time.
+      try {
+        const { NavigationBar } = require('expo-navigation-bar')
+        NavigationBar.setBackgroundColorAsync('#000000').catch(() => {})
+        NavigationBar.setButtonStyleAsync('light').catch(() => {})
+      } catch { /* expo-navigation-bar not available */ }
     }
   }, [])
 
