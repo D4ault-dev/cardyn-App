@@ -67,9 +67,6 @@
               "scheme": "https",
               "host": "cardyn.net",
               "pathPrefix": "/invite"
-            },
-            {
-              "scheme": "cardyn"
             }
           ],
           "category": [
