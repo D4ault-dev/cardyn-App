@@ -19,7 +19,9 @@ export default function SplashAnimationScreen({ onFinish }: Props) {
   const screenOpacity = useRef(new Animated.Value(1)).current
 
   useEffect(() => {
-    // Hide native splash immediately — our JS screen takes over
+    // Hide native splash immediately when this component mounts.
+    // Both screens share the same #0D1F24 background — the transition is seamless,
+    // no white flash, no double splash visible to the user.
     SplashScreen.hideAsync().catch(() => {})
 
     Animated.sequence([

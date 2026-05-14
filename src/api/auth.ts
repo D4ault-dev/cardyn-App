@@ -57,11 +57,13 @@ export async function apiLogout(): Promise<void> {
   // Clear token
   await deleteToken()
   clearAuthToken()
-  // Clear sensitive data but KEEP last_phone and last_country for auto-fill on next login
+  // Clear sensitive data but KEEP last_phone, last_country, and onboarding_done
+  // so the user goes back to the login screen (not onboarding) after logout
   const keysToRemove = [
     '@tuka_user_name',
     '@tuka_login_points_awarded',
-    '@tuka_onboarding_done',
+    // NOTE: @tuka_onboarding_done is intentionally kept — user already completed
+    // onboarding, they should land on the login screen after logout, not onboarding
   ]
   await Promise.allSettled(
     keysToRemove.map(k => storage.removeItem(k))

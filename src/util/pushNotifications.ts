@@ -73,26 +73,30 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 // ── Get Expo Push Token ───────────────────────────────────────────────────────
 async function getExpoPushToken(): Promise<string | null> {
-  if (IS_EXPO_GO) return null
+  if (IS_EXPO_GO) {
+    console.log('[Push] Expo Go detected — push tokens require a dev/prod build')
+    return null
+  }
   // Must be a physical device
   if (!Device.isDevice) {
     console.log('[Push] Skipping — not a physical device')
     return null
   }
-  // Expo Go on SDK 53+ does not support push tokens
-  if (Constants.appOwnership === 'expo') {
-    console.log('[Push] Expo Go detected — push tokens require a dev/prod build')
-    return null
-  }
   try {
     const projectId = Constants.expoConfig?.extra?.eas?.projectId
       ?? Constants.easConfig?.projectId
+    console.log('[Push] Getting Expo push token, projectId:', projectId)
     const tokenData = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined
     )
+    console.log('[Push] Got token:', tokenData.data?.slice(0, 40) + '...')
     return tokenData.data
-  } catch (e) {
-    console.warn('[Push] Failed to get Expo push token:', e)
+  } catch (e: any) {
+    console.warn('[Push] Failed to get Expo push token:', e?.message || e)
+    // Common causes:
+    // - google-services.json project mismatch (APK built with different Firebase project)
+    // - FCM not configured in Firebase console
+    // - Device has no Google Play Services
     return null
   }
 }
