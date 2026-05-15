@@ -7,6 +7,7 @@ import {
   Alert, Modal, FlatList, KeyboardAvoidingView, Platform,
   Dimensions, Animated,
 } from 'react-native'
+import { SvgUri } from 'react-native-svg'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { BottomSheet } from '../components/BottomSheet'
@@ -20,7 +21,7 @@ import { SellCardSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { currSym, currLabel } from '../util/currency'
-import { fetchCurrencies, buildCurrencyLogoMap } from '../api/currency'
+import { fetchCurrencies, buildCurrencyLogoMap, getCachedCurrencies } from '../api/currency'
 import { Analytics } from '../util/analytics'
 import { trackAdEvent } from '../util/adManager'
 import { ms, RF } from '../util/responsive'
@@ -33,6 +34,27 @@ import { ImageUploadSection } from './sell/ImageUploadSection'
 import { ConfirmSheet } from './sell/ConfirmSheet'
 
 const CARD_BG = ['#E8F5E9','#FFF3E0','#E3F2FD','#FCE4EC','#F3E5F5','#E0F7FA','#FFF8E1','#E8EAF6']
+
+/** Renders SVG or raster currency/country logo — React Native Image can't handle SVG */
+function CurrencyLogo({ uri, size = 28, style }: { uri: string | null | undefined; size?: number; style?: any }) {
+  if (!uri) return null
+  const isSvg = uri.toLowerCase().endsWith('.svg')
+  const boxStyle = [{ width: size, height: size, borderRadius: size * 0.22, overflow: 'hidden' as const }, style]
+  if (isSvg) {
+    return (
+      <View style={boxStyle}>
+        <SvgUri width={size} height={size} uri={uri} />
+      </View>
+    )
+  }
+  return (
+    <Image
+      source={{ uri }}
+      style={[{ width: size, height: size, borderRadius: size * 0.22 }, style]}
+      resizeMode="cover"
+    />
+  )
+}
 
 function fmt(n: number, sym = '₦') {
   const v = typeof n === 'number' && !isNaN(n) ? n : 0
@@ -96,8 +118,12 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   const [imageGuideOpen, setImageGuideOpen]       = useState(false)
   const [speedTooltipOpen, setSpeedTooltipOpen]   = useState(false)
 
-  // Currency logos — fetched once and cached
-  const [currencyLogoMap, setCurrencyLogoMap] = useState<Record<string, string | null>>({})
+  // Currency logos — initialize from cache instantly, then refresh in background
+  const [currencyLogoMap, setCurrencyLogoMap] = useState<Record<string, string | null>>(() => {
+    // Try to build from cached currencies immediately — no loading delay
+    const cached = getCachedCurrencies()
+    return cached ? buildCurrencyLogoMap(cached) : {}
+  })
   useEffect(() => {
     fetchCurrencies().then(list => setCurrencyLogoMap(buildCurrencyLogoMap(list))).catch(() => {})
   }, [])
@@ -776,10 +802,10 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                 <Text style={s.rowLabel}>Country</Text>
                 <TouchableOpacity style={s.rowDropdown} onPress={() => setCountryModalOpen(true)} activeOpacity={0.8}>
                   {selectedCurrency && currencyLogoMap[selectedCurrency] ? (
-                    <Image
-                      source={{ uri: currencyLogoMap[selectedCurrency]! }}
-                      style={s.rowDropdownImg}
-                      resizeMode="cover"
+                    <CurrencyLogo
+                      uri={currencyLogoMap[selectedCurrency]}
+                      size={ms(28)}
+                      style={{ marginRight: spacing[2] }}
                     />
                   ) : selectedCurrency ? (
                     <View style={[s.rowDropdownImg, { backgroundColor: CARD_BG[1], alignItems: 'center', justifyContent: 'center' }]}>
@@ -1074,10 +1100,10 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                     onPress={() => { setSelectedCurrency(code); setCountryModalOpen(false) }}
                     activeOpacity={0.8}>
                     {currencyLogoMap[code] ? (
-                      <Image
-                        source={{ uri: currencyLogoMap[code]! }}
-                        style={{ width: ms(28), height: ms(28), borderRadius: ms(6), marginBottom: spacing[1] }}
-                        resizeMode="cover"
+                      <CurrencyLogo
+                        uri={currencyLogoMap[code]}
+                        size={ms(28)}
+                        style={{ marginBottom: spacing[1] }}
                       />
                     ) : (
                       <View style={{ width: ms(28), height: ms(28), borderRadius: ms(6), backgroundColor: CARD_BG[1], alignItems: 'center', justifyContent: 'center', marginBottom: spacing[1] }}>

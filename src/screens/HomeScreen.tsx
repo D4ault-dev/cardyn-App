@@ -13,6 +13,7 @@ import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { HomeBalanceSkeleton, Skeleton as SkeletonBlock } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
+import { fetchCurrencies } from '../api/currency'
 import { fetchWalletInfo, WalletInfo } from '../api/wallet'
 import client from '../api/client'
 import { cacheGet, TTL } from '../util/cache'
@@ -133,6 +134,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
     })
       .then(w => { setWallet(w); setWalletLoading(false) })
       .catch(() => setWalletLoading(false))
+    // Prefetch currencies in background so SellCard country logos load instantly
+    fetchCurrencies().catch(() => {})
   }, [isLoggedIn, selectedCountry?.name])
 
   const loadCards = useCallback(async (force = false, silent = false) => {
