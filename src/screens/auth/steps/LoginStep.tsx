@@ -128,13 +128,11 @@ export function LoginStep({
 
             {/* App icon */}
             <View style={st.iconWrap}>
-              <View style={st.iconBg}>
-                <Image
-                  source={require('../../../../assets/icon.png')}
-                  style={st.iconImg}
-                  resizeMode="contain"
-                />
-              </View>
+              <Image
+                source={require('../../../../assets/app-icon-round.png')}
+                style={st.iconImg}
+                resizeMode="cover"
+              />
             </View>
 
             {/* Title */}
@@ -369,18 +367,11 @@ const st = StyleSheet.create({
     alignItems: 'center',
     marginBottom: ms(20),
   },
-  iconBg: {
-    width: ms(64),
-    height: ms(64),
-    borderRadius: ms(16),
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
   iconImg: {
-    width: ms(64),
-    height: ms(64),
+    width: ms(72),
+    height: ms(72),
+    borderRadius: ms(18),
+    overflow: 'hidden',
   },
 
   // Title

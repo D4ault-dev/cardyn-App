@@ -80,11 +80,13 @@ export default function SplashAnimationScreen({ onFinish }: Props) {
             transform: [{ translateX: logoX }],
           }}
         >
-          <Image
-            source={require('../../assets/icon.png')}
-            style={s.logo}
-            resizeMode="contain"
-          />
+          <View style={s.logoBg}>
+            <Image
+              source={require('../../assets/icon.png')}
+              style={s.logo}
+              resizeMode="contain"
+            />
+          </View>
         </Animated.View>
 
         {/* "Cardyn" text — slides in from right */}
@@ -114,8 +116,17 @@ const s = StyleSheet.create({
     gap: 16,
   },
   logo: {
+    width: 52,
+    height: 52,
+  },
+  logoBg: {
     width: 72,
     height: 72,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   appName: {
     fontSize: 42,
