@@ -38,11 +38,6 @@
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.47948483945-4c5ohnnrrrnl72a9lc06rn1o6rqb7lu3"
             ]
-          },
-          {
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.47948483945-4c5ohnnrrrnl72a9lc06rn1o6rqb7lu3"
-            ]
           }
         ]
       }
@@ -56,32 +51,10 @@
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "CAMERA",
-        "READ_MEDIA_IMAGES",
-        "CAMERA",
         "READ_MEDIA_IMAGES"
       ],
       "googleServicesFile": "./google-services.json",
       "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "cardyn.net",
-              "pathPrefix": "/ref"
-            },
-            {
-              "scheme": "https",
-              "host": "cardyn.net",
-              "pathPrefix": "/invite"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
         {
           "action": "VIEW",
           "autoVerify": true,
@@ -114,7 +87,6 @@
       }
     },
     "plugins": [
-      "expo-dev-client",
       [
         "expo-splash-screen",
         {

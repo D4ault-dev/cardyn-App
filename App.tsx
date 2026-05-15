@@ -436,8 +436,10 @@ function AppContent() {
     return <View style={{ flex: 1, backgroundColor: '#0D1F24' }} />
   }
 
-  // Show animated splash until it finishes
+  // Show animated splash until it finishes — hide native splash immediately
   if (!splashDone) {
+    // Dismiss the native splash as soon as JS is ready so only our animation shows
+    SplashScreen.hideAsync().catch(() => {})
     return (
       <View style={{ flex: 1, backgroundColor: '#0D1F24' }}>
         <SplashAnimationScreen onFinish={() => setSplashDone(true)} />
