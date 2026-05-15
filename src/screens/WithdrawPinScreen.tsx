@@ -1,4 +1,4 @@
-import { RF } from '../util/responsive'
+import { RF, ms } from '../util/responsive'
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -30,10 +30,14 @@ function maskAccountNumber(acc: string): string {
 export default function WithdrawPinScreen(props: StackScreenProps<RootStackParams, 'WithdrawPin'>) {
   const { bank, amount, fee, receive } = (props.route.params as any) || {}
   const { selectedCountry } = useCountry()
+  const localSym = selectedCountry?.currencySymbol ?? '₦'
   const [pin, setPin]         = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
   const shakeAnim             = useRef(new Animated.Value(0)).current
+  const successScale          = useRef(new Animated.Value(0.7)).current
+  const successOpacity        = useRef(new Animated.Value(0)).current
 
   // Shake on error
   useEffect(() => {
@@ -48,6 +52,16 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
     }
   }, [error])
 
+  // Animate success screen in
+  useEffect(() => {
+    if (success) {
+      Animated.parallel([
+        Animated.spring(successScale, { toValue: 1, tension: 80, friction: 10, useNativeDriver: true }),
+        Animated.timing(successOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start()
+    }
+  }, [success])
+
   async function handlePinComplete(fullPin: string) {
     setLoading(true)
     setError(null)
@@ -60,9 +74,7 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
         accountNo: bank.accountNumber,
         country: selectedCountry?.name || 'Nigeria',
       })
-      // Navigate to success — go back to Withdraw and show alert
-      props.navigation.navigate('Withdraw' as any)
-      Alert.alert('Submitted ✓', 'Your withdrawal request has been submitted and is being processed.')
+      setSuccess(true)
     } catch (e: any) {
       const msg = e.message || 'Incorrect PIN'
       if (msg.toLowerCase().includes('incorrect') || msg.toLowerCase().includes('pin') || msg.toLowerCase().includes('password')) {
@@ -95,6 +107,66 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
     ['7', '8', '9'],
     ['', '0', 'del'],
   ]
+
+  // ── Success screen ────────────────────────────────────────────────────────
+  if (success) {
+    return (
+      <View style={[s.root, { paddingTop: getStatusBarHeight(), justifyContent: 'center', alignItems: 'center' }]}>
+        <Animated.View style={[ss.container, { opacity: successOpacity, transform: [{ scale: successScale }] }]}>
+          {/* Check circle */}
+          <View style={ss.iconOuter}>
+            <View style={ss.iconInner}>
+              <Feather name="check" size={36} color="#fff" />
+            </View>
+          </View>
+
+          <Text style={ss.title}>Withdrawal Submitted</Text>
+          <Text style={ss.subtitle}>
+            Your withdrawal of {localSym}{fmt(receive || amount)} to{'\n'}
+            <Text style={{ fontWeight: '700', color: colors.dark }}>{bank?.bankName}</Text> is being processed.
+          </Text>
+
+          {/* Receipt row */}
+          <View style={ss.receiptCard}>
+            {[
+              { label: 'Amount', value: `${localSym}${fmt(amount)}` },
+              { label: 'Fee', value: `${localSym}${fmt(fee || 0)}` },
+              { label: 'You receive', value: `${localSym}${fmt(receive || amount)}`, bold: true },
+              { label: 'Account', value: maskAccountNumber(bank?.accountNumber || '') },
+              { label: 'Status', value: 'Pending', status: true },
+            ].map((row, i, arr) => (
+              <View key={row.label}>
+                <View style={ss.receiptRow}>
+                  <Text style={ss.receiptLabel}>{row.label}</Text>
+                  <Text style={[
+                    ss.receiptValue,
+                    row.bold && { color: colors.primary, fontWeight: '800' },
+                    row.status && { color: colors.warning },
+                  ]}>{row.value}</Text>
+                </View>
+                {i < arr.length - 1 && <View style={ss.divider} />}
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={ss.doneBtn}
+            onPress={() => props.navigation.navigate('Withdraw' as any)}
+            activeOpacity={0.85}>
+            <Text style={ss.doneBtnTxt}>Done</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={ss.historyBtn}
+            onPress={() => props.navigation.navigate('WithdrawalHistory' as any)}
+            activeOpacity={0.7}>
+            <Feather name="clock" size={14} color={colors.primary} />
+            <Text style={ss.historyBtnTxt}>View History</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    )
+  }
 
   return (
     <View style={[s.root, { paddingTop: getStatusBarHeight() }]}>
@@ -200,4 +272,95 @@ const s = StyleSheet.create({
   numRow:      { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[2] },
   numKey:      { width: 80, height: 72, alignItems: 'center', justifyContent: 'center' },
   numTxt:      { fontSize: RF(28), fontWeight: typography.weight.semibold, color: colors.dark },
+})
+
+// ── Success screen styles ─────────────────────────────────────────────────────
+const ss = StyleSheet.create({
+  container: {
+    width: '90%',
+    backgroundColor: colors.surface,
+    borderRadius: radius['2xl'],
+    padding: spacing[6],
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  iconOuter: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: colors.success + '18',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: spacing[4],
+  },
+  iconInner: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: colors.success,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  title: {
+    fontSize: typography.size['2xl'],
+    fontWeight: typography.weight.extrabold,
+    color: colors.dark,
+    marginBottom: spacing[2],
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: typography.size.base,
+    color: colors.muted,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing[5],
+  },
+  receiptCard: {
+    width: '100%',
+    backgroundColor: colors.background,
+    borderRadius: radius.xl,
+    padding: spacing[4],
+    marginBottom: spacing[5],
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing[2] + 2,
+  },
+  receiptLabel: {
+    fontSize: typography.size.sm,
+    color: colors.muted,
+  },
+  receiptValue: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.dark,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  doneBtn: {
+    width: '100%',
+    backgroundColor: colors.accent,
+    borderRadius: radius.full,
+    paddingVertical: spacing[4],
+    alignItems: 'center',
+    marginBottom: spacing[3],
+  },
+  doneBtnTxt: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: '#fff',
+  },
+  historyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingVertical: spacing[2],
+  },
+  historyBtnTxt: {
+    fontSize: typography.size.sm,
+    color: colors.primary,
+    fontWeight: typography.weight.semibold,
+  },
 })
