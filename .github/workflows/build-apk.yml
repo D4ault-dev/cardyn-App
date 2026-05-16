@@ -1,8 +1,16 @@
 name: Build Android APK
 
 on:
+  # Only build APK when native files change — JS-only changes use OTA instead
   push:
     branches: [main, master]
+    paths:
+      - 'android/**'
+      - 'app.json'
+      - 'package.json'
+      - 'assets/**'
+      - 'google-services.json'
+  # Always allow manual trigger for on-demand builds
   workflow_dispatch:
 
 jobs:
@@ -55,13 +63,6 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           cp android/app/build/outputs/apk/release/app-release.apk \
              android/app/build/outputs/apk/release/cardyn-v${VERSION}.apk
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: cardyn-android-apk
-          path: android/app/build/outputs/apk/release/cardyn-*.apk
-          retention-days: 1
 
       - name: Get version
         id: version
