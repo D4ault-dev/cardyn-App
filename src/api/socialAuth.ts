@@ -50,13 +50,18 @@ function getRedirectUri(creds: Record<string, string>): string {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GOOGLE SIGN IN
-// Uses authorization code flow — token exchange is done server-side.
-// No PKCE needed since the client secret is kept on the server.
+// iOS: uses iOS client ID + custom scheme redirect (no secret needed)
+// Android: uses web client ID + server-side token exchange
 // ─────────────────────────────────────────────────────────────────────────────
 export async function signInWithGoogle(): Promise<SocialUser> {
   const creds       = await getCredentials()
-  const clientId    = getClientId(creds)
   const redirectUri = getRedirectUri(creds)
+
+  // iOS uses the iOS client (no secret needed for native apps)
+  // Android uses the web client (secret kept server-side)
+  const clientId = Platform.OS === 'ios'
+    ? (creds['google_client_id_ios'] || '')
+    : (creds['google_client_id_web'] || creds['google_client_id_android'] || '')
 
   if (!clientId || clientId.startsWith('YOUR_')) {
     throw new Error('Google Sign In is not configured yet. Please contact support.')
@@ -64,7 +69,6 @@ export async function signInWithGoogle(): Promise<SocialUser> {
 
   const state = Math.random().toString(36).slice(2)
 
-  // No PKCE — token exchange is server-side so the client secret is never exposed
   const params = new URLSearchParams({
     client_id:     clientId,
     redirect_uri:  redirectUri,
@@ -88,28 +92,61 @@ export async function signInWithGoogle(): Promise<SocialUser> {
 
   if (!code) throw new Error('No authorization code returned from Google')
 
-  // Exchange code server-side — keeps client_secret off the device
-  const tokenRes = await fetch(`${BASE_URL}/tuka/auth/googleToken`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, redirectUri }),
+  if (Platform.OS === 'ios') {
+    // iOS: exchange directly — iOS OAuth clients don't require a client secret
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id:    clientId,
+        redirect_uri: redirectUri,
+        grant_type:   'authorization_code',
+      }).toString(),
+    })
+    if (!tokenRes.ok) {
+      const err = await tokenRes.text()
+      throw new Error(`Token exchange failed: ${err}`)
+    }
+    const tokens = await tokenRes.json()
+    const accessToken = tokens.access_token
+    if (!accessToken) throw new Error('No access token from Google')
+    return fetchGoogleUserInfo(accessToken)
+  } else {
+    // Android/web: exchange server-side to keep client_secret off device
+    const tokenRes = await fetch(`${BASE_URL}/tuka/auth/googleToken`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, redirectUri }),
+    })
+    if (!tokenRes.ok) {
+      const err = await tokenRes.text()
+      throw new Error(`Token exchange failed: ${err}`)
+    }
+    const json = await tokenRes.json()
+    if (json.code !== 200 || !json.data) {
+      throw new Error(json.msg || 'Token exchange failed')
+    }
+    return {
+      name:       json.data.name       || 'Google User',
+      email:      json.data.email      || '',
+      provider:   'google',
+      providerId: json.data.providerId,
+    }
+  }
+}
+
+async function fetchGoogleUserInfo(accessToken: string): Promise<SocialUser> {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
   })
-
-  if (!tokenRes.ok) {
-    const err = await tokenRes.text()
-    throw new Error(`Token exchange failed: ${err}`)
-  }
-
-  const json = await tokenRes.json()
-  if (json.code !== 200 || !json.data) {
-    throw new Error(json.msg || 'Token exchange failed')
-  }
-
+  if (!res.ok) throw new Error('Failed to fetch Google user info')
+  const data = await res.json()
   return {
-    name:       json.data.name       || 'Google User',
-    email:      json.data.email      || '',
+    name:       data.name  || data.email?.split('@')[0] || 'Google User',
+    email:      data.email || '',
     provider:   'google',
-    providerId: json.data.providerId,
+    providerId: data.sub,
   }
 }
 
