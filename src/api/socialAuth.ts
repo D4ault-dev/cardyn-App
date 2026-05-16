@@ -1,7 +1,7 @@
 /**
  * Social Auth — Expo Go compatible
- * Client IDs are fetched from the backend DB (not hardcoded).
- * Admin can update them anytime from the Credentials page.
+ * Google: uses your own domain (api.cardyn.net) as redirect URI — no Expo proxy.
+ * Token exchange is server-side so the client secret never leaves the backend.
  */
 import { Platform } from 'react-native'
 import * as WebBrowser from 'expo-web-browser'
@@ -33,35 +33,24 @@ async function getCredentials(): Promise<Record<string, string>> {
 }
 
 function getClientId(creds: Record<string, string>): string {
-  return Platform.select({
-    ios:     creds['google_client_id_ios']     || '',
-    android: creds['google_client_id_web']     || creds['google_client_id_android'] || '',
-    default: creds['google_client_id_web']     || creds['google_client_id_ios']     || '',
-  })!
-}
-
-function getRedirectUri(creds: Record<string, string>): string {
-  return Platform.select({
-    ios:     creds['google_redirect_uri']         || '',
-    android: creds['google_redirect_uri_android'] || 'https://auth.expo.io/@tuka21/cardflex',
-    default: creds['google_redirect_uri']         || '',
-  })!
+  // Use web client ID for all platforms — server-side exchange handles the secret
+  return creds['google_client_id_web'] || creds['google_client_id_ios'] || ''
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GOOGLE SIGN IN
-// iOS: uses iOS client ID + custom scheme redirect (no secret needed)
-// Android: uses web client ID + server-side token exchange
+// Flow:
+//  1. Open Google OAuth in browser with redirect_uri = https://api.cardyn.net/tuka/auth/googleCallback
+//  2. Backend receives the code, redirects to cardyn://auth?code=...
+//  3. App catches the deep link, sends code to backend /tuka/auth/googleToken
+//  4. Backend exchanges code for tokens server-side, returns user info
+//  5. App calls /tuka/auth/social to get JWT
 // ─────────────────────────────────────────────────────────────────────────────
 export async function signInWithGoogle(): Promise<SocialUser> {
-  const creds       = await getCredentials()
-  const redirectUri = getRedirectUri(creds)
-
-  // iOS uses the iOS client (no secret needed for native apps)
-  // Android uses the web client (secret kept server-side)
-  const clientId = Platform.OS === 'ios'
-    ? (creds['google_client_id_ios'] || '')
-    : (creds['google_client_id_web'] || creds['google_client_id_android'] || '')
+  const creds      = await getCredentials()
+  const clientId   = getClientId(creds)
+  const redirectUri = 'https://api.cardyn.net/tuka/auth/googleCallback'
+  const appScheme  = 'cardyn://auth'  // deep link the backend redirects back to
 
   if (!clientId || clientId.startsWith('YOUR_')) {
     throw new Error('Google Sign In is not configured yet. Please contact support.')
@@ -77,76 +66,45 @@ export async function signInWithGoogle(): Promise<SocialUser> {
     state,
     access_type:   'online',
   })
+
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-  const result  = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri)
+  // Open browser — listen for redirect back to cardyn:// deep link
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, appScheme)
 
   if (result.type !== 'success') {
     throw new Error('Google sign-in was cancelled')
   }
 
-  // Extract authorization code from redirect URL
+  // Extract authorization code from deep link: cardyn://auth?code=...
   const url   = result.url
-  const query = url.includes('?') ? url.split('?')[1] : url.split('#')[1] || ''
+  const query = url.includes('?') ? url.split('?')[1] : ''
   const parts = Object.fromEntries(new URLSearchParams(query))
   const code  = parts['code']
 
   if (!code) throw new Error('No authorization code returned from Google')
 
-  if (Platform.OS === 'ios') {
-    // iOS: exchange directly — iOS OAuth clients don't require a client secret
-    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code,
-        client_id:    clientId,
-        redirect_uri: redirectUri,
-        grant_type:   'authorization_code',
-      }).toString(),
-    })
-    if (!tokenRes.ok) {
-      const err = await tokenRes.text()
-      throw new Error(`Token exchange failed: ${err}`)
-    }
-    const tokens = await tokenRes.json()
-    const accessToken = tokens.access_token
-    if (!accessToken) throw new Error('No access token from Google')
-    return fetchGoogleUserInfo(accessToken)
-  } else {
-    // Android/web: exchange server-side to keep client_secret off device
-    const tokenRes = await fetch(`${BASE_URL}/tuka/auth/googleToken`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, redirectUri }),
-    })
-    if (!tokenRes.ok) {
-      const err = await tokenRes.text()
-      throw new Error(`Token exchange failed: ${err}`)
-    }
-    const json = await tokenRes.json()
-    if (json.code !== 200 || !json.data) {
-      throw new Error(json.msg || 'Token exchange failed')
-    }
-    return {
-      name:       json.data.name       || 'Google User',
-      email:      json.data.email      || '',
-      provider:   'google',
-      providerId: json.data.providerId,
-    }
-  }
-}
-
-async function fetchGoogleUserInfo(accessToken: string): Promise<SocialUser> {
-  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  // Exchange code server-side — backend uses web client secret, never exposed to app
+  const tokenRes = await fetch(`${BASE_URL}/tuka/auth/googleToken`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirectUri }),
   })
-  if (!res.ok) throw new Error('Failed to fetch Google user info')
-  const data = await res.json()
+
+  if (!tokenRes.ok) {
+    const err = await tokenRes.text()
+    throw new Error(`Token exchange failed: ${err}`)
+  }
+
+  const json = await tokenRes.json()
+  if (json.code !== 200 || !json.data) {
+    throw new Error(json.msg || 'Token exchange failed')
+  }
+
   return {
-    name:       data.name  || data.email?.split('@')[0] || 'Google User',
-    email:      data.email || '',
+    name:       json.data.name       || 'Google User',
+    email:      json.data.email      || '',
     provider:   'google',
-    providerId: data.sub,
+    providerId: json.data.providerId,
   }
 }
 
