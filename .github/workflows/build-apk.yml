@@ -61,7 +61,7 @@ jobs:
         with:
           name: cardyn-android-apk
           path: android/app/build/outputs/apk/release/cardyn-*.apk
-          retention-days: 30
+          retention-days: 1
 
       - name: Get version
         id: version
