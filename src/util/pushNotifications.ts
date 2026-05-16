@@ -152,9 +152,10 @@ export async function clearPushToken(): Promise<void> {
 
 // ── Notification tap listener ─────────────────────────────────────────────────
 /**
- * Set up listeners for notification taps.
+ * Set up listeners for notification taps and token refresh.
  * Supported data payloads from backend:
- *   { screen: 'OrderDetail', params: { orderId: '123' } }
+ *   { screen: 'OrderDetail', orderId: '123' }
+ *   { screen: 'Withdraw', withdrawId: 'WD456' }
  *   { screen: 'DailyBonus' }
  *   { screen: 'Alerts' }
  */
@@ -166,18 +167,37 @@ export function setupNotificationListeners(navigation: any) {
     const data = response.notification.request.content.data as any
     if (!data?.screen || !navigation) return
     try {
-      navigation.navigate(data.screen, data.params || {})
+      const screen = data.screen as string
+      // Build params from structured data
+      const params: Record<string, any> = {}
+      if (data.orderId)    params.orderId    = data.orderId
+      if (data.withdrawId) params.withdrawId = data.withdrawId
+      if (data.articleId)  params.articleId  = data.articleId
+      if (data.params)     Object.assign(params, data.params)
+      navigation.navigate(screen, Object.keys(params).length > 0 ? params : undefined)
     } catch { /* screen might not exist in current stack */ }
   })
 
   const receiveSub = Notifications.addNotificationReceivedListener(_n => {
     // In-foreground notification received — handler above shows the alert
-    // Could trigger badge refresh here if needed
+  })
+
+  // Token refresh — re-register if Expo rotates the push token
+  const tokenSub = Notifications.addPushTokenListener(async ({ data: newToken }) => {
+    if (!newToken) return
+    try {
+      await client.put('/tuka/user/updateLogin', {
+        pushToken: newToken,
+        platform:  Platform.OS,
+      })
+      console.log('[Push] Token refreshed and re-registered')
+    } catch { /* non-critical */ }
   })
 
   return () => {
     tapSub.remove()
     receiveSub.remove()
+    tokenSub.remove()
   }
 }
 

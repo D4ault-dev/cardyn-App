@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                      || (Constants as any).platform?.android?.model
                      || deviceName
 
-    // Step 1: Register — backend is now fast (push is @Async, no blocking)
+    // Step 1: Register — backend creates sys_user + tuka_user_profile + wallet
     await client.post('/register', {
       username: normalizedUsername, password, code: '', uuid: '',
       realName: name, phone: normalizedPhone, country,
@@ -269,14 +269,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthToken(token)
     await storage.setItem('@tuka_auth_token', token)
     const u = await apiGetUserInfo()
-    await saveUserName(socialUser.name)
+    // Use the name from the backend profile — Apple only sends name on first sign-in,
+    // subsequent sign-ins return 'Apple User'. The backend stores the real name from first login.
+    const profileName = (u.nickName && u.nickName !== u.userName ? u.nickName : null)
+      || u.realName
+      || (socialUser.name !== 'Apple User' && socialUser.name !== 'Google User' ? socialUser.name : null)
+      || u.userName
+    await saveUserName(profileName)
     const pushToken = await registerPushToken().catch(() => null)
     try {
       const body: Record<string, string> = { platform: platformStr, device: deviceName }
       if (pushToken) body.pushToken = pushToken
       await client.put('/tuka/user/updateLogin', body)
     } catch { /* non-critical */ }
-    const mappedUser = apiUserToUser(u, socialUser.name)
+    const mappedUser = apiUserToUser(u, profileName)
     setUser(Just(mappedUser))
     Analytics.login({ method: socialUser.provider === 'google' ? 'google' : 'apple', country: mappedUser.country ?? country, userId: mappedUser.uid }).catch(() => {})
   }
