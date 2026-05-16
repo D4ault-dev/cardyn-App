@@ -73,10 +73,10 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return status === 'granted'
 }
 
-// ── Get FCM Device Token (raw, for direct FCM V1 API) ────────────────────────
-async function getFCMToken(): Promise<string | null> {
+// ── Get Expo Push Token ───────────────────────────────────────────────────────
+async function getExpoPushToken(): Promise<string | null> {
   if (IS_EXPO_GO) {
-    console.log('[Push] Expo Go detected — FCM tokens require a dev/prod build')
+    console.log('[Push] Expo Go detected — push tokens require a dev/prod build')
     return null
   }
   if (!Device.isDevice) {
@@ -84,12 +84,15 @@ async function getFCMToken(): Promise<string | null> {
     return null
   }
   try {
-    // Get the raw FCM/APNs device token — bypasses Expo's push service entirely
-    const tokenData = await Notifications.getDevicePushTokenAsync()
-    console.log('[Push] Got FCM device token, type:', tokenData.type)
-    return tokenData.data as string
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId
+      ?? Constants.easConfig?.projectId
+    const tokenData = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined
+    )
+    console.log('[Push] Got Expo token:', tokenData.data?.slice(0, 40) + '...')
+    return tokenData.data
   } catch (e: any) {
-    console.warn('[Push] Failed to get FCM device token:', e?.message || e)
+    console.warn('[Push] Failed to get Expo push token:', e?.message || e)
     return null
   }
 }
@@ -106,7 +109,7 @@ export async function registerPushToken(): Promise<string | null> {
 
   await ensureAndroidChannels()
 
-  const token = await getFCMToken()
+  const token = await getExpoPushToken()
   if (!token) return null
 
   try {
