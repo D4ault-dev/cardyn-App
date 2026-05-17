@@ -18,7 +18,7 @@ const FAQS = [
   {
     id: 'f1',
     question: 'I have not received the OTP',
-    answer: 'OTP codes can take up to 2 minutes to arrive. Check your SMS inbox and make sure your phone number is correct. You can tap "Resend" after the countdown ends.',
+    answer: 'OTP codes are sent via WhatsApp or SMS and can take up to 2 minutes to arrive. Check your WhatsApp messages first, then your SMS inbox. Make sure your phone number is correct. You can tap "Resend" after the countdown ends.',
   },
   {
     id: 'f2',

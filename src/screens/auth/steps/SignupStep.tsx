@@ -403,7 +403,7 @@ export function SignupStep(props: SignupStepProps) {
 
               <Text style={flat.title}>Verify Your Number</Text>
               <Text style={flat.subtitle}>
-                We sent a 6-digit code to{'\n'}
+                We sent a 6-digit code via WhatsApp or SMS to{'\n'}
                 <Text style={{ fontWeight: '700', color: '#1A1A2E' }}>{maskPhone(phone)}</Text>
               </Text>
 

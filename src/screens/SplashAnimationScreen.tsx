@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { View, Text, Animated, StyleSheet, Image } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
+import Constants from 'expo-constants'
 
 interface Props {
   onFinish: () => void
@@ -99,6 +100,11 @@ export default function SplashAnimationScreen({ onFinish }: Props) {
           <Text style={s.appName}>Cardyn</Text>
         </Animated.View>
       </View>
+
+      {/* Version — fades in with the text */}
+      <Animated.Text style={[s.version, { opacity: textOpacity }]}>
+        v{Constants.expoConfig?.version ?? '1.0.0'}
+      </Animated.Text>
     </Animated.View>
   )
 }
@@ -134,5 +140,12 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.5,
     fontStyle: 'italic',
+  },
+  version: {
+    position: 'absolute',
+    bottom: 40,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 1,
   },
 })

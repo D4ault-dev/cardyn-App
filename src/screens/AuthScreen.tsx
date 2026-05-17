@@ -228,8 +228,17 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
       const socialUser = await signInWithGoogle()
       await loginWithSocial(socialUser, selectedCountry.name)
     } catch (e: any) {
-      if (e.message !== 'Google sign-in was cancelled') {
-        setError(e.message || 'Google sign-in failed. Please try again.')
+      const msg: string = e?.message || ''
+      if (msg === 'Google sign-in was cancelled') {
+        // User dismissed — no error shown
+      } else if (msg.includes('temporarily unavailable') || msg.includes('access_denied')) {
+        Alert.alert(
+          'Google Sign-In Unavailable',
+          'Google sign-in is currently unavailable. Please sign in with your phone number or email instead.',
+          [{ text: 'OK' }]
+        )
+      } else {
+        setError(msg || 'Google sign-in failed. Please try again.')
       }
     } finally {
       setSocialLoading(null)

@@ -65,6 +65,8 @@ export async function signInWithGoogle(): Promise<SocialUser> {
     scope:         'openid profile email',
     state,
     access_type:   'online',
+    // prompt=select_account forces account picker even if already signed in
+    prompt:        'select_account',
   })
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
@@ -79,6 +81,18 @@ export async function signInWithGoogle(): Promise<SocialUser> {
   const url   = result.url
   const query = url.includes('?') ? url.split('?')[1] : ''
   const parts = Object.fromEntries(new URLSearchParams(query))
+
+  // Check for error from Google (e.g. access_denied when app not published)
+  if (parts['error']) {
+    const errCode = parts['error']
+    if (errCode === 'access_denied') {
+      throw new Error(
+        'Google sign-in is temporarily unavailable. Please use phone/email to sign in, or try again later.'
+      )
+    }
+    throw new Error(`Google sign-in error: ${errCode}`)
+  }
+
   const code  = parts['code']
 
   if (!code) throw new Error('No authorization code returned from Google')

@@ -266,7 +266,7 @@ export function ForgotStep(props: ForgotStepProps) {
 
             <Text style={flat.title}>Enter Verification Code</Text>
             <Text style={flat.subtitle}>
-              We sent a 6-digit code to{'\n'}
+              We sent a 6-digit code via WhatsApp or SMS to{'\n'}
               <Text style={{ fontWeight: '700', color: '#1A1A2E' }}>{maskPhone(phone)}</Text>
             </Text>
 
