@@ -519,6 +519,10 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
             points={checkInPts}
             streak={checkInStreak}
             onClose={dismissCheckIn}
+            onClaimed={() => {
+              // Refresh wallet balance so the new coins show immediately
+              fetchWalletInfo(selectedCountry?.name).then(w => setWallet(w)).catch(() => {})
+            }}
             onViewLeaderboard={() => {
               dismissCheckIn()
               props.navigation.navigate('Leaderboard' as any, { newPoints: checkInPts } as any)

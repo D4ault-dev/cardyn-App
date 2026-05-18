@@ -25,10 +25,12 @@ interface Props {
   streak: number
   onClose: () => void
   onViewLeaderboard?: () => void
+  onClaimed?: () => void  // called after user taps Claim — refresh wallet/balance
 }
 
-export function DailyCheckInModal({ visible, points, streak, onClose, onViewLeaderboard }: Props) {
+export function DailyCheckInModal({ visible, points, streak, onClose, onViewLeaderboard, onClaimed }: Props) {
   const [claimed, setClaimed] = useState(false)
+  const [claiming, setClaiming] = useState(false)
 
   // Card animations
   const scaleAnim   = useRef(new Animated.Value(0.75)).current
@@ -71,7 +73,18 @@ export function DailyCheckInModal({ visible, points, streak, onClose, onViewLead
   }, [visible])
 
   function handleClaim() {
+    if (claiming) return
+    setClaiming(true)
+
+    // Call check-in endpoint to ensure points are awarded
+    // (idempotent — safe to call even if already awarded at login)
+    client.put('/tuka/user/updateLogin', {}).catch(() => {})
+
     setClaimed(true)
+    setClaiming(false)
+
+    // Notify parent to refresh wallet balance
+    onClaimed?.()
 
     // Coin explodes then shrinks
     Animated.sequence([
@@ -121,8 +134,8 @@ export function DailyCheckInModal({ visible, points, streak, onClose, onViewLead
               </Text>
 
               {/* Claim button — orange CTA */}
-              <TouchableOpacity style={m.claimBtn} onPress={handleClaim} activeOpacity={0.85}>
-                <Text style={m.claimBtnTxt}>Claim {points} Coins</Text>
+              <TouchableOpacity style={m.claimBtn} onPress={handleClaim} activeOpacity={0.85} disabled={claiming}>
+                <Text style={m.claimBtnTxt}>{claiming ? 'Claiming...' : `Claim ${points} Coins`}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={onClose} style={m.skipBtn}>
