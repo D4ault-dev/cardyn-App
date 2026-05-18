@@ -324,6 +324,8 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
         await SecureStore.setItemAsync(BIOMETRIC_KEY,  'true')
         await SecureStore.setItemAsync(BIOMETRIC_USER, username)
         await SecureStore.setItemAsync(BIOMETRIC_PASS, pass)
+        // Mirror to AsyncStorage as fallback for when SecureStore is unavailable
+        await storage.setItem('@cardyn_biometric_enabled', 'true')
         return true
       }
     } catch { /* not available */ }

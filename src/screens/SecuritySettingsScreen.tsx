@@ -9,6 +9,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { BIOMETRIC_KEY } from './auth/types'
 import { useToast } from '../util/useToast'
+import storage from '../util/storage'
 
 export default function SecuritySettingsScreen(props: StackScreenProps<RootStackParams, 'SecuritySettings'>) {
   const [biometricEnabled, setBiometricEnabled] = useState(false)
@@ -47,6 +48,7 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
         if (!result.success) return
 
         await SecureStore.setItemAsync(BIOMETRIC_KEY, 'true')
+        await storage.setItem('@cardyn_biometric_enabled', 'true')
         setBiometricEnabled(true)
         showSuccess('Biometrics enabled')
 
@@ -61,6 +63,7 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
         if (!result.success) return
 
         await SecureStore.setItemAsync(BIOMETRIC_KEY, 'false')
+        await storage.setItem('@cardyn_biometric_enabled', 'false')
         setBiometricEnabled(false)
         showSuccess('Biometrics disabled')
       }

@@ -52,6 +52,7 @@ import { Analytics } from './src/util/analytics'
 import { fetchAdConfig, initializeAdSDKs } from './src/util/adManager'
 import { BIOMETRIC_KEY } from './src/screens/auth/types'
 import * as SecureStore from 'expo-secure-store'
+import * as LocalAuthentication from 'expo-local-authentication'
 
 import HomeScreen    from './src/screens/HomeScreen'
 import AuthScreen    from './src/screens/AuthScreen'
@@ -341,9 +342,20 @@ async function shouldShowBiometricLock(): Promise<boolean> {
     // 1. Must be logged in
     const token = await AsyncStorage.getItem('@tuka_auth_token')
     if (!token) return false
-    // 2. Must have biometric enabled
-    const enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
-    return enabled === 'true'
+    // 2. Must have biometric enabled — check both SecureStore and AsyncStorage fallback
+    let enabled: string | null = null
+    try {
+      enabled = await SecureStore.getItemAsync(BIOMETRIC_KEY)
+    } catch {
+      // SecureStore can fail on Android if device is not yet fully unlocked
+      // Fall back to AsyncStorage mirror
+      enabled = await AsyncStorage.getItem('@cardyn_biometric_enabled')
+    }
+    if (enabled !== 'true') return false
+    // 3. Must have biometric hardware available and enrolled
+    const hasHardware = await LocalAuthentication.hasHardwareAsync().catch(() => false)
+    const isEnrolled  = await LocalAuthentication.isEnrolledAsync().catch(() => false)
+    return hasHardware && isEnrolled
   } catch {
     return false  // storage error — don't lock, don't crash
   }
