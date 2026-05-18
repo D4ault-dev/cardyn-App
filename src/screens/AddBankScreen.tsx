@@ -80,7 +80,7 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
         if (name) {
           setAccName(name)
         } else {
-          setErrorMsg('Could not fetch account name. Check the account number and bank, then try again.')
+          setErrorMsg('Account name not found. Check the account number and bank, then try again. If the issue persists, enter the account name manually.')
         }
         setResolving(false)
       }).catch(() => {
@@ -92,7 +92,6 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
       setErrorMsg('')
     }
   }, [accNumber, selectedBank])
-
   // Countdown
   useEffect(() => {
     if (countdown > 0) {
@@ -216,18 +215,28 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
             ) : null}
           </View>
 
-          {/* Holder name — auto-filled */}
-          <View style={[s.field, s.fieldReadonly]}>
+          {/* Holder name — auto-filled or manual entry if resolve fails */}
+          <View style={[s.field, !accName && !resolving && accNumber.length === 10 ? null : s.fieldReadonly]}>
             <Feather name="user" size={18} color={colors.muted} style={s.fieldIcon} />
             {resolving ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], flex: 1 }}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={s.fieldPlaceholder}>Fetching name...</Text>
               </View>
+            ) : accName ? (
+              <Text style={[s.fieldVal, { color: colors.primary }]}>{accName}</Text>
+            ) : accNumber.length === 10 ? (
+              // Auto-resolve failed — allow manual entry
+              <TextInput
+                style={s.fieldInput}
+                placeholder="Enter account name manually"
+                placeholderTextColor={colors.subtle}
+                autoCapitalize="words"
+                value={accName}
+                onChangeText={v => { setAccName(v); setErrorMsg('') }}
+              />
             ) : (
-              <Text style={[accName ? s.fieldVal : s.fieldPlaceholder, accName && { color: colors.primary }]}>
-                {accName || 'Holder Name'}
-              </Text>
+              <Text style={s.fieldPlaceholder}>Holder Name</Text>
             )}
           </View>
 
