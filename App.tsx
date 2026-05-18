@@ -353,6 +353,7 @@ function AppContent() {
   const { isLoading, user } = useAuth()
   const [splashDone, setSplashDone]         = useState(false)
   const [biometricLocked, setBiometricLocked] = useState(false)
+  const [animDone, setAnimDone]             = useState(false)  // animation finished
 
   // Refs — never cause re-renders, safe to read inside closures
   const biometricLockedRef = useRef(false)   // mirrors biometricLocked state
@@ -373,8 +374,6 @@ function AppContent() {
     // Reset backgroundedAt so the 5-min timer starts fresh after unlock
     backgroundedAt.current = Date.now()
   }, [])
-
-  // ── Cold launch check ─────────────────────────────────────────────────────
   // AppState 'change' never fires for the initial 'active' state on cold launch.
   // On cold launch (app fully closed/killed), always lock if biometric is enabled.
   // We don't check elapsed time here — a cold launch IS a lock event.
@@ -431,18 +430,21 @@ function AppContent() {
     return () => sub.remove()
   }, [])  // empty deps — intentional, all state accessed via refs
 
-  // While auth is loading, show dark background — matches native splash
-  if (isLoading) {
-    return <View style={{ flex: 1, backgroundColor: '#0D1F24' }} />
-  }
+  // When BOTH animation and auth are done → proceed to app
+  useEffect(() => {
+    if (animDone && !isLoading) {
+      setSplashDone(true)
+    }
+  }, [animDone, isLoading])
 
-  // Show animated splash until it finishes — hide native splash immediately
+  // While auth is loading OR animation not done — show the animated splash
+  // Animation starts immediately on launch; auth loads in background.
+  // App only proceeds when BOTH are done.
   if (!splashDone) {
-    // Dismiss the native splash as soon as JS is ready so only our animation shows
     SplashScreen.hideAsync().catch(() => {})
     return (
       <View style={{ flex: 1, backgroundColor: '#0D1F24' }}>
-        <SplashAnimationScreen onFinish={() => setSplashDone(true)} />
+        <SplashAnimationScreen onFinish={() => setAnimDone(true)} />
       </View>
     )
   }
