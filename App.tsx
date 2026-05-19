@@ -363,7 +363,7 @@ async function shouldShowBiometricLock(): Promise<boolean> {
 }
 
 function AppContent() {
-  const { isLoading, user } = useAuth()
+  const { isLoading, user, logout } = useAuth()
   const [splashDone, setSplashDone]         = useState(false)
   const [biometricLocked, setBiometricLocked] = useState(false)
   const [animDone, setAnimDone]             = useState(false)  // animation finished
@@ -477,7 +477,17 @@ function AppContent() {
       <RootNavigator />
       {/* Biometric lock overlay — shown on top of everything when app returns from background */}
       {biometricLocked && (
-        <BiometricLockScreen onUnlocked={unlock} />
+        <BiometricLockScreen
+          onUnlocked={unlock}
+          onLogout={() => {
+            // Logout first — this clears user state and switches navigator to Login stack
+            // The overlay stays visible during the transition so home screen never shows
+            logout().then(() => {
+              // Only remove overlay AFTER logout is complete and navigator has switched
+              setTimeout(() => unlock(), 100)
+            }).catch(() => unlock())
+          }}
+        />
       )}
     </>
   )
