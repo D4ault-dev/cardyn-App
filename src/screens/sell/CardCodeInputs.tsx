@@ -1,6 +1,6 @@
 import React from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Platform,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, ScrollView,
 } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius } from '../../theme'
@@ -16,14 +16,21 @@ interface Props {
   onClearCode: (idx: number) => void
   onFocus: (idx: number) => void
   onBlur: () => void
+  scrollRef?: React.RefObject<ScrollView | null>
 }
 
 export function CardCodeInputs({
   cardCodes, quantity, inputFocusIdx, attempted,
-  codeRefs, onChangeCode, onClearCode, onFocus, onBlur,
+  codeRefs, onChangeCode, onClearCode, onFocus, onBlur, scrollRef,
 }: Props) {
   const codesFilledCount = cardCodes.filter(c => c.trim().length > 0).length
   const allFilled = codesFilledCount === quantity
+
+  function handleFocus(idx: number) {
+    onFocus(idx)
+    // Scroll down so the focused input is visible above the keyboard
+    setTimeout(() => scrollRef?.current?.scrollToEnd({ animated: true }), 300)
+  }
 
   return (
     <View style={s.codesSection}>
@@ -65,7 +72,7 @@ export function CardCodeInputs({
               autoCorrect={false}
               spellCheck={false}
               returnKeyType={idx < cardCodes.length - 1 ? 'next' : 'done'}
-              onFocus={() => onFocus(idx)}
+              onFocus={() => handleFocus(idx)}
               onBlur={onBlur}
               onSubmitEditing={() => {
                 if (idx < cardCodes.length - 1) {

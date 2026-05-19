@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Image,
-  Alert, Modal, FlatList, KeyboardAvoidingView, Platform,
-  Dimensions, Animated,
+  Alert, Modal, FlatList, Platform,
+  Dimensions, Animated, Keyboard,
 } from 'react-native'
 import { SvgUri } from 'react-native-svg'
 import { StackScreenProps } from '@react-navigation/stack'
@@ -128,6 +128,14 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     fetchCurrencies().then(list => setCurrencyLogoMap(buildCurrencyLogoMap(list))).catch(() => {})
   }, [])
 
+  // Track keyboard visibility — hides the sell button while keyboard is open
+  const [keyboardVisible, setKeyboardVisible] = useState(false)
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false))
+    return () => { show.remove(); hide.remove() }
+  }, [])
+
   // Photo sheet
   const [photoSheetOpen, setPhotoSheetOpen]       = useState(false)
   const pendingPick    = useRef<'gallery' | 'camera' | null>(null)
@@ -142,18 +150,20 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     pendingPick.current = action
     Animated.timing(photoSheetAnim, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
       setPhotoSheetOpen(false)
-      // Delay to let Modal fully unmount before opening system pickers.
-      // Android needs more time — 600ms is safe even on slow devices.
+      pendingPick.current = null
+      // On iOS, call picker after modal is fully closed
+      // Use a longer delay on Android to let the Modal fully unmount
+      const delay = Platform.OS === 'android' ? 600 : 300
       setTimeout(() => {
         if (action === 'gallery') pickFromLibrary()
         if (action === 'camera')  pickFromCamera()
-      }, Platform.OS === 'android' ? 600 : 50)
+      }, delay)
     })
   }
 
   function onPhotoSheetDismiss() {
-    if (pendingPick.current === 'gallery') { pendingPick.current = null; pickFromLibrary() }
-    if (pendingPick.current === 'camera')  { pendingPick.current = null; pickFromCamera() }
+    // No-op — picker is called from closePhotoSheet animation callback
+    // This prevents double-calling on iOS
   }
 
   // Modals
@@ -394,9 +404,13 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   }
 
   // For Code type: ALL slots must be filled
+  // For All type: either at least one code OR at least one image is sufficient
   const allCodesFilled = selectedInputType === 'Code'
     ? cardCodes.every(c => c.trim().length > 0)
     : true
+
+  const hasAnyCode  = cardCodes.some(c => c.trim().length > 0) || cardCode.trim().length > 0
+  const hasAnyImage = cardImages.length > 0
 
   const canSubmit = Boolean(
     selectedCard &&
@@ -404,10 +418,11 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     amountNum > 0 &&
     !submitting &&
     (selectedInputType === 'Code'
-      ? allCodesFilled                    // all codes filled
-      : cardImages.length > 0)            // at least one image
+      ? allCodesFilled                          // Code: all slots must be filled
+      : selectedInputType === 'All'
+        ? (hasAnyCode || hasAnyImage)           // All: either code OR image is enough
+        : hasAnyImage)                          // Image: at least one image required
   )
-
   // Progress indicator
   const codesFilledCount = cardCodes.filter(c => c.trim().length > 0).length
   const allFilled = codesFilledCount === quantity
@@ -766,8 +781,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
-          automaticallyAdjustKeyboardInsets
-          contentContainerStyle={{ paddingBottom: 40 }}>
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 100 }}>
 
           <View style={s.form}>
 
@@ -882,27 +896,15 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
               </TouchableOpacity>
             )}
 
-            {/* 7. Upload Photo — show for all types except Code */}
-            {selectedInputType && selectedInputType !== 'Code' && (
-              <ImageUploadSection
-                cardImages={cardImages}
-                uploadingImage={uploadingImage}
-                attempted={attempted}
-                onAddImage={openPhotoSheet}
-                onRemoveImage={idx => setCardImages(prev => prev.filter((_, i) => i !== idx))}
-                onViewImage={idx => { setImageViewerIdx(idx); setImageViewerOpen(true) }}
-                onViewGuide={() => setImageGuideOpen(true)}
-              />
-            )}
-
-            {/* 6. Code input — multiple inputs for Code type */}
-            {selectedInputType === 'Code' && (
+            {/* 6. Code input — for Code type AND All type (multiple slots) */}
+            {(selectedInputType === 'Code' || selectedInputType === 'All') && (
               <CardCodeInputs
                 cardCodes={cardCodes}
                 quantity={quantity}
                 inputFocusIdx={inputFocusIdx}
-                attempted={attempted}
+                attempted={attempted && selectedInputType === 'Code'}
                 codeRefs={codeRefs}
+                scrollRef={scrollRef}
                 onChangeCode={(idx, v) => {
                   const next = [...cardCodes]; next[idx] = v; setCardCodes(next)
                 }}
@@ -914,8 +916,21 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
               />
             )}
 
-            {/* Optional code for non-Code types that also accept code */}
-            {selectedInputType && selectedInputType !== 'Code' && (
+            {/* 7. Upload Photo — show for Image type AND All type */}
+            {selectedInputType && (selectedInputType !== 'Code') && (
+              <ImageUploadSection
+                cardImages={cardImages}
+                uploadingImage={uploadingImage}
+                attempted={attempted && selectedInputType !== 'All'}
+                onAddImage={openPhotoSheet}
+                onRemoveImage={idx => setCardImages(prev => prev.filter((_, i) => i !== idx))}
+                onViewImage={idx => { setImageViewerIdx(idx); setImageViewerOpen(true) }}
+                onViewGuide={() => setImageGuideOpen(true)}
+              />
+            )}
+
+            {/* Optional code text area for Image-only type */}
+            {selectedInputType && selectedInputType !== 'Code' && selectedInputType !== 'All' && (
               <View style={[s.balanceField, { minHeight: 80, height: 'auto', paddingVertical: spacing[3] }]}>
                 <TextInput
                   style={[s.balanceInput, { fontSize: typography.size.base, minHeight: 52, textAlignVertical: 'top', paddingRight: spacing[10] }]}
@@ -926,6 +941,9 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                   value={cardCode}
                   onChangeText={setCardCode}
                   returnKeyType="default"
+                  onFocus={() => {
+                    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)
+                  }}
                 />
                 <TouchableOpacity
                   style={s.scanIconBtn}
@@ -940,33 +958,35 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
           </View>
         </ScrollView>
 
-        {/* ── Bottom bar: Sell button ── */}
-        <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[4] }]}>
-          {/* Show progress hint when Code type and not all filled */}
-          {selectedInputType === 'Code' && !allFilled && codesFilledCount > 0 && (
-            <View style={s.sellHint}>
-              <Feather name="info" size={13} color={colors.warning} />
-              <Text style={s.sellHintTxt}>Fill all {quantity} codes to continue ({codesFilledCount}/{quantity})</Text>
-            </View>
-          )}
-          <TouchableOpacity
-            style={[s.sellBtn, !canSubmit && s.sellBtnOff]}
-            onPress={() => { setAttempted(true); if (canSubmit) setConfirmOpen(true) }}
-            disabled={submitting}
-            activeOpacity={0.85}
-          >
-            {submitting
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={[s.sellBtnTxt, !canSubmit && s.sellBtnTxtOff]}>
-                  {selectedInputType === 'Code' && !allFilled && codesFilledCount === 0
-                    ? 'Enter codes to sell'
-                    : selectedInputType === 'Code' && !allFilled
-                    ? `${codesFilledCount}/${quantity} codes filled`
-                    : 'Sell'}
-                </Text>
-            }
-          </TouchableOpacity>
-        </View>
+        {/* ── Bottom bar: Sell button — hidden while keyboard is open ── */}
+        {!keyboardVisible && (
+          <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[4] }]}>
+            {/* Show progress hint when Code type and not all filled */}
+            {selectedInputType === 'Code' && !allFilled && codesFilledCount > 0 && (
+              <View style={s.sellHint}>
+                <Feather name="info" size={13} color={colors.warning} />
+                <Text style={s.sellHintTxt}>Fill all {quantity} codes to continue ({codesFilledCount}/{quantity})</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[s.sellBtn, !canSubmit && s.sellBtnOff]}
+              onPress={() => { setAttempted(true); if (canSubmit) setConfirmOpen(true) }}
+              disabled={submitting}
+              activeOpacity={0.85}
+            >
+              {submitting
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={[s.sellBtnTxt, !canSubmit && s.sellBtnTxtOff]}>
+                    {selectedInputType === 'Code' && !allFilled && codesFilledCount === 0
+                      ? 'Enter codes to sell'
+                      : selectedInputType === 'Code' && !allFilled
+                      ? `${codesFilledCount}/${quantity} codes filled`
+                      : 'Sell'}
+                  </Text>
+              }
+            </TouchableOpacity>
+          </View>
+        )}
 
       </View>
 
@@ -1110,7 +1130,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                         <Text style={{ fontSize: ms(10), fontWeight: '700', color: colors.muted }}>{code.slice(0, 2)}</Text>
                       </View>
                     )}
-                    <Text style={[s.gridItemTxt, selectedCurrency === code && s.gridItemTxtOn]}>
+                    <Text style={[s.gridItemTxt, selectedCurrency === code && s.gridItemTxtOn]} numberOfLines={1} adjustsFontSizeToFit>
                       {code}
                     </Text>
                   </TouchableOpacity>
@@ -1142,7 +1162,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                     style={[s.gridItem, selectedInputType === t && s.gridItemOn]}
                     onPress={() => { selectInputType(t) }}
                     activeOpacity={0.8}>
-                    <Text style={[s.gridItemTxt, selectedInputType === t && s.gridItemTxtOn]}>
+                    <Text style={[s.gridItemTxt, selectedInputType === t && s.gridItemTxtOn]} numberOfLines={1} adjustsFontSizeToFit>
                       {t}
                     </Text>
                   </TouchableOpacity>
@@ -1651,7 +1671,7 @@ const s = StyleSheet.create({
     bottom: 0, left: 0, right: 0,
     paddingHorizontal: spacing[5],
     paddingTop: spacing[3],
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
     gap: spacing[3],
   },
 
@@ -1669,7 +1689,7 @@ const s = StyleSheet.create({
     marginBottom: spacing[1],
   },
   settlementAmt: {
-    fontSize: RF(36) as any,
+    fontSize: Math.min(RF(36), 40) as any,
     fontWeight: typography.weight.extrabold,
     color: colors.dark,
     letterSpacing: -1,
@@ -1774,13 +1794,16 @@ const s = StyleSheet.create({
   cardItemName: { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.dark },
   gridThree:    { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing[3] },
   gridItem: {
-    width: '30%' as any, height: 52,
+    width: Math.floor((W - spacing[5] * 2 - spacing[3] * 2) / 3),
+    minHeight: 52,
     backgroundColor: colors.background, borderRadius: radius.md,
     alignItems: 'center' as const, justifyContent: 'center' as const,
     borderWidth: 1.5, borderColor: colors.border,
+    paddingHorizontal: spacing[1],
+    paddingVertical: spacing[2],
   },
   gridItemOn:    { backgroundColor: colors.primaryLight, borderColor: colors.primary },
-  gridItemTxt:   { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.dark },
+  gridItemTxt:   { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.dark, textAlign: 'center' as const },
   gridItemTxtOn: { color: colors.primary },
 
   // Guest
