@@ -339,8 +339,9 @@ const LOCK_AFTER_MS = 5 * 60 * 1000
 // ── Shared biometric lock check — used by both cold launch and AppState listener ──
 async function shouldShowBiometricLock(): Promise<boolean> {
   try {
-    // 1. Must be logged in
-    const token = await AsyncStorage.getItem('@tuka_auth_token')
+    // 1. Must be logged in — token is stored in SecureStore via storage utility
+    //    Key '@tuka_auth_token' is sanitized to '_tuka_auth_token' by storage.ts
+    const token = await SecureStore.getItemAsync('_tuka_auth_token')
     if (!token) return false
     // 2. Must have biometric enabled — check both SecureStore and AsyncStorage fallback
     let enabled: string | null = null

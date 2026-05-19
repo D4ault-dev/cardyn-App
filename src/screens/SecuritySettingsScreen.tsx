@@ -75,8 +75,8 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
       const asyncVal = await AsyncStorage.getItem('@cardyn_biometric_enabled').catch(() => 'ERROR')
       lines.push(`AsyncStorage key: "${asyncVal}"`)
 
-      // 6. Auth token present
-      const token = await AsyncStorage.getItem('@tuka_auth_token').catch(() => null)
+      // 6. Auth token present — stored in SecureStore as '_tuka_auth_token'
+      const token = await SecureStore.getItemAsync('_tuka_auth_token').catch(() => null)
       lines.push(`Auth token: ${token ? '✅ present' : '❌ missing'}`)
 
       // 7. Would lock trigger?
