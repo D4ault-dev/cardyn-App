@@ -30,14 +30,14 @@ export function AppDrawer() {
   const avatarFetchedRef = React.useRef(false)
 
   useEffect(() => {
-    if (!user.isPresent()) return
-    // Use SWR cache — returns cached avatar instantly, refreshes in background
+    if (!user.isPresent() || !drawerVisible) return
+    // Re-fetch avatar every time drawer opens — ensures it's always fresh
     swrFetch('userInfo:avatar', TTL.userInfo, () => apiGetUserInfo(), fresh => {
       if (fresh.avatar) setAvatar(fresh.avatar)
     }).then(info => {
       if (info.avatar) setAvatar(info.avatar)
     }).catch(() => {})
-  }, [user])
+  }, [user, drawerVisible])
 
   function navigate(screen: string, params?: any) {
     // Close drawer immediately without waiting for animation — then navigate

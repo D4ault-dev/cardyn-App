@@ -289,6 +289,9 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
       })
       const imgUrl = res.data?.imgUrl || res.data?.data?.imgUrl || ''
       if (imgUrl) setServerAvatar(imgUrl)
+      // Invalidate the drawer avatar cache so it refreshes immediately
+      const { cacheInvalidate } = await import('../util/cache')
+      cacheInvalidate('userInfo:avatar')
       await refreshUser()
       showSuccess('Photo updated')
     } catch (e: any) {
