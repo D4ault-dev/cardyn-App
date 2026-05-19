@@ -2,7 +2,7 @@
   "expo": {
     "name": "Cardyn",
     "slug": "cardflex",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -47,7 +47,7 @@
         "backgroundColor": "#0D1F24"
       },
       "package": "com.cardyn.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "CAMERA",
@@ -108,7 +108,7 @@
       ]
     ],
     "owner": "tuka21",
-    "runtimeVersion": "1.0.3",
+    "runtimeVersion": "1.0.4",
     "updates": {
       "url": "https://u.expo.dev/98a1c75e-abef-4a2d-b8c1-1bb67c162440"
     }
