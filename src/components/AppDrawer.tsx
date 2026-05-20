@@ -15,27 +15,47 @@ import { swrFetch, TTL } from '../util/cache'
 
 function resolveAvatar(path: string | null): string | null {
   if (!path) return null
-  if (path.startsWith('http')) return path
-  // Rewrite /profile/ paths to /files/ endpoint
+  // Already a full URL — use as-is
+  if (path.startsWith('http')) {
+    // Still rewrite /profile/ to /files/ for public access
+    return path.replace('/profile/', '/files/')
+  }
+  // Rewrite /profile/ paths to /files/ endpoint (public, no auth required)
   const cleaned = path.replace('/profile/', '/files/')
   return `${BASE_URL}${cleaned.startsWith('/') ? '' : '/'}${cleaned}`
+}
+
+// Check if a URL is likely valid (not empty, not a placeholder)
+function isValidAvatarPath(path: string | null | undefined): boolean {
+  if (!path) return false
+  if (path.trim() === '') return false
+  if (path === 'null' || path === 'undefined') return false
+  return true
 }
 
 export function AppDrawer() {
   const { user, logout } = useAuth()
   const { drawerVisible, drawerAnim, overlayAnim, close } = useDrawer()
   const navigation = useNavigation<any>()
-  const [avatar, setAvatar] = useState<string | null>(null)
-  // Track if avatar has been fetched this session — avoid re-fetching on every open
-  const avatarFetchedRef = React.useRef(false)
 
+  const [avatar, setAvatar] = useState<string | null>(null)
+  const [imgError, setImgError] = useState(false)
+
+  // Refresh avatar every time drawer opens — use SWR so cached value shows instantly
   useEffect(() => {
     if (!user.isPresent() || !drawerVisible) return
-    // Re-fetch avatar every time drawer opens — ensures it's always fresh
     swrFetch('userInfo:avatar', TTL.userInfo, () => apiGetUserInfo(), fresh => {
-      if (fresh.avatar) setAvatar(fresh.avatar)
+      // onFresh callback — update immediately when fresh data arrives
+      if (isValidAvatarPath(fresh.avatar)) {
+        setAvatar(fresh.avatar)
+        setImgError(false)
+      }
     }).then(info => {
-      if (info.avatar) setAvatar(info.avatar)
+      // Cached/resolved value
+      if (isValidAvatarPath(info.avatar)) {
+        setAvatar(info.avatar)
+        setImgError(false)
+      }
     }).catch(() => {})
   }, [user, drawerVisible])
 
@@ -72,7 +92,7 @@ export function AppDrawer() {
 
   const u        = user.isPresent() ? user.getOrThrow() : null
   const name     = u?.name || 'Guest'
-  const avatarUri = avatar ? resolveAvatar(avatar) : null
+  const avatarUri = (avatar && !imgError) ? resolveAvatar(avatar) : null
 
   const menuItems = [
     { icon: 'grid'           as const, label: 'Wallet',            onPress: () => navigate('Withdraw') },
@@ -109,14 +129,14 @@ export function AppDrawer() {
                   source={{ uri: avatarUri }}
                   style={d.avatarImg}
                   resizeMode="cover"
-                  onError={() => setAvatar(null)}
+                  onError={() => { setImgError(true) }}
                 />
               ) : (
-                <Image
-                  source={require('../../assets/default-avatar.png')}
-                  style={d.avatarImg}
-                  resizeMode="cover"
-                />
+                <View style={[d.avatarImg, d.avatarInitials]}>
+                  <Text style={d.avatarInitialsTxt}>
+                    {name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
               )}
               {/* Edit badge */}
               <TouchableOpacity
@@ -209,6 +229,17 @@ const d = StyleSheet.create({
     width: 72, height: 72,
     borderRadius: 18,
     borderWidth: 2.5, borderColor: colors.primaryLight,
+  },
+  avatarInitials: {
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitialsTxt: {
+    fontSize: 28,
+    fontWeight: '800' as const,
+    color: '#fff',
+    letterSpacing: -0.5,
   },
   editBadge: {
     position: 'absolute', bottom: -4, right: -4,

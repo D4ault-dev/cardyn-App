@@ -289,6 +289,7 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
       })
       const imgUrl = res.data?.imgUrl || res.data?.data?.imgUrl || ''
       if (imgUrl) setServerAvatar(imgUrl)
+      setImgLoadError(false)  // reset error state so new image shows
       // Invalidate the drawer avatar cache so it refreshes immediately
       const { cacheInvalidate } = await import('../util/cache')
       cacheInvalidate('userInfo:avatar')
@@ -327,6 +328,7 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
   }
 
   const displayUri = avatarUri || (serverAvatar ? resolveImageUrl(serverAvatar) : null)
+  const [imgLoadError, setImgLoadError] = useState(false)
 
   return (
     <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
@@ -337,10 +339,16 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
         {/* ── Avatar ── */}
         <View style={s.avatarSection}>
           <TouchableOpacity style={s.avatarWrap} onPress={handleCameraPress} activeOpacity={0.85}>
-            {displayUri ? (
-              <Image source={{ uri: displayUri }} style={s.avatarImg} />
+            {(displayUri && !imgLoadError) ? (
+              <Image
+                source={{ uri: displayUri }}
+                style={s.avatarImg}
+                onError={() => setImgLoadError(true)}
+              />
             ) : (
-              <Image source={require('../../assets/default-avatar.png')} style={s.avatarImg} resizeMode="cover" />
+              <View style={s.avatarFallback}>
+                <Text style={s.avatarTxt}>{initials}</Text>
+              </View>
             )}
             <View style={s.cameraBadge}>
               {uploadingPhoto
