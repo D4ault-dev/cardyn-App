@@ -59,8 +59,8 @@ export default function SplashAnimationScreen({ onFinish }: Props) {
         }),
       ]),
 
-      // 4. Hold — let user see the full logo for 2 seconds total
-      Animated.delay(1200),
+      // 4. Hold — let user see the full logo for ~1.5 seconds total
+      Animated.delay(800),
 
       // 5. Fade out
       Animated.timing(screenOpacity, {

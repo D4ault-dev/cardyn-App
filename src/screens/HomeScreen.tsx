@@ -427,8 +427,11 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                     <View>
                       {cards.map((card, i) => {
                         const imgUrl  = resolveImageUrl(card.icon)
-                        // Homepage: displayRate × todayRate (Nigeria) or displayRate ÷ todayRate (Ghana)
-                        const baseDisplayRate = card.displayRate ?? card.rate ?? 0
+                        // Homepage: use displayRate if set (>0), otherwise fall back to rate
+                        // displayRate can be 0 if admin didn't set it — rate is always the source of truth
+                        const baseDisplayRate = (card.displayRate && card.displayRate > 0)
+                          ? card.displayRate
+                          : (card.rate ?? 0)
                         const todayRate = selectedCountry?.todayRate ?? 1
                         const rate = selectedCountry?.rateMode === 'divide'
                           ? (todayRate > 0 ? baseDisplayRate / todayRate : baseDisplayRate)

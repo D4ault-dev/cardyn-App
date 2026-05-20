@@ -83,6 +83,8 @@ export async function fetchCardCategories(forceRefresh = false, country = ''): P
     const res = await client.get('/tuka/cardCategory/public', { params })
     const data = (res.data.data as CardCategory[]).map(c => ({
       ...c,
+      // If displayRate is 0 or missing, fall back to rate — admin may not have set it
+      displayRate: (c.displayRate && c.displayRate > 0) ? c.displayRate : (c.rate ?? 0),
       currencies:  Array.isArray(c.currencies)  ? c.currencies  : [],
       inputTypes:  Array.isArray(c.inputTypes)   ? c.inputTypes  : [],
       rateConfigs: Array.isArray(c.rateConfigs)  ? c.rateConfigs : [],
