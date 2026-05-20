@@ -201,7 +201,20 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     setSelectedCard(card)
     setSelectedCurrency('')
     setSelectedInputType('')
-    setSelectedMode(card.defaultMode === 'slow' ? 'Slow' : 'Fast')
+    // Determine available modes from rateConfigs — only show modes that have rows
+    const modesInConfig = Array.from(new Set(
+      (card.rateConfigs || []).flatMap(rc => rc.rows.map(r => r.mode))
+    )) as ('Fast' | 'Slow')[]
+    const hasFast = modesInConfig.includes('Fast')
+    const hasSlow = modesInConfig.includes('Slow')
+    // Auto-select: prefer defaultMode if available, else first available mode, else Fast
+    const preferredMode = card.defaultMode === 'slow' ? 'Slow' : 'Fast'
+    const autoMode = (preferredMode === 'Fast' && hasFast) ? 'Fast'
+                   : (preferredMode === 'Slow' && hasSlow) ? 'Slow'
+                   : hasFast ? 'Fast'
+                   : hasSlow ? 'Slow'
+                   : 'Fast'
+    setSelectedMode(autoMode)
     setCardAmount('')
     setCardCode('')
     setCardCodes([''])
@@ -867,6 +880,12 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
             {/* 4. Speed */}
             <SpeedSelector
               selectedMode={selectedMode}
+              availableModes={(() => {
+                const modes = Array.from(new Set(
+                  (selectedCard?.rateConfigs || []).flatMap(rc => rc.rows.map(r => r.mode))
+                )) as ('Fast' | 'Slow')[]
+                return modes.length > 0 ? modes : ['Fast']
+              })()}
               tooltipOpen={speedTooltipOpen}
               onChangeMode={setSelectedMode}
               onToggleTooltip={() => setSpeedTooltipOpen(v => !v)}

@@ -5,12 +5,13 @@ import { colors, typography, spacing, radius } from '../../theme'
 
 interface Props {
   selectedMode: 'Fast' | 'Slow'
+  availableModes: ('Fast' | 'Slow')[]  // used to disable unavailable modes
   tooltipOpen: boolean
   onChangeMode: (mode: 'Fast' | 'Slow') => void
   onToggleTooltip: () => void
 }
 
-export function SpeedSelector({ selectedMode, tooltipOpen, onChangeMode, onToggleTooltip }: Props) {
+export function SpeedSelector({ selectedMode, availableModes, tooltipOpen, onChangeMode, onToggleTooltip }: Props) {
   return (
     <View style={s.speedField}>
       <View style={s.speedLabelRow}>
@@ -23,16 +24,33 @@ export function SpeedSelector({ selectedMode, tooltipOpen, onChangeMode, onToggl
         </TouchableOpacity>
       </View>
 
+      {/* Always show both buttons — disable the one that has no rate config */}
       <View style={s.speedToggle}>
-        {(['Fast', 'Slow'] as const).map(m => (
-          <TouchableOpacity
-            key={m}
-            style={[s.speedBtn, selectedMode === m && s.speedBtnOn]}
-            onPress={() => onChangeMode(m)}
-            activeOpacity={0.8}>
-            <Text style={[s.speedBtnTxt, selectedMode === m && s.speedBtnTxtOn]}>{m}</Text>
-          </TouchableOpacity>
-        ))}
+        {(['Fast', 'Slow'] as const).map(m => {
+          const isAvailable = availableModes.includes(m)
+          const isSelected  = selectedMode === m
+          return (
+            <TouchableOpacity
+              key={m}
+              style={[
+                s.speedBtn,
+                isSelected && s.speedBtnOn,
+                !isAvailable && s.speedBtnDisabled,
+              ]}
+              onPress={() => isAvailable && onChangeMode(m)}
+              activeOpacity={isAvailable ? 0.8 : 1}
+              disabled={!isAvailable}
+            >
+              <Text style={[
+                s.speedBtnTxt,
+                isSelected && s.speedBtnTxtOn,
+                !isAvailable && s.speedBtnTxtDisabled,
+              ]}>
+                {m}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
       </View>
 
       {tooltipOpen && (
@@ -82,9 +100,11 @@ const s = StyleSheet.create({
     backgroundColor: colors.background, borderRadius: radius.md,
     borderWidth: 1.5, borderColor: colors.border,
   },
-  speedBtnOn:    { backgroundColor: colors.primary, borderColor: colors.primary },
-  speedBtnTxt:   { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.body },
-  speedBtnTxtOn: { color: '#fff' },
+  speedBtnOn:       { backgroundColor: colors.primary, borderColor: colors.primary },
+  speedBtnDisabled: { backgroundColor: colors.background, borderColor: colors.border, opacity: 0.35 },
+  speedBtnTxt:         { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.body },
+  speedBtnTxtOn:       { color: '#fff' },
+  speedBtnTxtDisabled: { color: colors.muted },
   speedTooltip: {
     marginTop: spacing[3],
     backgroundColor: colors.background,
