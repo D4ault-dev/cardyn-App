@@ -1,5 +1,8 @@
 {
   "expo": {
+    "cli": {
+      "appVersionSource": "local"
+    },
     "name": "Cardyn",
     "slug": "cardflex",
     "version": "1.0.4",
