@@ -12,6 +12,7 @@ import { SocialUser } from '../api/socialAuth'
 import { registerPushToken } from '../util/pushNotifications'
 import { Analytics } from '../util/analytics'
 import { trackAdEvent } from '../util/adManager'
+import { attributeSignup } from '../util/referral'
 import { fetchCardCategories } from '../api/cards'
 import { fetchCurrencies } from '../api/currency'
 import { cacheClear } from '../util/cache'
@@ -159,6 +160,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     Analytics.signup({ method: phone ? 'phone' : 'email', country, userId: mappedUser.uid }).catch(() => {})
     trackAdEvent('Registration', { method: phone ? 'phone' : 'email', country })
     registerPushToken().catch(() => {})
+    // Attribute signup to referrer — fire and forget, never block navigation
+    attributeSignup(mappedUser.uid).catch(() => {})
   }
 
   const logout = async () => {

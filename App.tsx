@@ -50,6 +50,7 @@ import { setupNotificationListeners } from './src/util/pushNotifications'
 import { initFirebase } from './src/firebaseInit'
 import { Analytics } from './src/util/analytics'
 import { fetchAdConfig, initializeAdSDKs } from './src/util/adManager'
+import { saveReferralCode, attributeInstall } from './src/util/referral'
 import { BIOMETRIC_KEY } from './src/screens/auth/types'
 import * as SecureStore from 'expo-secure-store'
 import * as LocalAuthentication from 'expo-local-authentication'
@@ -518,16 +519,39 @@ export default function App() {
     }
   }, [])
 
-  // Handle deep links for ad attribution (UTM params)
+  // Handle deep links for ad attribution (UTM params) + referral code capture
   useEffect(() => {
-    // App opened from a link while already running
-    const sub = Linking.addEventListener('url', ({ url }) => {
+    function handleUrl(url: string) {
+      // Extract referral code from deep link
+      // Supports: https://cardyn.net/ref/ABC123
+      //           https://cardyn.net/invite/ABC123
+      //           cardyn://ref/ABC123
+      try {
+        const refMatch = url.match(/\/(?:ref|invite)\/([A-Za-z0-9]+)/)
+        if (refMatch?.[1]) {
+          saveReferralCode(refMatch[1]).catch(() => {})
+        }
+      } catch { /* ignore malformed URLs */ }
+      // Also handle UTM attribution
       Analytics.handleDeepLink(url)
-    })
+    }
+
+    // App opened from a link while already running
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url))
+
     // App opened cold from a link
     Linking.getInitialURL().then(url => {
-      if (url) Analytics.handleDeepLink(url)
+      if (url) {
+        handleUrl(url)
+        // Attribute install after a short delay (let app fully initialize first)
+        setTimeout(() => attributeInstall().catch(() => {}), 2000)
+      }
     })
+
+    // Also try to attribute on first launch even without a deep link
+    // (handles Google Play Install Referrer — code may have been saved from a previous session)
+    setTimeout(() => attributeInstall().catch(() => {}), 3000)
+
     return () => sub.remove()
   }, [])
 

@@ -27,8 +27,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cardyn.app",
-      "buildNumber": "3",
       "googleServicesFile": "./GoogleService-Info.plist",
+      "associatedDomains": [
+        "applinks:cardyn.net",
+        "webcredentials:cardyn.net"
+      ],
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow Cardyn to access your photos to upload gift card images.",
         "NSCameraUsageDescription": "Allow Cardyn to take photos of your gift cards and scan card codes.",
@@ -51,7 +54,6 @@
         "backgroundColor": "#0D1F24"
       },
       "package": "com.cardyn.app",
-      "versionCode": 6,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "CAMERA",
