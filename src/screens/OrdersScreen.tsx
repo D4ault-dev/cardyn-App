@@ -20,6 +20,7 @@ import client from '../api/client'
 import { useDrawerSwipe } from '../hooks/useDrawerSwipe'
 import { tabBarClearance } from '../util/responsive'
 import { useCountry } from '../context/CountryContext'
+import { useToast } from '../util/useToast'
 
 type Order = {
   id: number
@@ -211,6 +212,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
   const { user } = useAuth()
   const { selectedCountry, isHomeCountry } = useCountry()
   const localSym = selectedCountry?.currencySymbol ?? '₦'
+  const { showSuccess: showCopyToast, Toast: CopyToast } = useToast()
   const [orders, setOrders]         = useState<Order[]>([])
   const [withdrawals, setWithdrawals] = useState<any[]>([])
   const [loading, setLoading]       = useState(true)
@@ -306,7 +308,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
 
   function copyId(id: string) {
     ExpoClipboard.setStringAsync(id)
-    Alert.alert('Copied', 'Order ID copied to clipboard')
+    showCopyToast('Order ID copied!')
   }
 
   // ── Commission detail screen ──────────────────────────────────────────────
@@ -808,6 +810,8 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
       </ScrollView>
       )}
     </View>
+
+    {CopyToast}
 
     {/* ── Filter bottom sheet ── */}
     <Modal visible={filterOpen} transparent animationType="slide" statusBarTranslucent>

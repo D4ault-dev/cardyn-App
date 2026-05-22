@@ -1,102 +1,148 @@
 import { RF, TAB_BAR_HEIGHT, tabBarClearance, ms } from '../util/responsive'
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
-  View, Text, StyleSheet, ActivityIndicator, FlatList,
-  TouchableOpacity, RefreshControl, Image, Dimensions,
-  StatusBar, Modal, ScrollView, Share, Animated, Platform} from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+  View, Text, StyleSheet, FlatList,
+  TouchableOpacity, Image, Dimensions,
+  StatusBar, Modal, ScrollView, Platform,
+} from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
-import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
-import { LinearGradient } from 'expo-linear-gradient'
-import * as ExpoClipboard from 'expo-clipboard'
 import { useAuth } from '../context/AuthContext'
-import { Spinner, AppRefreshControl } from '../components/Spinner'
-import { GenericListSkeleton, LeaderboardSkeleton } from '../components/Skeleton'
+import { AppRefreshControl } from '../components/Spinner'
+import { LeaderboardSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
-import client from '../api/client'
 import {
-  fetchLeaderboard, fetchMyRank, fetchInvitationLeaderboard, fetchCycles,
-  LeaderboardEntry, InvitationEntry, CycleInfo,
+  fetchLeaderboard, fetchMyRank, fetchCycles,
+  LeaderboardEntry, CycleInfo,
 } from '../api/leaderboard'
 
 const { width: W } = Dimensions.get('window')
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function maskPhone(name: string, phone?: string) {
+function maskName(name: string, phone?: string) {
   const src = phone && phone.length >= 6 ? phone : name
+  if (!src) return '—'
   if (src.length >= 6) return src.slice(0, 3) + '**' + src.slice(-3)
   return src
 }
-function fmtNgn(n: number) {
-  if (!n) return '₦0'
-  if (n >= 1000000) return '₦' + (n / 1000000).toFixed(1) + 'M'
-  if (n >= 1000) return '₦' + Math.round(n / 1000) + 'K'
-  return '₦' + Math.round(n).toLocaleString()
-}
 
 function fmtPts(n: number) {
-  return (n || 0).toLocaleString() + ' pts'
+  if (!n) return '0pts'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'Mpts'
+  if (n >= 1_000) return Math.round(n / 1_000) + 'Kpts'
+  return n.toLocaleString() + 'pts'
+}
+
+function useCountdown(endsAt: string | null) {
+  const [label, setLabel] = useState('')
+  useEffect(() => {
+    if (!endsAt) return
+    function tick() {
+      const diff = new Date(endsAt!).getTime() - Date.now()
+      if (diff <= 0) { setLabel('Ended'); return }
+      const d = Math.floor(diff / 86_400_000)
+      const h = Math.floor((diff % 86_400_000) / 3_600_000)
+      const m = Math.floor((diff % 3_600_000) / 60_000)
+      if (d > 0) setLabel(`${d}d ${h}h left`)
+      else if (h > 0) setLabel(`${h}h ${m}m left`)
+      else setLabel(`${m}m left`)
+    }
+    tick()
+    const t = setInterval(tick, 60_000)
+    return () => clearInterval(t)
+  }, [endsAt])
+  return label
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
-function Avatar({ name, size, avatarUrl, isMe, border }: {
-  name: string; size: number; avatarUrl?: string | null; isMe?: boolean; border?: boolean
+function Avatar({ name, size, avatarUrl, ringColor }: {
+  name: string; size: number; avatarUrl?: string | null; ringColor?: string
 }) {
   const uri = avatarUrl ? resolveImageUrl(avatarUrl) : null
+  const [imgError, setImgError] = React.useState(false)
+
   return (
     <View style={[
-      av.wrap, { width: size, height: size, borderRadius: size / 2 },
-      isMe && av.me,
-      border && { borderWidth: 3, borderColor: '#fff' },
+      av.ring,
+      {
+        width: size + 6, height: size + 6,
+        borderRadius: (size + 6) / 2,
+        borderColor: ringColor || 'transparent',
+        borderWidth: ringColor ? 3 : 0,
+      },
     ]}>
-      {uri
-        ? <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} resizeMode="cover" />
-        : <Text style={[av.ini, { fontSize: size * 0.36 }]}>{(name || 'U')[0].toUpperCase()}</Text>
-      }
+      <View style={[av.inner, { width: size, height: size, borderRadius: size / 2 }]}>
+        {uri && !imgError
+          ? <Image
+              source={{ uri }}
+              style={{ width: size, height: size, borderRadius: size / 2 }}
+              resizeMode="cover"
+              onError={() => setImgError(true)}
+            />
+          : <Image
+              source={require('../../assets/default-avatar.png')}
+              style={{ width: size, height: size, borderRadius: size / 2 }}
+              resizeMode="cover"
+            />
+        }
+      </View>
     </View>
   )
 }
 const av = StyleSheet.create({
-  wrap: { backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  me:   { backgroundColor: colors.primary },
-  ini:  { fontWeight: '800', color: '#fff' },
+  ring:  { alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
+  inner: { overflow: 'hidden', backgroundColor: '#C8D0D8', alignItems: 'center', justifyContent: 'center' },
 })
 
 // ── Top 3 Podium ──────────────────────────────────────────────────────────────
-function Podium({ entries, myUserId }: { entries: LeaderboardEntry[]; myUserId: number | null }) {
-  const order = [entries[1], entries[0], entries[2]]
-  const ranks = [2, 1, 3]
-  const sizes = [52, 64, 52]   // smaller avatars
-  const heights = [0, 16, 0]   // less elevation difference
+// Layout: [3rd] [1st — center, larger] [2nd]
+const RING_COLORS = ['#FFD700', '#1A1A1A', '#1A1A1A']  // gold for 1st, dark for 2nd/3rd
+const AVATAR_SIZES = [64, 80, 64]  // 1st is bigger
+
+function TopThree({ entries, myUserId }: { entries: LeaderboardEntry[]; myUserId: number | null }) {
+  // Display order: 3rd (left), 1st (center), 2nd (right)
+  const slots  = [entries[2], entries[0], entries[1]]
+  const ranks  = [3, 1, 2]
+  const sizes  = [AVATAR_SIZES[2], AVATAR_SIZES[0], AVATAR_SIZES[1]]
+  const rings  = [RING_COLORS[2], RING_COLORS[0], RING_COLORS[1]]
 
   return (
-    <View style={pod.wrap}>
-      {order.map((e, i) => {
+    <View style={t3.wrap}>
+      {slots.map((e, i) => {
         const rank = ranks[i]
         const size = sizes[i]
+        const ring = rings[i]
         const isMe = e?.userId === myUserId
-        const sales = (e as any)?.totalSales || 0
-        const trades = (e as any)?.tradeCount || 0
-        const phone = (e as any)?.phone || e?.displayName || ''
+        const phone = (e as any)?.phone || ''
+        const isCenter = rank === 1
+
         return (
-          <View key={rank} style={[pod.slot, { marginBottom: heights[i] }]}>
+          <View key={rank} style={[t3.slot, isCenter && t3.slotCenter]}>
             {e ? (
               <>
-                {rank === 1 && <Text style={pod.crown}>👑</Text>}
-                <View style={[pod.avatarRing, rank === 1 && pod.avatarRingGold, rank === 2 && pod.avatarRingSilver, rank === 3 && pod.avatarRingBronze]}>
-                  <Avatar name={e.displayName} size={size} avatarUrl={e.avatar} isMe={isMe} border />
+                {/* Rank badge */}
+                <View style={[t3.rankBadge, isCenter && t3.rankBadgeCenter]}>
+                  <Text style={[t3.rankBadgeTxt, isCenter && t3.rankBadgeTxtCenter]}>{rank}</Text>
                 </View>
-                <View style={[pod.badge, rank === 1 && pod.badgeGold, rank === 2 && pod.badgeSilver, rank === 3 && pod.badgeBronze]}>
-                  <Text style={pod.badgeTxt}>{rank}</Text>
-                </View>
-                <Text style={pod.name} numberOfLines={1}>{maskPhone(e.displayName, phone)}</Text>
-                <Text style={pod.sales}>{fmtPts(e.totalPoints)}</Text>
+
+                {/* Avatar */}
+                <Avatar name={e.displayName} size={size} avatarUrl={e.avatar} ringColor={ring} />
+
+                {/* Name */}
+                <Text style={[t3.name, isMe && t3.nameMe]} numberOfLines={1}>
+                  {maskName(e.displayName, phone)}
+                </Text>
+
+                {/* Points */}
+                <Text style={[t3.pts, isCenter && t3.ptsCenter]}>
+                  {fmtPts(e.totalPoints)}
+                </Text>
               </>
             ) : (
-              <View style={[pod.avatarRing, { width: size + 6, height: size + 6, borderRadius: (size + 6) / 2, backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+              <View style={[t3.emptyAvatar, { width: size + 6, height: size + 6, borderRadius: (size + 6) / 2 }]} />
             )}
           </View>
         )
@@ -104,108 +150,116 @@ function Podium({ entries, myUserId }: { entries: LeaderboardEntry[]; myUserId: 
     </View>
   )
 }
-const pod = StyleSheet.create({
-  wrap:            { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: spacing[3], gap: spacing[3] },
-  slot:            { flex: 1, alignItems: 'center', gap: 3 },
-  crown:           { fontSize: RF(16), marginBottom: -2 },
-  avatarRing:      { borderRadius: 999, padding: 2, backgroundColor: 'rgba(255,255,255,0.12)' },
-  avatarRingGold:  { backgroundColor: 'rgba(255,215,0,0.25)' },
-  avatarRingSilver:{ backgroundColor: 'rgba(192,192,192,0.25)' },
-  avatarRingBronze:{ backgroundColor: 'rgba(205,127,50,0.25)' },
-  badge:           { width: 18, height: 18, borderRadius: 9, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center', marginTop: -6, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)' },
-  badgeGold:       { backgroundColor: '#FFD700' },
-  badgeSilver:     { backgroundColor: '#C0C0C0' },
-  badgeBronze:     { backgroundColor: '#CD7F32' },
-  badgeTxt:        { fontSize: RF(9), fontWeight: '800', color: '#fff' },
-  name:            { fontSize: RF(11), fontWeight: '700', color: '#fff', textAlign: 'center', maxWidth: 80 },
-  sales:           { fontSize: RF(12), fontWeight: '800', color: '#FFD700', textAlign: 'center' },
-  trades:          { fontSize: RF(9), color: 'rgba(255,255,255,0.55)', textAlign: 'center' },
+
+const t3 = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[6],
+    paddingBottom: spacing[5],
+    gap: spacing[4],
+  },
+  slot: {
+    flex: 1, alignItems: 'center', gap: spacing[2],
+  },
+  slotCenter: {
+    marginBottom: spacing[2],  // lift center slot slightly
+  },
+  rankBadge: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: -spacing[1],
+    zIndex: 1,
+  },
+  rankBadgeCenter: {
+    backgroundColor: '#FFD700',
+  },
+  rankBadgeTxt: {
+    fontSize: RF(11), fontWeight: '900', color: '#fff',
+  },
+  rankBadgeTxtCenter: {
+    color: '#1A1A1A',
+  },
+  name: {
+    fontSize: RF(12), fontWeight: '600', color: '#1A1A1A',
+    textAlign: 'center', maxWidth: 90,
+  },
+  nameMe: { color: colors.accent },
+  pts: {
+    fontSize: RF(13), fontWeight: '800', color: '#1A1A1A',
+    textAlign: 'center',
+  },
+  ptsCenter: {
+    fontSize: RF(15),
+  },
+  emptyAvatar: {
+    backgroundColor: '#E8E8E8',
+  },
 })
 
-// ── List Row ──────────────────────────────────────────────────────────────────
+// ── List Row (pill card style) ────────────────────────────────────────────────
 function ListRow({ item, isMe }: { item: LeaderboardEntry; isMe: boolean }) {
-  const sales = (item as any).totalSales || 0
-  const trades = (item as any).tradeCount || 0
-  const phone = (item as any).phone || item.displayName
-  return (
-    <View style={[lr.row, isMe && lr.rowMe]}>
-      <Text style={[lr.rank, isMe && lr.rankMe]}>{item.rank}</Text>
-      <Avatar name={item.displayName} size={42} avatarUrl={item.avatar} isMe={isMe} />
-      <View style={lr.info}>
-        <Text style={[lr.name, isMe && lr.nameMe]}>{maskPhone(item.displayName, phone)}</Text>
-        <Text style={[lr.sub, isMe && lr.subMe]}>{fmtPts(item.totalPoints)}</Text>
-      </View>
-      <Text style={[lr.amt, isMe && lr.amtMe]}>{fmtPts(item.totalPoints)}</Text>
-    </View>
-  )
-}
-const lr = StyleSheet.create({
-  row:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[4], paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', gap: spacing[3], backgroundColor: '#fff' },
-  rowMe:  { backgroundColor: '#F0FFF8' },
-  rank:   { width: 28, fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#bbb', textAlign: 'center' },
-  rankMe: { color: colors.primary },
-  info:   { flex: 1 },
-  name:   { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#1A1A1A' },
-  nameMe: { color: colors.primary },
-  sub:    { fontSize: typography.size.sm, color: '#999', marginTop: 1 },
-  subMe:  { color: colors.primary + '99' },
-  amt:    { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#1A1A1A' },
-  amtMe:  { color: colors.primary },
-})
+  const phone = (item as any).phone || ''
+  // Trend: use rewardLabel as a proxy — if null assume neutral, otherwise random for demo
+  // In production the backend should return a `trend` field
+  const trend = (item as any).trend as 'up' | 'down' | null ?? null
 
-// ── Invitation Row ────────────────────────────────────────────────────────────
-function InvRow({ item, isMe }: { item: InvitationEntry; isMe: boolean }) {
-  const phone = item.phone || item.displayName
-  const medal = item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : null
   return (
-    <View style={[inv.row, isMe && inv.rowMe]}>
+    <View style={[lr.card, isMe && lr.cardMe]}>
       {/* Rank */}
-      <View style={inv.rankWrap}>
-        {medal
-          ? <Text style={{ fontSize: 20 }}>{medal}</Text>
-          : <Text style={[inv.rankTxt, isMe && { color: colors.primary }]}>{item.rank}</Text>
-        }
-      </View>
+      <Text style={[lr.rank, isMe && lr.rankMe]}>{item.rank}</Text>
+
       {/* Avatar */}
-      <Avatar name={item.displayName} size={42} avatarUrl={item.avatar} isMe={isMe} />
-      {/* Info */}
-      <View style={{ flex: 1, marginLeft: spacing[3] }}>
-        <Text style={[inv.name, isMe && { color: colors.primary }]} numberOfLines={1}>
-          {maskPhone(item.displayName, phone)}
-          {isMe && <Text style={{ fontSize: 11, color: colors.primary }}> (You)</Text>}
-        </Text>
-        <Text style={inv.sub}>{item.totalInvites} friend{item.totalInvites !== 1 ? 's' : ''} invited</Text>
-      </View>
-      {/* Count badge */}
-      <View style={[inv.badge, isMe && inv.badgeMe]}>
-        <Text style={[inv.badgeTxt, isMe && inv.badgeTxtMe]}>{item.totalInvites}</Text>
-        <Text style={[inv.badgeLbl, isMe && inv.badgeTxtMe]}>invites</Text>
+      <Avatar name={item.displayName} size={40} avatarUrl={item.avatar} />
+
+      {/* Name */}
+      <Text style={[lr.name, isMe && lr.nameMe]} numberOfLines={1}>
+        {isMe ? 'You' : maskName(item.displayName, phone)}
+      </Text>
+
+      {/* Points + trend */}
+      <View style={lr.right}>
+        <Text style={[lr.pts, isMe && lr.ptsMe]}>{fmtPts(item.totalPoints)}</Text>
+        {trend === 'up' && <Feather name="arrow-up" size={16} color="#22C55E" />}
+        {trend === 'down' && <Feather name="arrow-down" size={16} color="#EF4444" />}
       </View>
     </View>
   )
 }
 
-const inv = StyleSheet.create({
-  row: {
+const lr = StyleSheet.create({
+  card: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
     backgroundColor: '#fff',
+    borderRadius: 50,  // full pill
+    marginHorizontal: spacing[4],
+    marginBottom: spacing[2],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    gap: spacing[3],
+    ...shadow.sm,
   },
-  rowMe: { backgroundColor: '#F0FFF8' },
-  rankWrap: { width: 32, alignItems: 'center', marginRight: spacing[2] },
-  rankTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#C0C4CC' },
-  name: { fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: '#1A1A1A' },
-  sub:  { fontSize: typography.size.xs, color: '#999', marginTop: 2 },
-  badge: {
-    backgroundColor: '#F5F5F5', borderRadius: radius.lg,
-    paddingHorizontal: spacing[3], paddingVertical: spacing[1],
-    alignItems: 'center', minWidth: 52,
+  cardMe: {
+    backgroundColor: '#E8EAF6',  // light purple tint — matches reference
   },
-  badgeMe: { backgroundColor: colors.primaryLight },
-  badgeTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#333' },
-  badgeTxtMe: { color: colors.primary },
-  badgeLbl: { fontSize: 10, color: '#999', marginTop: 1 },
+  rank: {
+    width: 24, fontSize: RF(14), fontWeight: '700',
+    color: '#9CA3AF', textAlign: 'center',
+  },
+  rankMe: { color: colors.primary },
+  name: {
+    flex: 1, fontSize: RF(14), fontWeight: '600', color: '#1A1A1A',
+  },
+  nameMe: { color: colors.primary, fontWeight: '700' },
+  right: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[2],
+  },
+  pts: {
+    fontSize: RF(14), fontWeight: '800', color: '#1A1A1A',
+  },
+  ptsMe: { color: colors.primary },
 })
 
 // ── Cycle Picker ──────────────────────────────────────────────────────────────
@@ -215,7 +269,7 @@ function CyclePicker({ visible, cycles, selectedId, onSelect, onClose }: {
 }) {
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
-      <View style={{ ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end' }}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
         <View style={cp.sheet}>
           <View style={cp.handle} />
@@ -229,7 +283,7 @@ function CyclePicker({ visible, cycles, selectedId, onSelect, onClose }: {
                   <Text style={cp.rowDate}>{c.startDate?.slice(0, 10)} → {c.endDate?.slice(0, 10)}</Text>
                 </View>
                 {c.isActive && <View style={cp.activeBadge}><Text style={cp.activeTxt}>Active</Text></View>}
-                {c.id === selectedId && <Feather name="check" size={18} color={colors.primary} />}
+                {c.id === selectedId && <Feather name="check" size={18} color={colors.accent} />}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -239,241 +293,16 @@ function CyclePicker({ visible, cycles, selectedId, onSelect, onClose }: {
   )
 }
 const cp = StyleSheet.create({
-  overlay:       { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet:         { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: spacing[5], paddingBottom: spacing[10], maxHeight: '65%' },
-  handle:        { width: 40, height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, alignSelf: 'center', marginTop: spacing[3], marginBottom: spacing[4] },
-  title:         { fontSize: RF(17), fontWeight: '700', color: '#1A1A1A', marginBottom: spacing[3] },
-  row:           { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  rowActive:     { backgroundColor: colors.primaryLight + '30' },
-  rowName:       { fontSize: RF(15), fontWeight: '600', color: '#333' },
-  rowNameActive: { color: colors.primary },
-  rowDate:       { fontSize: RF(12), color: '#999', marginTop: 2 },
-  activeBadge:   { backgroundColor: colors.primaryLight, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, marginRight: spacing[2] },
-  activeTxt:     { fontSize: RF(11), fontWeight: '700', color: colors.primary },
-})
-
-// ── Invitation Tab Content ────────────────────────────────────────────────────
-function InvitationTab({ myUserId, invEntries, refreshing, onRefresh, navigation }: {
-  myUserId: number | null; invEntries: InvitationEntry[]
-  refreshing: boolean; onRefresh: () => void; navigation: any
-}) {
-  const insets = useSafeAreaInsets()
-  const [inviteCode,   setInviteCode]   = useState('')
-  const [referralLink, setReferralLink] = useState('')
-  const [totalInvites, setTotalInvites] = useState(0)
-  const [tradedCount,  setTradedCount]  = useState(0)
-  const [bonus,        setBonus]        = useState(500)
-  const [copied,       setCopied]       = useState(false)
-  const [loading,      setLoading]      = useState(true)
-
-  useEffect(() => {
-    // Use the new referral API endpoint
-    client.get('/tuka/referral/my').then(res => {
-      const d = res.data?.data
-      if (d) {
-        setInviteCode(d.inviteCode || '')
-        setReferralLink(d.referralLink || `https://cardyn.net/ref/${d.inviteCode}`)
-        setTotalInvites(d.signupCount   || 0)
-        setTradedCount(d.rewardsPaidCount || 0)
-        setBonus(d.rewardAmount || d.referralBonus || 500) // read from API, not hardcoded
-      }
-    }).catch(() => {}).finally(() => setLoading(false))
-  }, [])
-
-  const shareUrl = referralLink || `https://cardyn.net/ref/${inviteCode}`
-
-  async function handleCopy() {
-    await ExpoClipboard.setStringAsync(shareUrl)
-    setCopied(true); setTimeout(() => setCopied(false), 2500)
-  }
-
-  async function handleShare() {
-    try {
-      await Share.share({
-        message: `Join Cardyn — sell gift cards instantly!\n\nUse my invite code: ${inviteCode}\n\n${shareUrl}`,
-        url: shareUrl,
-        title: 'Join Cardyn',
-      })
-    } catch {}
-  }
-
-  if (loading) return (
-    <LeaderboardSkeleton />
-  )
-
-  return (
-    <FlatList
-      data={invEntries}
-      keyExtractor={e => String(e.userId)}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) + 60 }}
-      refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      ListHeaderComponent={
-        <View style={it.container}>
-
-          {/* ── Stats ── */}
-          <View style={it.statsRow}>
-            <View style={it.statItem}>
-              <Text style={it.statNum}>{totalInvites}</Text>
-              <Text style={it.statLbl}>Invited</Text>
-            </View>
-            <View style={it.statDivider} />
-            <View style={it.statItem}>
-              <Text style={it.statNum}>{tradedCount}</Text>
-              <Text style={it.statLbl}>Traded</Text>
-            </View>
-            <View style={it.statDivider} />
-            <View style={it.statItem}>
-              <Text style={[it.statNum, { color: colors.primary }]}>₦{bonus.toLocaleString()}</Text>
-              <Text style={it.statLbl}>Per invite</Text>
-            </View>
-          </View>
-
-          {/* ── Invite code ── */}
-          <View style={it.card}>
-            <Text style={it.cardTitle}>Your Invite Code</Text>
-            <View style={it.codeRow}>
-              <Text style={it.code}>{inviteCode || '——'}</Text>
-              <TouchableOpacity
-                style={it.copyCodeBtn}
-                onPress={async () => {
-                  await ExpoClipboard.setStringAsync(inviteCode)
-                  setCopied(true); setTimeout(() => setCopied(false), 2500)
-                }}
-                activeOpacity={0.8}>
-                <Feather name="copy" size={15} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Link */}
-            <View style={it.linkRow}>
-              <Text style={it.linkText} numberOfLines={1}>{shareUrl}</Text>
-              <TouchableOpacity
-                style={[it.copyLinkBtn, copied && it.copyLinkBtnDone]}
-                onPress={handleCopy}
-                activeOpacity={0.8}>
-                <Text style={it.copyLinkTxt}>{copied ? 'Copied' : 'Copy'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Share button */}
-            <TouchableOpacity style={it.shareBtn} onPress={handleShare} activeOpacity={0.85}>
-              <Feather name="share-2" size={16} color="#fff" style={{ marginRight: spacing[2] }} />
-              <Text style={it.shareBtnTxt}>Share Invite Link</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* ── Invitation Leaderboard ── */}
-          {invEntries.length > 0 && (
-            <View style={it.leaderCard}>
-              <Text style={it.cardTitle}>Invitation Leaderboard</Text>
-            </View>
-          )}
-        </View>
-      }
-      ListEmptyComponent={
-        <View style={{ marginHorizontal: spacing[4], marginTop: spacing[2] }}>
-          <View style={[it.card, { alignItems: 'center', paddingVertical: spacing[8] }]}>
-            <Feather name="users" size={44} color={colors.border} />
-            <Text style={{ fontSize: typography.size.lg, fontWeight: typography.weight.bold, color: colors.dark, marginTop: spacing[4], marginBottom: spacing[2] }}>
-              No invitations yet
-            </Text>
-            <Text style={{ fontSize: typography.size.sm, color: colors.muted, textAlign: 'center', marginBottom: spacing[5] }}>
-              Share your code and earn ₦{bonus.toLocaleString()} when friends complete their first trade
-            </Text>
-            <TouchableOpacity style={it.inviteBtn} onPress={handleShare} activeOpacity={0.85}>
-              <Feather name="share-2" size={16} color="#fff" style={{ marginRight: spacing[2] }} />
-              <Text style={it.inviteBtnTxt}>Invite Friends</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      }
-      renderItem={({ item }) => (
-        <View style={{ marginHorizontal: spacing[4], backgroundColor: colors.surface, overflow: 'hidden' }}>
-          <InvRow item={item} isMe={item.userId === myUserId} />
-        </View>
-      )}
-    />
-  )
-}
-
-const it = StyleSheet.create({
-  container: { padding: spacing[4], gap: spacing[4] },
-
-  // Stats
-  statsRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.surface, borderRadius: radius.xl,
-    padding: spacing[5], ...shadow.sm,
-  },
-  statItem:    { flex: 1, alignItems: 'center' },
-  statDivider: { width: 1, height: 36, backgroundColor: colors.border },
-  statNum:     { fontSize: typography.size.xl, fontWeight: typography.weight.extrabold, color: colors.dark, marginBottom: 3 },
-  statLbl:     { fontSize: typography.size.sm, color: colors.muted },
-
-  // Card
-  card: {
-    backgroundColor: colors.surface, borderRadius: radius.xl,
-    padding: spacing[5], ...shadow.sm,
-  },
-  cardTitle: {
-    fontSize: typography.size.base, fontWeight: typography.weight.extrabold,
-    color: colors.dark, marginBottom: spacing[4],
-  },
-
-  // Code
-  codeRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.primaryLight, borderRadius: radius.lg,
-    paddingHorizontal: spacing[5], paddingVertical: spacing[4],
-    marginBottom: spacing[3],
-  },
-  code: {
-    fontSize: RF(26), fontWeight: typography.weight.extrabold,
-    color: colors.primary, letterSpacing: 6,
-  },
-  copyCodeBtn: {
-    width: 36, height: 36, borderRadius: radius.lg,
-    backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center',
-  },
-
-  // Link
-  linkRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    backgroundColor: colors.background, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    marginBottom: spacing[4],
-  },
-  linkText:        { flex: 1, fontSize: typography.size.sm, color: colors.muted },
-  copyLinkBtn:     { backgroundColor: colors.accent, borderRadius: radius.md, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
-  copyLinkBtnDone: { backgroundColor: colors.success },
-  copyLinkTxt:     { fontSize: typography.size.sm, fontWeight: typography.weight.bold, color: '#fff' },
-
-  // Share
-  shareBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.dark, borderRadius: radius.full,
-    paddingVertical: spacing[4],
-  },
-  shareBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#fff' },
-
-  // Invite Friends CTA — primary green, more prominent than shareBtn
-  inviteBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.primary, borderRadius: radius.full,
-    paddingVertical: spacing[4], paddingHorizontal: spacing[8],
-    width: '100%',
-  },
-  inviteBtnTxt: { fontSize: typography.size.base, fontWeight: typography.weight.extrabold, color: '#fff' },
-
-  // Steps — removed (how it works section deleted)
-
-  // Leaderboard card header
-  leaderCard: {
-    backgroundColor: colors.surface, borderRadius: radius.xl,
-    paddingHorizontal: spacing[5], paddingTop: spacing[5], paddingBottom: spacing[2],
-    ...shadow.sm,
-  },
+  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: spacing[5], paddingBottom: spacing[10], maxHeight: '65%' },
+  handle: { width: 40, height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, alignSelf: 'center', marginTop: spacing[3], marginBottom: spacing[4] },
+  title: { fontSize: RF(17), fontWeight: '700', color: '#1A1A1A', marginBottom: spacing[3] },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  rowActive: { backgroundColor: colors.primaryLight + '30' },
+  rowName: { fontSize: RF(15), fontWeight: '600', color: '#333' },
+  rowNameActive: { color: colors.accent },
+  rowDate: { fontSize: RF(12), color: '#999', marginTop: 2 },
+  activeBadge: { backgroundColor: colors.primaryLight, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, marginRight: spacing[2] },
+  activeTxt: { fontSize: RF(11), fontWeight: '700', color: colors.accent },
 })
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
@@ -482,33 +311,7 @@ export default function LeaderboardScreen(props: StackScreenProps<RootStackParam
   const { user } = useAuth()
   const myUserId = user.isPresent() ? parseInt(user.getOrThrow().uid) : null
 
-  const [tab,           setTab]           = useState<'Leaderboard' | 'Invitation'>('Leaderboard')
-
-  // Tab animation — sliding underline indicator + content fade
-  const tabIndicatorX = useRef(new Animated.Value(0)).current
-  const contentOpacity = useRef(new Animated.Value(1)).current
-
-  function switchTab(newTab: 'Leaderboard' | 'Invitation') {
-    if (newTab === tab) return
-    // Fade out → switch → fade in
-    Animated.timing(contentOpacity, {
-      toValue: 0, duration: 120, useNativeDriver: true,
-    }).start(() => {
-      setTab(newTab)
-      // Slide indicator
-      Animated.spring(tabIndicatorX, {
-        toValue: newTab === 'Leaderboard' ? 0 : 1,
-        useNativeDriver: true,
-        tension: 120, friction: 14,
-      }).start()
-      // Fade content back in
-      Animated.timing(contentOpacity, {
-        toValue: 1, duration: 180, useNativeDriver: true,
-      }).start()
-    })
-  }
   const [entries,       setEntries]       = useState<LeaderboardEntry[]>([])
-  const [invEntries,    setInvEntries]    = useState<InvitationEntry[]>([])
   const [myRank,        setMyRank]        = useState<{ rank: number | null; totalPoints: number; cycleEndsAt: string | null } | null>(null)
   const [cycles,        setCycles]        = useState<CycleInfo[]>([])
   const [selectedCycle, setSelectedCycle] = useState<CycleInfo | null>(null)
@@ -516,13 +319,17 @@ export default function LeaderboardScreen(props: StackScreenProps<RootStackParam
   const [loading,       setLoading]       = useState(true)
   const [refreshing,    setRefreshing]    = useState(false)
 
+  const countdown = useCountdown(myRank?.cycleEndsAt ?? selectedCycle?.endDate ?? null)
+
   const load = useCallback(async (isRefresh = false, cycleId?: number) => {
     if (!isRefresh) setLoading(true)
     try {
-      const [lb, rank, inv, cyc] = await Promise.all([
-        fetchLeaderboard(cycleId), fetchMyRank(), fetchInvitationLeaderboard(), fetchCycles(),
+      const [lb, rank, cyc] = await Promise.all([
+        fetchLeaderboard(cycleId), fetchMyRank(), fetchCycles(),
       ])
-      setEntries(lb.leaderboard); setMyRank(rank); setInvEntries(inv); setCycles(cyc)
+      setEntries(lb.leaderboard)
+      setMyRank(rank)
+      setCycles(cyc)
       if (!selectedCycle && lb.cycle) setSelectedCycle(lb.cycle as CycleInfo)
     } catch {}
     finally { setLoading(false); setRefreshing(false) }
@@ -534,160 +341,194 @@ export default function LeaderboardScreen(props: StackScreenProps<RootStackParam
   const rest = entries.slice(3)
   const myEntry = entries.find(e => e.userId === myUserId)
   const myPosition = myEntry?.rank ?? myRank?.rank ?? null
-  const cycleLabel = selectedCycle?.name || 'Current Cycle'
+  const myPoints   = myEntry?.totalPoints ?? myRank?.totalPoints ?? 0
+  const cycleLabel = selectedCycle?.name || 'This Cycle'
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* ── Dark gradient header ── */}
-      <LinearGradient colors={['#0D1B2A', '#1B2838', '#1A3A4A']} style={s.headerGrad}>
-        <View style={{ paddingTop: getStatusBarHeight() }}>
-          {/* Nav */}
-          <View style={s.navRow}>
-            <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn}>
-              <Feather name="chevron-left" size={24} color="#fff" />
-            </TouchableOpacity>
-            <View style={s.tabRow}>
-              {(['Leaderboard', 'Invitation'] as const).map((t, i) => (
-                <TouchableOpacity key={t} onPress={() => switchTab(t)} style={s.tabBtn} activeOpacity={0.7}>
-                  <Text style={[s.tabTxt, tab === t && s.tabTxtActive]}>{t}</Text>
-                </TouchableOpacity>
-              ))}
-              {/* Animated sliding underline */}
-              <Animated.View style={[
-                s.tabUnderline,
-                {
-                  transform: [{
-                    translateX: tabIndicatorX.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, (W - 36 - 36) / 2],
-                    }),
-                  }],
-                },
-              ]} />
-            </View>
-            <View style={{ width: 36 }} />
-          </View>
+      {/* ── Top bar ── */}
+      <View style={[s.topBar, { paddingTop: getStatusBarHeight() + spacing[2] }]}>
+        <TouchableOpacity onPress={() => props.navigation.goBack()} style={s.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Feather name="arrow-left" size={22} color="#1A1A1A" />
+        </TouchableOpacity>
+        <Text style={s.topTitle}>Leaderboard</Text>
+        <TouchableOpacity style={s.cyclePill} onPress={() => setPickerOpen(true)}>
+          <Feather name="calendar" size={13} color="#666" />
+          <Text style={s.cyclePillTxt}>{cycleLabel}</Text>
+          <Feather name="chevron-down" size={13} color="#666" />
+        </TouchableOpacity>
+      </View>
 
-          {/* Header content */}
-          {tab === 'Leaderboard' ? (
-            <>
-              <View style={s.heroRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.heroTitle}>Top Traders</Text>
-                  <TouchableOpacity style={s.cyclePill} onPress={() => setPickerOpen(true)}>
-                    <Feather name="calendar" size={13} color="rgba(255,255,255,0.8)" style={{ marginRight: 5 }} />
-                    <Text style={s.cyclePillTxt}>{cycleLabel}</Text>
-                    <Feather name="chevron-down" size={13} color="rgba(255,255,255,0.8)" style={{ marginLeft: 4 }} />
-                  </TouchableOpacity>
-                </View>
-                <View style={s.medalEmoji}>
-                  <Text style={{ fontSize: RF(52) }}>🏅</Text>
-                </View>
-              </View>
-              {/* Top 3 podium inside header */}
-              {!loading && top3.length > 0 && <Podium entries={top3} myUserId={myUserId} />}
-            </>
-          ) : (
-            <View style={s.heroRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.heroTitle}>Invite & Earn</Text>
-                <Text style={s.heroSub}>Refer friends and climb the ranks</Text>
-              </View>
-              <Text style={{ fontSize: RF(52) }}>🤝</Text>
-            </View>
-          )}
+      {/* Countdown */}
+      {!!countdown && (
+        <View style={s.countdownRow}>
+          <Feather name="clock" size={12} color={colors.accent} />
+          <Text style={s.countdownTxt}>{countdown}</Text>
         </View>
-      </LinearGradient>
+      )}
 
-      {/* ── Content — fades when switching tabs ── */}
-      <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
       {loading ? (
-        <View style={{ flex: 1 }}><LeaderboardSkeleton /></View>
-      ) : tab === 'Leaderboard' ? (
+        <View style={{ flex: 1, backgroundColor: '#F3F4F8' }}>
+          <LeaderboardSkeleton />
+        </View>
+      ) : (
         <FlatList
           data={rest}
           keyExtractor={e => String(e.userId)}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: tabBarClearance(insets.bottom) + 60 }}
-          refreshControl={<AppRefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true) }} />}
+          contentContainerStyle={{
+            paddingBottom: tabBarClearance(insets.bottom) + 80,
+          }}
+          style={s.list}
+          refreshControl={
+            <AppRefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(true) }}
+            />
+          }
+          ListHeaderComponent={
+            <>
+              {/* Top 3 — white background section */}
+              <View style={s.top3Section}>
+                {top3.length > 0
+                  ? <TopThree entries={top3} myUserId={myUserId} />
+                  : <View style={{ height: 140 }} />
+                }
+              </View>
+
+              {/* Transition to list section */}
+              <View style={s.listSection}>
+                {rest.length > 0 && (
+                  <View style={s.listSectionPad} />
+                )}
+              </View>
+            </>
+          }
           ListEmptyComponent={
-            entries.length === 0 ? (
+            top3.length === 0 ? (
               <View style={s.emptyWrap}>
-                <Text style={{ fontSize: RF(48), marginBottom: spacing[3] }}>📭</Text>
-                <Text style={s.emptyTitle}>No results yet</Text>
-                <TouchableOpacity style={s.unlockBtn} onPress={() => props.navigation.navigate('Sell' as any)}>
-                  <Text style={s.unlockBtnTxt}>Start Trading</Text>
+                <Text style={{ fontSize: RF(40), marginBottom: spacing[3] }}>📭</Text>
+                <Text style={s.emptyTitle}>No rankings yet</Text>
+                <Text style={s.emptySub}>Complete trades to earn points and climb the board</Text>
+                <TouchableOpacity style={s.startBtn} onPress={() => props.navigation.navigate('SellCard' as any)}>
+                  <Text style={s.startBtnTxt}>Start Trading</Text>
                 </TouchableOpacity>
               </View>
             ) : null
           }
-          renderItem={({ item }) => <ListRow item={item} isMe={item.userId === myUserId} />}
-        />
-      ) : (
-        <InvitationTab
-          myUserId={myUserId}
-          invEntries={invEntries}
-          refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); load(true) }}
-          navigation={props.navigation}
+          renderItem={({ item }) => (
+            <ListRow item={item} isMe={item.userId === myUserId} />
+          )}
         />
       )}
-      </Animated.View>
 
-      {/* ── Sticky bottom: my rank (leaderboard tab only) ── */}
-      {tab === 'Leaderboard' && myUserId && (
-        <View style={[s.myRankBar, {
-          bottom: tabBarClearance(insets.bottom) - TAB_BAR_HEIGHT + 8,
-          paddingBottom: spacing[3],
-        }]}>
-          <Text style={s.myRankPos}>{myPosition ? (myPosition > 999 ? '999+' : myPosition) : '999+'}</Text>
-          <Avatar name={user.isPresent() ? user.getOrThrow().name : 'Me'} size={34} isMe />
-          <View style={{ flex: 1, marginLeft: spacing[3] }}>
-            <Text style={s.myRankName} numberOfLines={1}>{user.isPresent() ? user.getOrThrow().name : 'You'}</Text>
-            <Text style={s.myRankSub}>{fmtPts(myRank?.totalPoints || 0)}</Text>
+      {/* ── Sticky my-rank bar ── */}
+      {!loading && myUserId && (
+        <View style={[s.myRankBar, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
+          <Text style={s.myRankPos}>
+            {myPosition ? (myPosition > 999 ? '999+' : `#${myPosition}`) : '—'}
+          </Text>
+          <Avatar
+            name={user.isPresent() ? user.getOrThrow().name : 'Me'}
+            size={32}
+            ringColor={colors.accent}
+          />
+          <View style={{ flex: 1, marginLeft: spacing[2] }}>
+            <Text style={s.myRankName} numberOfLines={1}>
+              {user.isPresent() ? user.getOrThrow().name : 'You'}
+            </Text>
+            <Text style={s.myRankPts}>{fmtPts(myPoints)}</Text>
           </View>
-          <TouchableOpacity style={s.inviteBtn} onPress={() => switchTab('Invitation')}>
-            <Text style={s.inviteBtnTxt}>Invite</Text>
+          <TouchableOpacity
+            style={s.earnBtn}
+            onPress={() => props.navigation.navigate('SellCard' as any)}
+            activeOpacity={0.85}>
+            <Text style={s.earnBtnTxt}>+ Earn Points</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <CyclePicker visible={pickerOpen} cycles={cycles} selectedId={selectedCycle?.id ?? null}
-        onSelect={c => { setSelectedCycle(c); load(true, c.id) }} onClose={() => setPickerOpen(false)} />
+      <CyclePicker
+        visible={pickerOpen}
+        cycles={cycles}
+        selectedId={selectedCycle?.id ?? null}
+        onSelect={c => { setSelectedCycle(c); load(true, c.id) }}
+        onClose={() => setPickerOpen(false)}
+      />
     </View>
   )
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F8F8F8' },
-  headerGrad: { paddingBottom: 0 },
-  navRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: spacing[2] },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  tabRow: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: spacing[8], position: 'relative' },
-  tabBtn: { alignItems: 'center', paddingBottom: spacing[2], paddingHorizontal: spacing[3], flex: 1 },
-  tabTxt: { fontSize: typography.size.md, fontWeight: typography.weight.medium, color: 'rgba(255,255,255,0.6)' },
-  tabTxtActive: { color: '#fff', fontWeight: typography.weight.extrabold },
-  tabUnderline: {
-    position: 'absolute', bottom: 0, left: 0,
-    width: '50%', height: 3, backgroundColor: '#fff', borderRadius: 2,
+  root: { flex: 1, backgroundColor: '#F3F4F8' },
+
+  // Top bar — white
+  topBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: spacing[4],
+    paddingBottom: spacing[3],
+    gap: spacing[3],
   },
-  heroRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[5], paddingTop: spacing[3], paddingBottom: spacing[2] },
-  heroTitle: { fontSize: RF(24), fontWeight: '800', color: '#fff', marginBottom: 6 },
-  heroSub: { fontSize: RF(13), color: 'rgba(255,255,255,0.6)' },
-  cyclePill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
-  cyclePillTxt: { fontSize: RF(12), fontWeight: '600', color: 'rgba(255,255,255,0.9)' },
-  medalEmoji: { alignItems: 'center', justifyContent: 'center' },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyWrap: { alignItems: 'center', paddingTop: 60 },
-  emptyTitle: { fontSize: RF(16), color: '#999', marginBottom: spacing[6] },
-  unlockBtn: { backgroundColor: '#1A1A1A', borderRadius: 30, paddingHorizontal: 32, paddingVertical: 14 },
-  unlockBtnTxt: { fontSize: RF(15), fontWeight: '700', color: '#fff' },
-  myRankBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: spacing[4], paddingVertical: spacing[3], borderTopWidth: 1, borderTopColor: '#F0F0F0', gap: spacing[2] },
-  myRankPos: { fontSize: RF(14), fontWeight: '700', color: '#999', width: 36, textAlign: 'center' },
-  myRankName: { fontSize: RF(14), fontWeight: '600', color: '#1A1A1A' },
-  myRankSub: { fontSize: RF(11), color: '#999' },
-  inviteBtn: { backgroundColor: '#1A1A1A', borderRadius: 24, paddingHorizontal: ms(20), paddingVertical: ms(10), minHeight: ms(40), justifyContent: 'center' },
-  inviteBtnTxt: { fontSize: RF(14), fontWeight: '700', color: '#fff' },
+  backBtn: {
+    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+  },
+  topTitle: {
+    flex: 1, fontSize: RF(18), fontWeight: '800', color: '#1A1A1A', textAlign: 'center',
+  },
+  cyclePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#F3F4F8', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  cyclePillTxt: { fontSize: RF(11), fontWeight: '600', color: '#666' },
+
+  countdownRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, backgroundColor: '#fff',
+    paddingBottom: spacing[2],
+  },
+  countdownTxt: { fontSize: RF(11), fontWeight: '700', color: colors.accent },
+
+  // Top 3 section — white bg
+  top3Section: {
+    backgroundColor: '#fff',
+    paddingTop: spacing[4],
+  },
+
+  // List section — light purple/grey bg
+  list: { backgroundColor: '#F3F4F8' },
+  listSection: { backgroundColor: '#F3F4F8' },
+  listSectionPad: { height: spacing[4] },
+
+  // Empty
+  emptyWrap: { alignItems: 'center', paddingTop: 60, paddingHorizontal: spacing[8] },
+  emptyTitle: { fontSize: RF(18), fontWeight: '700', color: '#333', marginBottom: spacing[2] },
+  emptySub: { fontSize: RF(13), color: '#999', textAlign: 'center', lineHeight: 20, marginBottom: spacing[6] },
+  startBtn: { backgroundColor: '#1A1A1A', borderRadius: 30, paddingHorizontal: 32, paddingVertical: 14 },
+  startBtnTxt: { fontSize: RF(15), fontWeight: '700', color: '#fff' },
+
+  // My rank bar
+  myRankBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: spacing[4], paddingTop: spacing[3],
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E8E8E8',
+    gap: spacing[2],
+    ...shadow.sm,
+  },
+  myRankPos: {
+    fontSize: RF(13), fontWeight: '800', color: colors.accent,
+    width: 36, textAlign: 'center',
+  },
+  myRankName: { fontSize: RF(13), fontWeight: '700', color: '#1A1A1A' },
+  myRankPts:  { fontSize: RF(11), color: '#999', marginTop: 1 },
+  earnBtn: {
+    backgroundColor: colors.primary, borderRadius: 20,
+    paddingHorizontal: ms(16), paddingVertical: ms(9),
+  },
+  earnBtnTxt: { fontSize: RF(13), fontWeight: '800', color: '#fff' },
 })

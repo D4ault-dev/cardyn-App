@@ -346,9 +346,11 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
                 onError={() => setImgLoadError(true)}
               />
             ) : (
-              <View style={s.avatarFallback}>
-                <Text style={s.avatarTxt}>{initials}</Text>
-              </View>
+              <Image
+                source={require('../../assets/default-avatar.png')}
+                style={s.avatarImg}
+                resizeMode="cover"
+              />
             )}
             <View style={s.cameraBadge}>
               {uploadingPhoto

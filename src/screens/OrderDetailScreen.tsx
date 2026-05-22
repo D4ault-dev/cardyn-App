@@ -11,6 +11,7 @@ import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import { useCountry } from '../context/CountryContext'
+import { useToast } from '../util/useToast'
 
 const { width: W } = Dimensions.get('window')
 
@@ -66,7 +67,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
   const [imgViewerOpen, setImgViewerOpen] = useState(false)
   const [imgViewerIdx, setImgViewerIdx]   = useState(0)
   const [imgViewerUrls, setImgViewerUrls] = useState<string[]>([])
-  const [copied, setCopied]               = useState(false)
+  const { showSuccess: showCopyToast, Toast: CopyToast } = useToast()
   const stepIdx = getStepIndex(o.status)
   const failed  = isFailed(o.status)
   const imgUrl  = resolveImageUrl(o.categoryIcon ?? null)
@@ -100,8 +101,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
 
   function copyId() {
     ExpoClipboard.setStringAsync(o.orderNo)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    showCopyToast('Order ID copied!')
   }
 
   function openViewer(urls: string[], idx = 0) {
@@ -185,7 +185,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
             <Text style={s.rowLbl}>Order Id</Text>
             <TouchableOpacity onPress={copyId} activeOpacity={0.6} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], flex: 1, justifyContent: 'flex-end' }}>
               <Text style={s.rowVal} numberOfLines={1} ellipsizeMode="middle">{o.orderNo}</Text>
-              {copied && <Text style={s.copiedTxt}>Copied!</Text>}
+              <Feather name="copy" size={14} color={colors.muted} />
             </TouchableOpacity>
           </View>
 
@@ -329,6 +329,8 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
         </Modal>
       )}
 
+      {CopyToast}
+
     </View>
   )
 }
@@ -392,8 +394,7 @@ const s = StyleSheet.create({
   thumb: { width: 80, height: 80, borderRadius: radius.md },
   noContent: { fontSize: typography.size.sm, color: colors.subtle, marginTop: spacing[1] },
 
-  // Copy feedback
-  copiedTxt: { fontSize: typography.size.xs, color: colors.primary, fontWeight: typography.weight.bold },
+  // Copy feedback — removed (now uses useToast)
 
   // Chat button
   chatWrap: {

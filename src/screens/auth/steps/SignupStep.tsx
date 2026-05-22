@@ -111,6 +111,8 @@ export interface SignupStepProps {
   reset: () => void
   biometricAvailable: boolean
   setPendingUsername: (v: string) => void
+  referralCode?: string
+  setReferralCode?: (v: string) => void
 }
 
 export function SignupStep(props: SignupStepProps) {
@@ -124,6 +126,7 @@ export function SignupStep(props: SignupStepProps) {
     setSelectedCountry, setShowHelp, setCanResend, setCountdown, setLoginMethod,
     sendOtpToPhone, verifyOtpCode, handleGoogleSignIn, handleAppleSignIn,
     signup, goTo, reset, biometricAvailable, setPendingUsername,
+    referralCode = '', setReferralCode,
   } = props
   const otpFullPhone = props.otpFullPhone
 
@@ -271,6 +274,35 @@ export function SignupStep(props: SignupStepProps) {
                     <Text style={flat.errTxt}>{error}</Text>
                   </View>
                 ) : null}
+
+                {/* Referral Code — shown if pre-filled from deep link, or editable */}
+                <View style={flat.fieldWrap}>
+                  <Text style={flat.fieldLabel}>Referral Code <Text style={{ color: '#8A94A6', fontWeight: '400' }}>(optional)</Text></Text>
+                  <View style={[flat.inputBox, referralCode ? { borderColor: '#22C55E', backgroundColor: '#F0FDF4' } : {}]}>
+                    {referralCode ? <Feather name="check-circle" size={16} color="#22C55E" /> : <Feather name="gift" size={16} color="#BBBBBB" />}
+                    <TextInput
+                      style={flat.input}
+                      placeholder="Enter referral code"
+                      placeholderTextColor="#BBBBBB"
+                      autoCapitalize="characters"
+                      value={referralCode}
+                      onChangeText={v => setReferralCode?.(v.trim().toUpperCase())}
+                      returnKeyType="done"
+                      keyboardAppearance="light"
+                    />
+                    {!!referralCode && (
+                      <TouchableOpacity onPress={() => setReferralCode?.('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Feather name="x" size={14} color="#BBBBBB" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {!!referralCode && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <Feather name="check" size={11} color="#22C55E" />
+                      <Text style={{ fontSize: 12, color: '#22C55E', fontWeight: '600' }}>Referral code applied</Text>
+                    </View>
+                  )}
+                </View>
 
                 {/* Next button */}
                 <TouchableOpacity
@@ -619,6 +651,7 @@ export function SignupStep(props: SignupStepProps) {
                       phone: fullPhone,
                       country: selectedCountry.name,
                       password,
+                      referralCode: referralCode || undefined,
                     })
                     // signup() calls setUser(Just(...)) in AuthContext which auto-navigates to home
                     storage.setItem('@tuka_last_phone', sanitizeLocalPhone(phone)).catch(() => {})

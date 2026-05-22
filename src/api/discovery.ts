@@ -55,7 +55,7 @@ export async function fetchArticleDetail(id: number): Promise<ArticleDetail> {
     subtitle:   a.subtitle || null,
     image:      resolveImageUrl(a.image),
     content:    a.content || '',
-    readCount:  a.readCount || 0,
+    readCount:  (a.readCount || 0) + 1,  // +1 optimistic: backend already incremented on this fetch
     createDate: a.createDate || '',
   }
 }

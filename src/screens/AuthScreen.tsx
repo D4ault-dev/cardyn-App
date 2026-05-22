@@ -27,6 +27,7 @@ import { HelpModal, CountryPickerModal } from './auth/AuthComponents'
 import { Analytics } from '../util/analytics'
 import { SCREEN_H, keyboardBehavior } from '../util/responsive'
 import { useAuthStatusBar } from '../hooks/useAuthStatusBar'
+import { saveReferralCode } from '../util/referral'
 
 // ── Step components ───────────────────────────────────────────────────────────
 import { OnboardingStep } from './auth/steps/OnboardingStep'
@@ -71,6 +72,21 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
   const [countryPickerOpen, setCountryPickerOpen] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [pendingUsername, setPendingUsername] = useState('')
+
+  // ── Referral code — pre-filled from deep link ─────────────────────────────
+  const [referralCode, setReferralCode] = useState('')
+
+  // Read inviteCode from deep link route params (e.g. cardyn.net/ref/ABC123)
+  useEffect(() => {
+    const code = (props.route?.params as any)?.inviteCode
+    if (code) {
+      const clean = String(code).trim().toUpperCase()
+      setReferralCode(clean)
+      saveReferralCode(clean).catch(() => {})
+      // If they landed on Login via /ref link, take them straight to signup
+      setStep('signup')
+    }
+  }, [props.route?.params])
 
   // ── Refs & animated values ────────────────────────────────────────────────
   const otpRefs   = useRef<(TextInput | null)[]>([])
@@ -539,6 +555,8 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
         reset={reset}
         biometricAvailable={biometricAvailable}
         setPendingUsername={setPendingUsername}
+        referralCode={referralCode}
+        setReferralCode={setReferralCode}
       />
       </Animated.View>
     )

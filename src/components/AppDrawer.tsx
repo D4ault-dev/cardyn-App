@@ -1,5 +1,5 @@
 import { getStatusBarHeight } from '../util/statusBar'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Animated, Image, Alert, Platform,
@@ -40,24 +40,37 @@ export function AppDrawer() {
 
   const [avatar, setAvatar] = useState<string | null>(null)
   const [imgError, setImgError] = useState(false)
+  const fetchedRef = useRef(false)  // only fetch once per session
 
-  // Refresh avatar every time drawer opens — use SWR so cached value shows instantly
+  // Fetch avatar once when user is present — not on every drawer open
   useEffect(() => {
-    if (!user.isPresent() || !drawerVisible) return
+    if (!user.isPresent() || fetchedRef.current) return
+    fetchedRef.current = true
     swrFetch('userInfo:avatar', TTL.userInfo, () => apiGetUserInfo(), fresh => {
-      // onFresh callback — update immediately when fresh data arrives
       if (isValidAvatarPath(fresh.avatar)) {
         setAvatar(fresh.avatar)
         setImgError(false)
       }
     }).then(info => {
-      // Cached/resolved value
       if (isValidAvatarPath(info.avatar)) {
         setAvatar(info.avatar)
         setImgError(false)
       }
     }).catch(() => {})
-  }, [user, drawerVisible])
+  }, [user])
+
+  // Re-fetch avatar after upload (cache invalidated externally)
+  useEffect(() => {
+    if (!drawerVisible || !user.isPresent()) return
+    // Only re-fetch if cache was invalidated (e.g. after profile photo upload)
+    const cached = swrFetch('userInfo:avatar', TTL.userInfo, () => apiGetUserInfo())
+    cached.then(info => {
+      if (isValidAvatarPath(info.avatar) && info.avatar !== avatar) {
+        setAvatar(info.avatar)
+        setImgError(false)
+      }
+    }).catch(() => {})
+  }, [drawerVisible])
 
   function navigate(screen: string, params?: any) {
     // Close drawer immediately without waiting for animation — then navigate
@@ -95,12 +108,12 @@ export function AppDrawer() {
   const avatarUri = (avatar && !imgError) ? resolveAvatar(avatar) : null
 
   const menuItems = [
-    { icon: 'grid'           as const, label: 'Wallet',            onPress: () => navigate('Withdraw') },
-    { icon: 'tag'            as const, label: 'Coupons',            onPress: () => navigate('Coupon') },
-    { icon: 'award'          as const, label: 'Leaderboard',        onPress: () => navigate('Leaderboard') },
-    { icon: 'shield'         as const, label: 'Security & Privacy', onPress: () => navigate('SecuritySettings') },
-    { icon: 'settings'       as const, label: 'Settings',           onPress: () => navigate('AccountSettings') },
-    { icon: 'message-square' as const, label: 'Chat with us',       onPress: () => navigate('Chat') },
+    { icon: 'grid'           as const, label: 'Wallet',        onPress: () => navigate('Withdraw') },
+    { icon: 'tag'            as const, label: 'Coupons',        onPress: () => navigate('Coupon') },
+    { icon: 'users'          as const, label: 'Invite Friends', onPress: () => navigate('Referral'), highlight: true },
+    { icon: 'award'          as const, label: 'Leaderboard',    onPress: () => navigate('Leaderboard') },
+    { icon: 'settings'       as const, label: 'Settings',       onPress: () => navigate('AccountSettings') },
+    { icon: 'message-square' as const, label: 'Chat with us',   onPress: () => navigate('Chat') },
   ]
 
   if (!drawerVisible) return null
@@ -132,11 +145,11 @@ export function AppDrawer() {
                   onError={() => { setImgError(true) }}
                 />
               ) : (
-                <View style={[d.avatarImg, d.avatarInitials]}>
-                  <Text style={d.avatarInitialsTxt}>
-                    {name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                <Image
+                  source={require('../../assets/default-avatar.png')}
+                  style={d.avatarImg}
+                  resizeMode="cover"
+                />
               )}
               {/* Edit badge */}
               <TouchableOpacity
@@ -159,14 +172,17 @@ export function AppDrawer() {
             {menuItems.map(item => (
               <TouchableOpacity
                 key={item.label}
-                style={d.menuRow}
+                style={[d.menuRow, item.highlight && d.menuRowHighlight]}
                 onPress={item.onPress}
                 activeOpacity={0.65}>
-                <View style={d.iconWrap}>
-                  <Feather name={item.icon} size={20} color={colors.dark} />
+                <View style={[d.iconWrap, item.highlight && d.iconWrapHighlight]}>
+                  <Feather name={item.icon} size={20} color={item.highlight ? colors.primary : colors.dark} />
                 </View>
-                <Text style={d.menuLabel}>{item.label}</Text>
-                <Feather name="chevron-right" size={16} color={colors.border} />
+                <Text style={[d.menuLabel, item.highlight && d.menuLabelHighlight]}>{item.label}</Text>
+                {item.highlight
+                  ? <View style={d.earnBadge}><Text style={d.earnBadgeTxt}>Earn ₦500</Text></View>
+                  : <Feather name="chevron-right" size={16} color={colors.border} />
+                }
               </TouchableOpacity>
             ))}
 
@@ -269,6 +285,12 @@ const d = StyleSheet.create({
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[3],
   },
+  menuRowHighlight: {
+    backgroundColor: colors.primaryLight,
+    marginHorizontal: spacing[3],
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing[3],
+  },
   iconWrap: {
     width: 36, height: 36,
     borderRadius: radius.lg,
@@ -276,11 +298,29 @@ const d = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginRight: spacing[4],
   },
+  iconWrapHighlight: {
+    backgroundColor: 'rgba(22,119,255,0.12)',
+  },
   menuLabel: {
     flex: 1,
     fontSize: typography.size.lg,
     fontWeight: typography.weight.semibold,
     color: colors.dark,
+  },
+  menuLabelHighlight: {
+    color: colors.primary,
+    fontWeight: typography.weight.bold,
+  },
+  earnBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing[3],
+    paddingVertical: 3,
+  },
+  earnBadgeTxt: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: '#fff',
   },
 
   // Logout

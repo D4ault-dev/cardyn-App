@@ -34,8 +34,8 @@ declare type RootStackParams = {
   BindPhone: undefined
   RateAlert: { cardId?: number; currency?: string; faceValue?: string; inputType?: string; rate?: number } | undefined
   RateAlertList: { success?: boolean } | undefined
-  Login: undefined
-  Signup: undefined
+  Login: { inviteCode?: string } | undefined
+  Signup: { inviteCode?: string } | undefined
   PasswordReset: undefined
 }
 

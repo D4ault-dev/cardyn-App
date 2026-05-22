@@ -2,8 +2,9 @@ import { RF } from '../util/responsive'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, RefreshControl, Share, Modal,
-  Animated, Image, Alert, StatusBar, Platform} from 'react-native'
+  ActivityIndicator, Share, Modal,
+  Animated, Image, StatusBar, Platform} from 'react-native'
+import QRCode from 'react-native-qrcode-svg'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
@@ -11,6 +12,7 @@ import { Feather } from '@expo/vector-icons'
 import * as ExpoClipboard from 'expo-clipboard'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { GenericListSkeleton, ReferralSkeleton } from '../components/Skeleton'
+import { useToast } from '../util/useToast'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import client from '../api/client'
@@ -55,37 +57,70 @@ function Avatar({ name, size, avatarUrl }: { name: string; size: number; avatarU
 function QRModal({ visible, link, code, onClose }: { visible: boolean; link: string; code: string; onClose: () => void }) {
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
-      <TouchableOpacity style={qr.overlay} activeOpacity={1} onPress={onClose} />
-      <View style={qr.sheet}>
-        <View style={qr.handle} />
-        <Text style={qr.title}>Your Referral QR</Text>
-        <Text style={qr.sub}>Anyone who scans this joins with your code</Text>
-        {/* QR placeholder */}
-        <View style={qr.qrBox}>
-          <Feather name="grid" size={100} color={colors.primary} />
-          <Text style={qr.qrLink} numberOfLines={2}>{link}</Text>
+      <View style={qr.modalWrap}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
+        <View style={qr.sheet}>
+          <View style={qr.handle} />
+          <Text style={qr.title}>Your Referral QR</Text>
+          <Text style={qr.sub}>Anyone who scans this joins with your code</Text>
+
+          {/* Live QR code */}
+          <View style={qr.qrBox}>
+            {!!link && (
+              <QRCode
+                value={link}
+                size={200}
+                color="#1A1A2E"
+                backgroundColor="#fff"
+                logo={require('../../assets/icon.png')}
+                logoSize={40}
+                logoBackgroundColor="#fff"
+                logoBorderRadius={8}
+                logoMargin={4}
+                quietZone={10}
+              />
+            )}
+            <Text style={qr.qrLink} numberOfLines={2}>{link}</Text>
+          </View>
+
+          {/* Code row */}
+          <View style={qr.codeRow}>
+            <Text style={qr.codeLabel}>Code: </Text>
+            <Text style={qr.code}>{code}</Text>
+          </View>
+
+          <TouchableOpacity style={qr.btn} onPress={onClose} activeOpacity={0.85}>
+            <Text style={qr.btnTxt}>Close</Text>
+          </TouchableOpacity>
         </View>
-        <View style={qr.codeRow}>
-          <Text style={qr.codeLabel}>Code: </Text>
-          <Text style={qr.code}>{code}</Text>
-        </View>
-        <TouchableOpacity style={qr.btn} onPress={onClose} activeOpacity={0.85}>
-          <Text style={qr.btnTxt}>Close</Text>
-        </TouchableOpacity>
       </View>
     </Modal>
   )
 }
 
 const qr = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], paddingHorizontal: spacing[5], paddingBottom: spacing[10], alignItems: 'center' },
+  modalWrap: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], paddingHorizontal: spacing[5], paddingBottom: spacing[10], paddingTop: spacing[2], alignItems: 'center' },
   handle: { width: 40, height: 4, backgroundColor: colors.border, borderRadius: radius.full, alignSelf: 'center', marginTop: spacing[3], marginBottom: spacing[4] },
   title: { fontSize: typography.size.xl, fontWeight: typography.weight.extrabold, color: colors.dark, marginBottom: spacing[2] },
-  sub: { fontSize: typography.size.sm, color: colors.muted, textAlign: 'center', marginBottom: spacing[5] },
-  qrBox: { backgroundColor: colors.background, padding: spacing[6], borderRadius: radius.xl, alignItems: 'center', marginBottom: spacing[4], width: '100%' },
-  qrLink: { fontSize: typography.size.xs, color: colors.muted, textAlign: 'center', marginTop: spacing[3] },
-  codeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing[5] },
+  sub: { fontSize: typography.size.sm, color: colors.muted, textAlign: 'center', marginBottom: spacing[4] },
+  qrBox: {
+    backgroundColor: '#fff',
+    padding: spacing[5],
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    marginBottom: spacing[3],
+    width: '100%',
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  qrLink: { fontSize: typography.size.xs, color: colors.muted, textAlign: 'center', marginTop: spacing[4], maxWidth: 260 },
+  codeRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing[4], marginBottom: spacing[5] },
   codeLabel: { fontSize: typography.size.base, color: colors.muted },
   code: { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.primary, letterSpacing: 3 },
   btn: { backgroundColor: colors.accent, borderRadius: radius.full, paddingVertical: spacing[4], paddingHorizontal: spacing[10] },
@@ -131,6 +166,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
   const [qrOpen, setQrOpen]     = useState(false)
   const [claiming, setClaiming] = useState<number | null>(null)
   const { show: showToast, Toast } = useClaimToast()
+  const { showSuccess, Toast: CopyToast } = useToast()
 
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true)
@@ -157,8 +193,9 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
 
   async function handleCopy() {
     if (!data) return
-    await ExpoClipboard.setStringAsync(data.inviteCode)
-    Alert.alert('Copied!', `Code ${data.inviteCode} copied`)
+    const textToCopy = data.referralLink || `https://cardyn.net/ref/${data.inviteCode}`
+    await ExpoClipboard.setStringAsync(textToCopy)
+    showSuccess('Link copied!')
   }
 
   async function handleShare() {
@@ -239,7 +276,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
           {/* Title */}
           <Text style={s.heroTitle}>Earn Rewards{'\n'}By Referring</Text>
           <Text style={s.heroSub}>
-            Invite friends · Earn <Text style={{ color: colors.primary, fontWeight: typography.weight.extrabold }}>₦{data?.referralBonus || 500}</Text> per referral
+            Invite friends · Earn <Text style={{ color: colors.accent, fontWeight: typography.weight.extrabold }}>₦{data?.referralBonus || 500}</Text> per referral
           </Text>
 
           {/* Stats row */}
@@ -321,6 +358,7 @@ export default function ReferralScreen(props: StackScreenProps<RootStackParams, 
       )}
 
       {Toast}
+      {CopyToast}
     </View>
   )
 }

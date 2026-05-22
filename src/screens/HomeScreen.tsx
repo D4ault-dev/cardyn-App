@@ -586,7 +586,6 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
                         </Text>
                         <Text style={[cp.rowCurrency, isSelected && cp.rowCurrencySelected]}>
                           {country.currencySymbol} · {country.currencyName}
-                          {country.todayRate ? `  ·  Rate: ${country.todayRate}` : ''}
                         </Text>
                       </View>
 
