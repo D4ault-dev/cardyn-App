@@ -1,8 +1,5 @@
 {
   "expo": {
-    "cli": {
-      "appVersionSource": "local"
-    },
     "name": "Cardyn",
     "slug": "cardflex",
     "version": "1.0.4",
@@ -27,6 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cardyn.app",
+      "buildNumber": "7",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": [
         "applinks:cardyn.net",
@@ -111,7 +109,8 @@
           "sounds": [],
           "mode": "production"
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "owner": "tuka21",
     "runtimeVersion": "1.0.4",

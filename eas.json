@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 12.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -14,10 +14,13 @@
       "channel": "preview"
     },
     "production": {
-      "autoIncrement": true,
       "channel": "production",
+      "ios": {
+        "buildNumber": "7"
+      },
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "versionCode": 7
       }
     }
   },
