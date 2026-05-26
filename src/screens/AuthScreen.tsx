@@ -276,14 +276,23 @@ export default function AuthScreen(props: StackScreenProps<RootStackParams, 'Log
       try {
         await loginWithSocial(socialUser, selectedCountry.name)
       } catch (e: any) {
-        setError(e.message || 'Apple sign-in failed')
+        // Show user-friendly message — never expose raw backend errors
+        const msg = e?.message || ''
+        if (msg.includes('Network') || msg.includes('timeout') || msg.includes('ECONNREFUSED')) {
+          setError('Connection failed. Please check your internet and try again.')
+        } else if (msg.includes('disabled') || msg.includes('suspended')) {
+          setError('Your account has been disabled. Please contact support.')
+        } else {
+          setError('Sign in with Apple failed. Please try again or use phone number.')
+        }
       } finally {
         setSocialLoading(null)
       }
     } catch (e: any) {
       setSocialLoading(null)
-      if (e.code !== 'ERR_REQUEST_CANCELED') {
-        setError(e.message || 'Apple sign-in failed')
+      // ERR_REQUEST_CANCELED = user dismissed — no error shown
+      if (e.code !== 'ERR_REQUEST_CANCELED' && e.code !== '1001') {
+        setError('Sign in with Apple failed. Please try again or use phone number.')
       }
     }
   }
