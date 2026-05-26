@@ -15,12 +15,8 @@
     },
     "production": {
       "channel": "production",
-      "ios": {
-        "buildNumber": "7"
-      },
       "android": {
-        "buildType": "app-bundle",
-        "versionCode": 7
+        "buildType": "app-bundle"
       }
     }
   },

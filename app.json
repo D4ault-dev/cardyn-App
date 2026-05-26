@@ -52,6 +52,7 @@
         "backgroundColor": "#0D1F24"
       },
       "package": "com.cardyn.app",
+      "versionCode": 7,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "CAMERA",
