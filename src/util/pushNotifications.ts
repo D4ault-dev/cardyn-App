@@ -87,9 +87,12 @@ async function getExpoPushToken(): Promise<string | null> {
     const projectId = Constants.expoConfig?.extra?.eas?.projectId
       ?? Constants.easConfig?.projectId
     console.log('[Push] Getting Expo push token, projectId:', projectId)
-    const tokenData = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined
-    )
+    // experienceId is required when bundle ID doesn't match Expo account slug
+    const experienceId = '@tuka21/cardflex'
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: projectId || '98a1c75e-abef-4a2d-b8c1-1bb67c162440',
+      applicationId: 'com.cardyn.app',
+    })
     console.log('[Push] Got Expo token:', tokenData.data?.slice(0, 40) + '...')
     return tokenData.data
   } catch (e: any) {
