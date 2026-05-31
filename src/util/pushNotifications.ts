@@ -86,14 +86,23 @@ async function getExpoPushToken(): Promise<string | null> {
   try {
     const projectId = Constants.expoConfig?.extra?.eas?.projectId
       ?? Constants.easConfig?.projectId
+    console.log('[Push] Getting Expo push token, projectId:', projectId)
     const tokenData = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined
     )
     console.log('[Push] Got Expo token:', tokenData.data?.slice(0, 40) + '...')
     return tokenData.data
   } catch (e: any) {
-    console.warn('[Push] Failed to get Expo push token:', e?.message || e)
-    return null
+    console.warn('[Push] getExpoPushTokenAsync failed:', e?.message || e)
+    // Fallback: try raw device push token (works without APNs key configured in Expo)
+    try {
+      const deviceToken = await Notifications.getDevicePushTokenAsync()
+      console.log('[Push] Got device token type:', deviceToken.type, 'data:', String(deviceToken.data).slice(0, 40))
+      return deviceToken.data as string
+    } catch (e2: any) {
+      console.warn('[Push] getDevicePushTokenAsync also failed:', e2?.message || e2)
+      return null
+    }
   }
 }
 
