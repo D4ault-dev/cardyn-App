@@ -22,6 +22,7 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
 
   const [phone, setPhone]       = useState('')
   const [email, setEmail]       = useState('')
+  const [contactMode, setContactMode] = useState<'phone' | 'email'>('phone')
   const [otp, setOtp]           = useState('')
   const [pinId, setPinId]       = useState('')
   const [sending, setSending]   = useState(false)
@@ -33,6 +34,8 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
     apiGetUserInfo().then(u => {
       setPhone(u.phonenumber || '')
       setEmail(u.email || '')
+      // Default to email mode if user has no phone (social sign-in)
+      if (!u.phonenumber && u.email) setContactMode('email')
     }).catch(() => {})
   }, [])
 
@@ -48,19 +51,32 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [countdown])
 
-  // Mask phone: show first 3 + last 4
-  function maskPhone(p: string) {
-    if (!p || p.length < 7) return p
-    return p.slice(0, 3) + ' ****' + p.slice(-4)
+  function maskContact(s: string) {
+    if (!s) return ''
+    if (s.includes('@')) {
+      const [local, domain] = s.split('@')
+      return `${local.slice(0, 2)}***@${domain}`
+    }
+    return s.slice(0, 3) + ' ****' + s.slice(-4)
   }
 
+  const contact = contactMode === 'phone' ? phone : email
+  const hasContact = contactMode === 'phone' ? phone.length >= 8 : email.includes('@')
+
   async function handleSend() {
-    if (!phone) { Alert.alert('No phone', 'No phone number linked to your account.'); return }
+    if (!hasContact) {
+      Alert.alert('No contact', `No ${contactMode} linked to your account.`)
+      return
+    }
     setSending(true)
     try {
-      const res = await client.post('/tuka/otp/send', { phone })
-      const id = res.data?.data?.pinId || res.data?.pinId || ''
-      setPinId(id)
+      if (contactMode === 'email') {
+        const res = await client.post('/tuka/otp/sendEmail', { email })
+        setPinId(res.data?.data?.pinId || email)
+      } else {
+        const res = await client.post('/tuka/otp/send', { phone })
+        setPinId(res.data?.data?.pinId || res.data?.pinId || '')
+      }
       setCountdown(60)
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.msg || e?.message || 'Failed to send code')
@@ -100,11 +116,30 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={s.body}>
 
+          {/* Phone/Email toggle — only show if user has both */}
+          {phone && email && (
+            <View style={s.toggleRow}>
+              {(['phone', 'email'] as const).map(mode => (
+                <TouchableOpacity
+                  key={mode}
+                  style={[s.toggleBtn, contactMode === mode && s.toggleBtnOn]}
+                  onPress={() => { setContactMode(mode); setOtp(''); setPinId('') }}
+                  activeOpacity={0.8}>
+                  <Text style={[s.toggleTxt, contactMode === mode && s.toggleTxtOn]}>
+                    {mode === 'phone' ? 'Phone' : 'Email'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           {/* Card */}
           <View style={s.card}>
-            {/* Phone row — read only */}
+            {/* Contact row — read only */}
             <View style={s.row}>
-              <Text style={s.phoneDisplay}>{maskPhone(phone) || 'No phone linked'}</Text>
+              <Text style={s.phoneDisplay}>
+                {hasContact ? maskContact(contact) : `No ${contactMode} linked`}
+              </Text>
             </View>
 
             <View style={s.divider} />
@@ -122,13 +157,13 @@ export default function VerifyIdentityScreen(props: StackScreenProps<RootStackPa
               />
               <TouchableOpacity
                 onPress={handleSend}
-                disabled={sending || countdown > 0}
+                disabled={sending || countdown > 0 || !hasContact}
                 activeOpacity={0.7}
               >
                 {sending ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text style={[s.sendTxt, countdown > 0 && s.sendTxtDisabled]}>
+                  <Text style={[s.sendTxt, (countdown > 0 || !hasContact) && s.sendTxtDisabled]}>
                     {countdown > 0 ? `${countdown}s` : 'Send'}
                   </Text>
                 )}
@@ -194,6 +229,16 @@ const s = StyleSheet.create({
     fontSize: typography.size.base, fontWeight: typography.weight.bold, color: colors.primary,
   },
   sendTxtDisabled: { color: colors.muted },
+
+  toggleRow: { flexDirection: 'row', gap: spacing[3], marginHorizontal: spacing[4], marginBottom: spacing[3] },
+  toggleBtn: {
+    paddingHorizontal: spacing[6], paddingVertical: spacing[2] + 2,
+    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  toggleBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  toggleTxt: { fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: colors.muted },
+  toggleTxtOn: { color: '#fff' },
 
   bottomBar: {
     paddingHorizontal: spacing[5], paddingTop: spacing[3],
