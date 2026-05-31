@@ -119,8 +119,25 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
   async function sendOtp() {
     setErrorMsg('')
     if (!contact) { setErrorMsg(`Please enter your ${contactMode}`); return }
-    const phone = contactMode === 'phone' ? contact : ''
-    if (!phone) { setErrorMsg('OTP is only supported via phone. Please switch to Phone.'); return }
+
+    if (contactMode === 'email') {
+      // Email OTP — use /tuka/otp/sendEmail
+      if (!contact.includes('@')) { setErrorMsg('Please enter a valid email address'); return }
+      setSendingOtp(true)
+      try {
+        const res = await client.post('/tuka/otp/sendEmail', { email: contact })
+        const id = res.data?.data?.pinId || contact
+        setPinId(id)
+        setCountdown(60)
+      } catch (e: any) {
+        setErrorMsg(e.message || 'Failed to send code')
+      } finally { setSendingOtp(false) }
+      return
+    }
+
+    // Phone OTP
+    const phone = contact
+    if (!phone) { setErrorMsg('Please enter your phone number'); return }
     // If social user is entering a new phone, check it's not already registered
     if (needsInput) {
       try {
@@ -154,12 +171,12 @@ export default function AddBankScreen(props: StackScreenProps<RootStackParams, '
     try {
       await client.post('/tuka/otp/verify', { pinId, pin: otpCode })
 
-      // If social user provided new contact, save it
+      // If social user provided new contact, save it to their profile
       if (needsInput && contact) {
         try {
           await client.put('/system/user/profile', {
-            phonenumber: contactMode === 'phone' ? contact : '',
-            email:       contactMode === 'email' ? contact : '',
+            phonenumber: contactMode === 'phone' ? contact : undefined,
+            email:       contactMode === 'email' ? contact : undefined,
           })
         } catch { /* non-critical */ }
       }
