@@ -22,9 +22,12 @@ import Constants from 'expo-constants'
 import client from '../api/client'
 
 // ── Expo Go guard — push notifications not supported in Expo Go SDK 53+ ───────
-// In SDK 53+, appOwnership is deprecated. Use executionEnvironment instead.
-const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient'
-  || (Constants as any).appOwnership === 'expo'
+// executionEnvironment values:
+//   'storeClient' = Expo Go app (NOT our app)
+//   'standalone'  = standalone build (dev client or production)
+//   'bare'        = bare workflow build
+// appOwnership 'expo' = running inside Expo Go (legacy check)
+const IS_EXPO_GO = (Constants as any).appOwnership === 'expo'
 
 // Show alerts + play sound when app is in foreground (only in real builds)
 if (!IS_EXPO_GO) {
