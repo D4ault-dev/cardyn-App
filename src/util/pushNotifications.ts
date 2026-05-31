@@ -111,6 +111,7 @@ async function getExpoPushToken(): Promise<string | null> {
  * Request permission, get Expo push token, save to backend.
  * Call this when the user enables notifications.
  * Returns the token string, or null if unavailable.
+ * Retries up to 3 times with delay — iOS sometimes needs a moment after permission grant.
  */
 export async function registerPushToken(): Promise<string | null> {
   const granted = await requestNotificationPermission()
@@ -118,7 +119,18 @@ export async function registerPushToken(): Promise<string | null> {
 
   await ensureAndroidChannels()
 
-  const token = await getExpoPushToken()
+  // Retry up to 3 times — iOS APNs token registration can take a moment
+  let token: string | null = null
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (attempt > 1) {
+      // Wait before retry: 2s, then 4s
+      await new Promise(resolve => setTimeout(resolve, attempt * 2000))
+    }
+    token = await getExpoPushToken()
+    if (token) break
+    console.log(`[Push] Attempt ${attempt} failed, ${attempt < 3 ? 'retrying...' : 'giving up'}`)
+  }
+
   if (!token) return null
 
   try {
