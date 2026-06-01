@@ -184,15 +184,9 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
           {/* Body */}
           {htmlContent ? (
             <View style={s.webWrap}>
-              {/* WebView loading overlay — thin progress bar at top */}
-              {webLoading && (
-                <View style={s.webLoadingBar}>
-                  <Animated.View style={[s.webLoadingFill, { width: '70%' }]} />
-                </View>
-              )}
               <WebView
                 source={{ html: htmlContent }}
-                style={[s.webView, webLoading && { opacity: 0 }]}
+                style={s.webView}
                 scrollEnabled
                 showsVerticalScrollIndicator={false}
                 originWhitelist={['*']}
@@ -200,17 +194,28 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
                 mediaPlaybackRequiresUserAction={false}
                 javaScriptEnabled
                 mixedContentMode="always"
-                // Hide WebView until loaded — prevents white flash
-                onLoadStart={() => setWebLoading(true)}
-                onLoadEnd={() => {
-                  setWebLoading(false)
-                  // Fade in WebView
-                  Animated.timing(fadeAnim, {
-                    toValue: 1, duration: 180, useNativeDriver: true,
-                  }).start()
-                }}
+                onLoadEnd={() => setWebLoading(false)}
                 onMessage={() => {}}
               />
+              {/* Loading overlay — shown until WebView finishes */}
+              {webLoading && (
+                <View style={s.webOverlay}>
+                  <View style={s.webLoadingBar}>
+                    <View style={s.webLoadingFill} />
+                  </View>
+                  {/* Skeleton lines while WebView loads */}
+                  <View style={{ padding: spacing[5], gap: spacing[3] }}>
+                    {[100, 88, 94, 72, 90, 65, 85, 78, 92, 60].map((w, i) => (
+                      <View key={i} style={{
+                        height: 13, borderRadius: 6,
+                        backgroundColor: colors.border,
+                        width: `${w}%`,
+                        opacity: 0.6,
+                      }} />
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
           ) : (
             <View style={s.plainBody}>
@@ -280,14 +285,18 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
   },
+  webOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.surface,
+    zIndex: 10,
+  },
   webLoadingBar: {
-    position: 'absolute', top: 0, left: 0, right: 0,
-    height: 3, backgroundColor: colors.border, zIndex: 10,
+    height: 3, backgroundColor: colors.border,
     overflow: 'hidden',
   },
   webLoadingFill: {
     height: 3, backgroundColor: colors.accent,
-    borderRadius: 2,
+    width: '60%', borderRadius: 2,
   },
 
   // Plain text body
