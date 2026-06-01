@@ -24,6 +24,8 @@ import { FadeScreen } from '../components/FadeScreen'
 import { useCountry } from '../context/CountryContext'
 import { getStatusBarHeight } from '../util/statusBar'
 import { hapticMedium, hapticLight } from '../util/haptics'
+import { registerPushToken } from '../util/pushNotifications'
+import Device from 'expo-device'
 
 const { width: W } = Dimensions.get('window')
 
@@ -118,6 +120,30 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
     return () => clearTimeout(t)
   }, [isLoggedIn])
 
+  // ── Push token registration — done here (not in login) for correct iOS timing ──
+  // iOS APNs requires the app to be fully active and on screen before token registration.
+  // Registering during login causes failures because the app is still transitioning.
+  // We delay 3s to ensure the home screen is fully rendered and iOS is ready.
+  const pushRegisteredRef = useRef(false)
+  useEffect(() => {
+    if (!isLoggedIn || pushRegisteredRef.current) return
+    pushRegisteredRef.current = true
+    const t = setTimeout(async () => {
+      try {
+        const token = await registerPushToken()
+        if (token) {
+          await client.put('/tuka/user/updateLogin', {
+            pushToken: token,
+            platform: Platform.OS,
+            device: Device.modelName || '',
+          })
+          console.log('[HomeScreen] Push token registered:', token.slice(0, 30) + '...')
+        }
+      } catch { /* non-critical */ }
+    }, 3000)
+    return () => clearTimeout(t)
+  }, [isLoggedIn])
+
   // ── Wallet + Cards — fetched in parallel when logged in ──────────────────
   useEffect(() => {
     if (!isLoggedIn) {
@@ -125,6 +151,8 @@ export default function HomeScreen(props: StackScreenProps<RootStackParams, 'Tab
       setWalletLoading(false)
       // Reset card ref so the next login shows skeleton + stagger animation
       hasCardsRef.current = false
+      // Reset push registration ref so it re-registers on next login
+      pushRegisteredRef.current = false
       return
     }
     setWalletLoading(true)

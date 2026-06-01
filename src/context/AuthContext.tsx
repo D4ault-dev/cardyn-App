@@ -113,26 +113,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Fire-and-forget non-critical tasks — do NOT await these, they must not block login
     Promise.resolve().then(async () => {
       try {
-        const pushToken = await registerPushToken().catch(() => null)
         const body: Record<string, string> = { platform: Platform.OS, device: Constants.deviceName || '' }
-        if (pushToken) body.pushToken = pushToken
         const res = await client.put('/tuka/user/updateLogin', body)
         const pts = res?.data?.data?.pointsAwarded
         if (pts > 0) await storage.setItem('@tuka_login_points_awarded', String(pts))
-        // If push token wasn't obtained, retry after 5s
-        if (!pushToken) {
-          setTimeout(() => {
-            registerPushToken().then(retryToken => {
-              if (retryToken) {
-                client.put('/tuka/user/updateLogin', {
-                  pushToken: retryToken,
-                  platform: Platform.OS,
-                  device: Constants.deviceName || '',
-                }).catch(() => {})
-              }
-            }).catch(() => {})
-          }, 5000)
-        }
       } catch { /* non-critical — never block login */ }
     })
     Analytics.login({ method: 'phone', country: mappedUser.country ?? 'Unknown', userId: mappedUser.uid }).catch(() => {})
@@ -173,8 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(Just(mappedUser))
     Analytics.signup({ method: phone ? 'phone' : 'email', country, userId: mappedUser.uid }).catch(() => {})
     trackAdEvent('Registration', { method: phone ? 'phone' : 'email', country })
-    registerPushToken().catch(() => {})
-    // Attribute signup to referrer — fire and forget, never block navigation
+    // Push token registration moved to HomeScreen — better timing for iOS APNs
+    // attributeSignup is fire-and-forget
     attributeSignup(mappedUser.uid).catch(() => {})
   }
 
@@ -293,29 +277,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       || (socialUser.name !== 'Apple User' && socialUser.name !== 'Google User' ? socialUser.name : null)
       || u.userName
     await saveUserName(profileName)
-    const pushToken = await registerPushToken().catch(() => null)
     try {
       const body: Record<string, string> = { platform: platformStr, device: deviceName }
-      if (pushToken) body.pushToken = pushToken
       await client.put('/tuka/user/updateLogin', body)
     } catch { /* non-critical */ }
     const mappedUser = apiUserToUser(u, profileName)
     setUser(Just(mappedUser))
-    // If push token wasn't obtained immediately, retry after 5s in background
-    // iOS APNs registration sometimes needs a moment after app becomes active
-    if (!pushToken) {
-      setTimeout(() => {
-        registerPushToken().then(retryToken => {
-          if (retryToken) {
-            client.put('/tuka/user/updateLogin', {
-              pushToken: retryToken,
-              platform: platformStr,
-              device: deviceName,
-            }).catch(() => {})
-          }
-        }).catch(() => {})
-      }, 5000)
-    }
+    // Push token registration moved to HomeScreen — better timing for iOS APNs
     Analytics.login({ method: socialUser.provider === 'google' ? 'google' : 'apple', country: mappedUser.country ?? country, userId: mappedUser.uid }).catch(() => {})
   }
 
