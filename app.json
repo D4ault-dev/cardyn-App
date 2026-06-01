@@ -24,7 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cardyn.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": [
         "applinks:cardyn.net",
@@ -116,7 +116,9 @@
     "owner": "tuka21",
     "runtimeVersion": "1.0.4",
     "updates": {
-      "url": "https://u.expo.dev/98a1c75e-abef-4a2d-b8c1-1bb67c162440"
+      "url": "https://u.expo.dev/98a1c75e-abef-4a2d-b8c1-1bb67c162440",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }
