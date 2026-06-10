@@ -282,12 +282,20 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
         </View>
       </ScrollView>
 
-      {/* ── Chat button ── */}
+      {/* ── Bottom action buttons ── */}
       <View style={[s.chatWrap, { paddingBottom: Math.max(insets.bottom, 16) + spacing[4] }]}>
-        <TouchableOpacity style={s.chatBtn} activeOpacity={0.85}
-          onPress={() => props.navigation.navigate('Chat', { orderId: o.id, orderNo: o.orderNo })}>
-          <Text style={s.chatBtnTxt}>Chat with Support</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+          <TouchableOpacity
+            style={[s.chatBtn, { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+            activeOpacity={0.85}
+            onPress={() => props.navigation.navigate('Tabs' as any)}>
+            <Text style={[s.chatBtnTxt, { color: colors.text }]}>Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.chatBtn, { flex: 2 }]} activeOpacity={0.85}
+            onPress={() => props.navigation.navigate('Chat', { orderId: o.id, orderNo: o.orderNo })}>
+            <Text style={s.chatBtnTxt}>Chat with Support</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Image viewer ── */}

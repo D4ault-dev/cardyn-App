@@ -380,10 +380,18 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
           </View>
         </ScrollView>
 
-        {/* Chat button */}
-        <View style={{ paddingHorizontal: spacing[5], paddingVertical: spacing[4] }}>
+        {/* Action buttons */}
+        <View style={{ paddingHorizontal: spacing[5], paddingVertical: spacing[4], flexDirection: 'row', gap: spacing[3] }}>
           <TouchableOpacity
-            style={{ backgroundColor: colors.dark, borderRadius: radius.full, paddingVertical: spacing[4], alignItems: 'center' }}
+            style={{ flex: 1, backgroundColor: colors.surface, borderRadius: radius.full, paddingVertical: spacing[4], alignItems: 'center', borderWidth: 1, borderColor: colors.border }}
+            onPress={() => props.navigation.navigate('Tabs' as any)}
+            activeOpacity={0.85}>
+            <Text style={{ fontSize: typography.size.base, fontWeight: typography.weight.bold, color: colors.text }}>
+              Home
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 2, backgroundColor: colors.dark, borderRadius: radius.full, paddingVertical: spacing[4], alignItems: 'center' }}
             onPress={() => props.navigation.navigate('Chat' as any)}
             activeOpacity={0.85}>
             <Text style={{ fontSize: typography.size.base, fontWeight: typography.weight.bold, color: '#fff' }}>

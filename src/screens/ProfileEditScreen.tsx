@@ -257,10 +257,10 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
 
   // ── Photo picker ─────────────────────────────────────────────────────────
   async function pickFromLibrary() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') { Alert.alert('Permission needed', 'Please allow photo library access.'); return }
+    // No permission needed on Android 13+ — expo-image-picker uses the system photo picker
+    // On Android 12 and below, expo-image-picker handles READ_EXTERNAL_STORAGE internally
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true, aspect: [1, 1], quality: 0.8,
     })
     if (!result.canceled && result.assets[0]) await uploadPhoto(result.assets[0].uri)

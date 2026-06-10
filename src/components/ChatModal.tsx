@@ -285,9 +285,8 @@ export default function ChatModal({ visible, onClose, orderId, orderNo }: Props)
 
   async function handlePickImage() {
     if (!session) return
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access to send images'); return }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 })
+    // No READ_MEDIA_IMAGES permission needed — expo-image-picker uses system photo picker on Android 13+
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
     setSending(true)

@@ -24,7 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cardyn.app",
-      "buildNumber": "10",
+      "buildNumber": "12",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": [
         "applinks:cardyn.net",
@@ -52,11 +52,10 @@
         "backgroundColor": "#0D1F24"
       },
       "package": "com.cardyn.app",
-      "versionCode": 7,
+      "versionCode": 11,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
-        "CAMERA",
-        "READ_MEDIA_IMAGES"
+        "CAMERA"
       ],
       "googleServicesFile": "./google-services.json",
       "intentFilters": [
