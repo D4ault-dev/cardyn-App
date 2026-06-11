@@ -288,7 +288,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
           <TouchableOpacity
             style={[s.chatBtn, { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
             activeOpacity={0.85}
-            onPress={() => props.navigation.navigate('Tabs' as any)}>
+            onPress={() => props.navigation.popToTop()}>
             <Text style={[s.chatBtnTxt, { color: colors.text }]}>Home</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[s.chatBtn, { flex: 2 }]} activeOpacity={0.85}

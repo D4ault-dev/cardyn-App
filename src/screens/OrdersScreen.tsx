@@ -384,7 +384,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
         <View style={{ paddingHorizontal: spacing[5], paddingVertical: spacing[4], flexDirection: 'row', gap: spacing[3] }}>
           <TouchableOpacity
             style={{ flex: 1, backgroundColor: colors.surface, borderRadius: radius.full, paddingVertical: spacing[4], alignItems: 'center', borderWidth: 1, borderColor: colors.border }}
-            onPress={() => props.navigation.navigate('Tabs' as any)}
+            onPress={() => props.navigation.popToTop()}
             activeOpacity={0.85}>
             <Text style={{ fontSize: typography.size.base, fontWeight: typography.weight.bold, color: colors.text }}>
               Home
