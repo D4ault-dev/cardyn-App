@@ -450,13 +450,8 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   /** OCR: take a photo and auto-extract the gift card code */
   async function handleScanPhoto() {
-    // Check if ML Kit is available in this build
-    try {
-      require('@react-native-ml-kit/text-recognition')
-    } catch {
-      // Not available — silently do nothing (button shouldn't show, but just in case)
-      return
-    }
+    // Only available in 1.2.0+ builds
+    if (!mlKitAvailable) return
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync()
       if (status !== 'granted') {
@@ -494,10 +489,12 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     }
   }
 
-  // Check if ML Kit is linked (only works in builds >= 1.2.0)
-  const mlKitAvailable = (() => {
-    try { require('@react-native-ml-kit/text-recognition'); return true } catch { return false }
-  })()
+  // Check if ML Kit is available — only works in builds >= 1.2.0
+  // Can't use require() check since RN bundles don't throw for missing native modules
+  // Use app version instead — 1.2.0 is the first build with ML Kit linked
+  const appVersion = require('../../app.json')?.expo?.version || '0.0.0'
+  const [major, minor] = appVersion.split('.').map(Number)
+  const mlKitAvailable = major > 1 || (major === 1 && minor >= 2)
 
   function handleBarCodeScanned({ data }: { data: string }) {
     setScannerOpen(false)
@@ -977,8 +974,8 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                 attempted={attempted && selectedInputType === 'Code'}
                 codeRefs={codeRefs}
                 scrollRef={scrollRef}
-                onScanPhoto={mlKitAvailable ? handleScanPhoto : undefined}
-                ocrScanning={ocrScanning}
+                onScanPhoto={undefined}
+                ocrScanning={false}
                 onChangeCode={(idx, v) => {
                   const next = [...cardCodes]; next[idx] = v; setCardCodes(next)
                 }}
