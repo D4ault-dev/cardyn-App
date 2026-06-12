@@ -450,6 +450,13 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   /** OCR: take a photo and auto-extract the gift card code */
   async function handleScanPhoto() {
+    // Check if ML Kit is available in this build
+    try {
+      require('@react-native-ml-kit/text-recognition')
+    } catch {
+      // Not available — silently do nothing (button shouldn't show, but just in case)
+      return
+    }
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync()
       if (status !== 'granted') {
@@ -473,7 +480,6 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
         alert('No card code detected. Please try again with clearer lighting, or type the code manually.')
         return
       }
-      // Fill codes into the slots
       setCardCodes(prev => {
         const next = [...prev]
         codes.forEach(code => {
@@ -484,9 +490,14 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
       })
     } catch (e: any) {
       setOcrScanning(false)
-      alert('Scan failed: ' + (e?.message || 'Unknown error'))
+      alert('Scan failed. Please type the code manually.')
     }
   }
+
+  // Check if ML Kit is linked (only works in builds >= 1.2.0)
+  const mlKitAvailable = (() => {
+    try { require('@react-native-ml-kit/text-recognition'); return true } catch { return false }
+  })()
 
   function handleBarCodeScanned({ data }: { data: string }) {
     setScannerOpen(false)
@@ -966,7 +977,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                 attempted={attempted && selectedInputType === 'Code'}
                 codeRefs={codeRefs}
                 scrollRef={scrollRef}
-                onScanPhoto={handleScanPhoto}
+                onScanPhoto={mlKitAvailable ? handleScanPhoto : undefined}
                 ocrScanning={ocrScanning}
                 onChangeCode={(idx, v) => {
                   const next = [...cardCodes]; next[idx] = v; setCardCodes(next)
