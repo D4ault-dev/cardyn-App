@@ -53,14 +53,6 @@ export function CardCodeInputs({
               <Text style={s.scanPhotoBtnTxt}>{ocrScanning ? 'Reading...' : 'Scan Photo'}</Text>
             </TouchableOpacity>
           )}
-          <View style={s.codesProgress}>
-            <Text style={[s.codesSectionSub, allFilled && { color: colors.success }]}>
-              {codesFilledCount}/{quantity} filled
-            </Text>
-            {allFilled && (
-              <Feather name="check-circle" size={14} color={colors.success} style={{ marginLeft: 4 }} />
-            )}
-          </View>
         </View>
       </View>
 
