@@ -38,15 +38,12 @@ function buildHtml(content: string, baseUrl: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { background: #fff; }
+    html, body { background: #F3F5F7; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 15px; line-height: 1.75; color: #374151;
       padding: 0 2px 24px;
-      opacity: 0;
-      animation: fadeIn 0.25s ease forwards;
     }
-    @keyframes fadeIn { to { opacity: 1; } }
     p { margin-bottom: 14px; }
     h1, h2, h3 { color: #111827; font-weight: 700; margin: 18px 0 10px; }
     h1 { font-size: 20px; } h2 { font-size: 18px; } h3 { font-size: 16px; }
@@ -102,7 +99,6 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
   const { articleId } = props.route.params
   const [detail,      setDetail]      = useState<ArticleDetail | null>(null)
   const [loading,     setLoading]     = useState(true)
-  const [webLoading,  setWebLoading]  = useState(true)   // WebView content loading
   const fadeAnim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
@@ -194,28 +190,8 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
                 mediaPlaybackRequiresUserAction={false}
                 javaScriptEnabled
                 mixedContentMode="always"
-                onLoadEnd={() => setWebLoading(false)}
                 onMessage={() => {}}
               />
-              {/* Loading overlay — shown until WebView finishes */}
-              {webLoading && (
-                <View style={s.webOverlay}>
-                  <View style={s.webLoadingBar}>
-                    <View style={s.webLoadingFill} />
-                  </View>
-                  {/* Skeleton lines while WebView loads */}
-                  <View style={{ padding: spacing[5], gap: spacing[3] }}>
-                    {[100, 88, 94, 72, 90, 65, 85, 78, 92, 60].map((w, i) => (
-                      <View key={i} style={{
-                        height: 13, borderRadius: 6,
-                        backgroundColor: colors.border,
-                        width: `${w}%`,
-                        opacity: 0.6,
-                      }} />
-                    ))}
-                  </View>
-                </View>
-              )}
             </View>
           ) : (
             <View style={s.plainBody}>
@@ -276,27 +252,14 @@ const s = StyleSheet.create({
     flex: 1,
     marginHorizontal: spacing[4],
     marginBottom: spacing[4],
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderRadius: radius.xl,
     overflow: 'hidden',
     ...shadow.sm,
   },
   webView: {
     flex: 1,
-    backgroundColor: colors.surface,
-  },
-  webOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.surface,
-    zIndex: 10,
-  },
-  webLoadingBar: {
-    height: 3, backgroundColor: colors.border,
-    overflow: 'hidden',
-  },
-  webLoadingFill: {
-    height: 3, backgroundColor: colors.accent,
-    width: '60%', borderRadius: 2,
+    backgroundColor: colors.background,
   },
 
   // Plain text body
