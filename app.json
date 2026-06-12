@@ -2,7 +2,7 @@
   "expo": {
     "name": "Cardyn",
     "slug": "cardflex",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,7 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cardyn.app",
-      "buildNumber": "12",
+      "buildNumber": "14",
       "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": [
         "applinks:cardyn.net",
@@ -52,7 +52,7 @@
         "backgroundColor": "#0D1F24"
       },
       "package": "com.cardyn.app",
-      "versionCode": 11,
+      "versionCode": 13,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "CAMERA"
@@ -110,10 +110,11 @@
           "mode": "production"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "@react-native-ml-kit/text-recognition"
     ],
     "owner": "tuka21",
-    "runtimeVersion": "1.1.0",
+    "runtimeVersion": "1.2.0",
     "updates": {
       "url": "https://u.expo.dev/98a1c75e-abef-4a2d-b8c1-1bb67c162440",
       "checkAutomatically": "ON_LOAD",

@@ -14,6 +14,7 @@ import { BottomSheet } from '../components/BottomSheet'
 import { Feather } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { CameraView } from 'expo-camera'
+import { extractCodesFromImage } from '../util/ocrScan'
 const { width: W } = Dimensions.get('window')
 import { useAuth } from '../context/AuthContext'
 import { fetchCardCategories, CardCategory, resolveImageUrl } from '../api/cards'
@@ -110,6 +111,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
   const [cardImages, setCardImages]               = useState<string[]>([])
   const [uploadingImage, setUploadingImage]       = useState(false)
   const [scannerOpen, setScannerOpen]             = useState(false)
+  const [ocrScanning, setOcrScanning]             = useState(false)
   const [appliedCoupon, setAppliedCoupon]         = useState<Coupon | null>(null)
   const [amountError, setAmountError]             = useState('')
   const [orderNo, setOrderNo]                     = useState('')
@@ -444,6 +446,46 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     // Don't pre-check permissions — let the camera view handle it.
     // Pre-checking can silently fail in Expo Go if previously denied.
     setScannerOpen(true)
+  }
+
+  /** OCR: take a photo and auto-extract the gift card code */
+  async function handleScanPhoto() {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync()
+      if (status !== 'granted') {
+        alert('Camera permission required to scan card code.')
+        return
+      }
+      setOcrScanning(true)
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.9,
+        allowsEditing: false,
+      })
+      if (result.canceled || !result.assets?.[0]?.uri) {
+        setOcrScanning(false)
+        return
+      }
+      const uri = result.assets[0].uri
+      const codes = await extractCodesFromImage(uri)
+      setOcrScanning(false)
+      if (codes.length === 0) {
+        alert('No card code detected. Please try again with clearer lighting.')
+        return
+      }
+      // Fill codes into the slots
+      setCardCodes(prev => {
+        const next = [...prev]
+        codes.forEach(code => {
+          const emptyIdx = next.findIndex(c => !c.trim())
+          if (emptyIdx >= 0) next[emptyIdx] = code
+        })
+        return next
+      })
+    } catch (e: any) {
+      setOcrScanning(false)
+      alert('Scan failed: ' + (e?.message || 'Unknown error'))
+    }
   }
 
   function handleBarCodeScanned({ data }: { data: string }) {
@@ -924,6 +966,8 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                 attempted={attempted && selectedInputType === 'Code'}
                 codeRefs={codeRefs}
                 scrollRef={scrollRef}
+                onScanPhoto={handleScanPhoto}
+                ocrScanning={ocrScanning}
                 onChangeCode={(idx, v) => {
                   const next = [...cardCodes]; next[idx] = v; setCardCodes(next)
                 }}

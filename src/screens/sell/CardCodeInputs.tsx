@@ -17,11 +17,14 @@ interface Props {
   onFocus: (idx: number) => void
   onBlur: () => void
   scrollRef?: React.RefObject<ScrollView | null>
+  onScanPhoto?: () => void
+  ocrScanning?: boolean
 }
 
 export function CardCodeInputs({
   cardCodes, quantity, inputFocusIdx, attempted,
   codeRefs, onChangeCode, onClearCode, onFocus, onBlur, scrollRef,
+  onScanPhoto, ocrScanning,
 }: Props) {
   const codesFilledCount = cardCodes.filter(c => c.trim().length > 0).length
   const allFilled = codesFilledCount === quantity
@@ -37,13 +40,27 @@ export function CardCodeInputs({
       {/* Header */}
       <View style={s.codesSectionHeader}>
         <Text style={s.codesSectionTitle}>Card Codes</Text>
-        <View style={s.codesProgress}>
-          <Text style={[s.codesSectionSub, allFilled && { color: colors.success }]}>
-            {codesFilledCount}/{quantity} filled
-          </Text>
-          {allFilled && (
-            <Feather name="check-circle" size={14} color={colors.success} style={{ marginLeft: 4 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* OCR scan button */}
+          {onScanPhoto && (
+            <TouchableOpacity
+              onPress={onScanPhoto}
+              disabled={ocrScanning}
+              style={[s.scanPhotoBtn, ocrScanning && { opacity: 0.5 }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}>
+              <Feather name="camera" size={14} color={colors.primary} />
+              <Text style={s.scanPhotoBtnTxt}>{ocrScanning ? 'Reading...' : 'Scan Photo'}</Text>
+            </TouchableOpacity>
           )}
+          <View style={s.codesProgress}>
+            <Text style={[s.codesSectionSub, allFilled && { color: colors.success }]}>
+              {codesFilledCount}/{quantity} filled
+            </Text>
+            {allFilled && (
+              <Feather name="check-circle" size={14} color={colors.success} style={{ marginLeft: 4 }} />
+            )}
+          </View>
         </View>
       </View>
 
@@ -118,6 +135,12 @@ const s = StyleSheet.create({
   },
   codesSectionSub: { fontSize: typography.size.sm, color: colors.muted },
   codesProgress:   { flexDirection: 'row', alignItems: 'center' },
+  scanPhotoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: colors.primaryLight, borderRadius: radius.full,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[1],
+  },
+  scanPhotoBtnTxt: { fontSize: typography.size.xs, color: colors.primary, fontWeight: '600' as any },
   codeInputRow:    { marginBottom: spacing[2] },
   codeInputWrap: {
     flexDirection: 'row', alignItems: 'center',

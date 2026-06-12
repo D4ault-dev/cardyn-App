@@ -41,13 +41,13 @@ import { getAnalytics, isSupported, Analytics } from 'firebase/analytics'
 // Get measurementId from: Firebase Console → Project Settings → Your apps → Web app
 // If no web app exists yet: Add app → Web → register → copy config
 const FIREBASE_CONFIG = {
-  apiKey:            'AIzaSyDJfaQvftn9uDo9P4b1knXYsMqPNDbN2M0',  // from google-services.json
+  apiKey:            'AIzaSyCCFmEjtJCl2lrbsqC3CmOgfOxJV-9ZEv0',
   authDomain:        'cardyn-f8b9f.firebaseapp.com',
   projectId:         'cardyn-f8b9f',
   storageBucket:     'cardyn-f8b9f.firebasestorage.app',
   messagingSenderId: '100088840513',
-  appId:             '1:100088840513:android:ca72e5f4446998f35461c0',  // Android app ID
-  // measurementId: 'G-XXXXXXXXXX',  // ← Add this from Firebase Console → Web app config
+  appId:             '1:100088840513:web:a58d33884034623b5461c0',
+  measurementId:     'G-Q3LBR2VJ6W',
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
