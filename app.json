@@ -110,8 +110,7 @@
           "mode": "production"
         }
       ],
-      "expo-apple-authentication",
-      "@react-native-ml-kit/text-recognition"
+      "expo-apple-authentication"
     ],
     "owner": "tuka21",
     "runtimeVersion": "1.2.0",

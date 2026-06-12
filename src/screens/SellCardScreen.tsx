@@ -470,7 +470,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
       const codes = await extractCodesFromImage(uri)
       setOcrScanning(false)
       if (codes.length === 0) {
-        alert('No card code detected. Please try again with clearer lighting.')
+        alert('No card code detected. Please try again with clearer lighting, or type the code manually.')
         return
       }
       // Fill codes into the slots
