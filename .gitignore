@@ -24,3 +24,6 @@ expo-env.d.ts
 .env
 android/local.properties
 ios/GoogleService-Info.plist
+
+# EAS build output
+dist/
