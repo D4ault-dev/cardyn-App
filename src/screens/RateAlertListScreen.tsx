@@ -11,6 +11,7 @@ import { GenericListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { ms, tabBarClearance } from '../util/responsive'
+import { BottomBackButton } from '../components/BottomBackButton'
 
 const GREEN = '#2E7D5E'
 const GREEN_LIGHT = '#E8F5EE'
@@ -145,6 +146,7 @@ export default function RateAlertListScreen(props: StackScreenProps<RootStackPar
           <Text style={s.toastTxt}>Rate target created successfully.</Text>
         </Animated.View>
       )}
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
     </View>
   )
 }

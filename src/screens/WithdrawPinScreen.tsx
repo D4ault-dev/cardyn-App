@@ -9,6 +9,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
+import * as LocalAuthentication from 'expo-local-authentication'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, spacing, radius, typography } from '../theme'
 import client from '../api/client'
@@ -35,9 +36,29 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
   const shakeAnim             = useRef(new Animated.Value(0)).current
   const successScale          = useRef(new Animated.Value(0.7)).current
   const successOpacity        = useRef(new Animated.Value(0)).current
+
+  const [biometricType, setBiometricType] = useState<'face' | 'fingerprint' | null>(null)
+
+  // Check biometric availability on mount — NO auto-prompt, user must tap
+  useEffect(() => {
+    LocalAuthentication.hasHardwareAsync().then(has => {
+      if (!has) return
+      LocalAuthentication.isEnrolledAsync().then(async enrolled => {
+        if (enrolled) {
+          setBiometricAvailable(true)
+          // Determine biometric type
+          const types = await LocalAuthentication.supportedAuthenticationTypesAsync()
+          // Type 2 = FACIAL_RECOGNITION, Type 1 = FINGERPRINT
+          if (types.includes(2)) setBiometricType('face')
+          else if (types.includes(1)) setBiometricType('fingerprint')
+        }
+      })
+    })
+  }, [])
 
   // Shake on error
   useEffect(() => {
@@ -84,6 +105,38 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
         props.navigation.navigate('Withdraw' as any)
       }
     } finally { setLoading(false) }
+  }
+
+  async function handleBiometric() {
+    if (loading) return
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Use Face ID or fingerprint to authorize payment',
+        fallbackLabel: 'Use PIN',
+        cancelLabel: 'Cancel',
+        disableDeviceFallback: false,
+      })
+      if (result.success) {
+        // Biometric verified on device — skip PIN and submit directly
+        setLoading(true)
+        setError(null)
+        try {
+          await submitWithdrawal({
+            amount,
+            bankName: bank.bankName,
+            accountName: bank.accountName,
+            accountNo: bank.accountNumber,
+            country: selectedCountry?.name || 'Nigeria',
+          })
+          setSuccess(true)
+        } catch (e: any) {
+          Alert.alert('Failed', e.message || 'Withdrawal failed')
+          props.navigation.navigate('Withdraw' as any)
+        } finally { setLoading(false) }
+      }
+    } catch {
+      // biometric prompt dismissed — do nothing
+    }
   }
 
   function pressDigit(d: string) {
@@ -211,19 +264,36 @@ export default function WithdrawPinScreen(props: StackScreenProps<RootStackParam
       {!!error && <Text style={s.errorTxt}>{error}</Text>}
 
       {/* Loading */}
-      {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing[4] }} />}
+      {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing[3] }} />}
 
-      <View style={{ flex: 1 }} />
+      {/* Push numpad to bottom third of screen */}
+      <View style={{ flex: 1, minHeight: 40, maxHeight: 80 }} />
 
-      {/* Numpad */}
+      {/* Numpad — more compact */}
       <View style={s.numpad}>
         {KEYS.map((row, ri) => (
           <View key={ri} style={s.numRow}>
             {row.map((key, ki) => {
-              if (!key) return <View key={ki} style={s.numKey} />
+              if (!key) {
+                // Bottom-left: Face ID / Touch ID button if available
+                return biometricAvailable ? (
+                  <TouchableOpacity key={ki} style={s.numKey} onPress={handleBiometric} activeOpacity={0.6} disabled={loading}>
+                    <View style={s.bioBtn}>
+                      <Feather
+                        name={biometricType === 'fingerprint' ? 'zap' : 'camera'}
+                        size={20}
+                        color={colors.primary}
+                      />
+                      <Text style={s.bioLabel}>
+                        {biometricType === 'fingerprint' ? 'Touch' : 'Face ID'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : <View key={ki} style={s.numKey} />
+              }
               if (key === 'del') return (
                 <TouchableOpacity key={ki} style={s.numKey} onPress={pressDelete} activeOpacity={0.6}>
-                  <Feather name="delete" size={22} color={colors.dark} />
+                  <Feather name="delete" size={20} color={colors.dark} />
                 </TouchableOpacity>
               )
               return (
@@ -263,15 +333,17 @@ const s = StyleSheet.create({
   titleWrap:   { alignItems: 'center', paddingTop: spacing[6], paddingHorizontal: spacing[6] },
   title:       { fontSize: typography.size.xl, fontWeight: typography.weight.extrabold, color: colors.dark, marginBottom: spacing[2], textAlign: 'center' },
   subtitle:    { fontSize: typography.size.base, color: colors.muted, textAlign: 'center', lineHeight: 22 },
-  dotsRow:     { flexDirection: 'row', justifyContent: 'center', gap: spacing[4], marginTop: spacing[6] },
-  dot:         { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  dotsRow:     { flexDirection: 'row', justifyContent: 'center', gap: spacing[3], marginTop: spacing[4] },
+  dot:         { width: 46, height: 46, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   dotFilled:   { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  dotInner:    { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary },
-  errorTxt:    { textAlign: 'center', color: colors.error, fontSize: typography.size.base, marginTop: spacing[3] },
-  numpad:      { paddingHorizontal: spacing[6], paddingBottom: spacing[6] },
-  numRow:      { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[2] },
-  numKey:      { width: 80, height: 72, alignItems: 'center', justifyContent: 'center' },
-  numTxt:      { fontSize: RF(28), fontWeight: typography.weight.semibold, color: colors.dark },
+  dotInner:    { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  errorTxt:    { textAlign: 'center', color: colors.error, fontSize: typography.size.base, marginTop: spacing[2] },
+  numpad:      { paddingHorizontal: spacing[8], paddingBottom: spacing[8], marginTop: 0 },
+  numRow:      { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[1] },
+  numKey:      { width: 68, height: 56, alignItems: 'center', justifyContent: 'center' },
+  numTxt:      { fontSize: RF(24), fontWeight: typography.weight.semibold, color: colors.dark },
+  bioBtn:      { alignItems: 'center', gap: 2 },
+  bioLabel:    { fontSize: RF(9), color: colors.primary, fontWeight: typography.weight.semibold },
 })
 
 // ── Success screen styles ─────────────────────────────────────────────────────

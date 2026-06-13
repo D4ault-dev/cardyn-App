@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons'
 import { colors, typography, spacing, radius } from '../theme'
 import { fetchAllCoupons, Coupon } from '../api/coupon'
 import { AppHeader } from '../components/AppHeader'
+import { BottomBackButton } from '../components/BottomBackButton'
 import { GenericListSkeleton, CouponSkeleton } from '../components/Skeleton'
 import { cacheGet, TTL } from '../util/cache'
 
@@ -156,6 +157,7 @@ export default function CouponScreen({ navigation }: any) {
           )}
         </ScrollView>
       )}
+      <BottomBackButton onPress={() => navigation.goBack()} />
     </View>
   )
 }

@@ -8,6 +8,7 @@ import { StackScreenProps } from '@react-navigation/stack'
 import { Feather } from '@expo/vector-icons'
 import * as ExpoClipboard from 'expo-clipboard'
 import { AppHeader } from '../components/AppHeader'
+import { BottomBackButton } from '../components/BottomBackButton'
 import { AppRefreshControl } from '../components/Spinner'
 import { GenericListSkeleton, WithdrawalHistorySkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
@@ -150,6 +151,7 @@ export default function WithdrawalHistoryScreen(props: StackScreenProps<RootStac
           }
         />
       )}
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
     </View>
   )
 }

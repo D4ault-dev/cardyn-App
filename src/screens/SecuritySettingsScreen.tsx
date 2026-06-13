@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Switch } from 'react-native'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
+import { BottomBackButton } from '../components/BottomBackButton'
 import * as LocalAuthentication from 'expo-local-authentication'
 import * as SecureStore from 'expo-secure-store'
 import { useFocusEffect } from '@react-navigation/native'
@@ -104,6 +105,7 @@ export default function SecuritySettingsScreen(props: StackScreenProps<RootStack
       </View>
 
       {Toast}
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
     </View>
   )
 }

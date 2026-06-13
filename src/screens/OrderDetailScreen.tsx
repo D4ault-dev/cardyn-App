@@ -274,7 +274,7 @@ export default function OrderDetailScreen(props: StackScreenProps<RootStackParam
             <View style={s.row}>
               <Text style={s.rowLbl}>Comment</Text>
               <Text style={[s.rowVal, { color: failed ? colors.error : colors.primary, flex: 1, textAlign: 'right' }]}>
-                {o.verifyRemark}
+                {o.verifyRemark.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{27BF}]|[\u{1F000}-\u{1FFFF}]/gu, '').trim()}
               </Text>
             </View>
           ) : null}

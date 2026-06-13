@@ -12,6 +12,7 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { useToast } from '../util/useToast'
 import { ms } from '../util/responsive'
+import { BottomBackButton } from '../components/BottomBackButton'
 
 export default function BindPhoneScreen(props: StackScreenProps<RootStackParams, 'BindPhone'>) {
   const insets = useSafeAreaInsets()
@@ -150,6 +151,7 @@ export default function BindPhoneScreen(props: StackScreenProps<RootStackParams,
       </KeyboardAvoidingView>
 
       {Toast}
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
     </View>
   )
 }

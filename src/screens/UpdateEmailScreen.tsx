@@ -13,6 +13,7 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { useToast } from '../util/useToast'
 import { ms } from '../util/responsive'
+import { BottomBackButton } from '../components/BottomBackButton'
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function UpdateEmailScreen(props: StackScreenProps<RootStackParams, 'UpdateEmail'>) {
@@ -160,6 +161,7 @@ export default function UpdateEmailScreen(props: StackScreenProps<RootStackParam
       </KeyboardAvoidingView>
 
       {Toast}
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
     </View>
   )
 }

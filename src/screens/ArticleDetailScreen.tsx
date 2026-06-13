@@ -12,6 +12,7 @@ import { fetchArticleDetail, ArticleDetail } from '../api/discovery'
 import { BASE_URL } from '../api/client'
 import { swrFetch, TTL } from '../util/cache'
 import { Skeleton } from '../components/Skeleton'
+import { BottomBackButton } from '../components/BottomBackButton'
 
 const { width: W } = Dimensions.get('window')
 
@@ -208,6 +209,11 @@ export default function ArticleDetailScreen(props: StackScreenProps<RootStackPar
           )}
 
         </Animated.View>
+      )}
+
+      {/* Bottom back button */}
+      {!loading && (
+        <BottomBackButton onPress={() => props.navigation.goBack()} />
       )}
 
     </View>

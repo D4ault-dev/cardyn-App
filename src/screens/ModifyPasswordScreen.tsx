@@ -13,6 +13,7 @@ import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { useToast } from '../util/useToast'
 import { ms } from '../util/responsive'
+import { BottomBackButton } from '../components/BottomBackButton'
 
 // ── Password field ────────────────────────────────────────────────────────────
 function PwField({
@@ -152,6 +153,7 @@ export default function ModifyPasswordScreen(props: StackScreenProps<RootStackPa
       {/* Toast */}
       {Toast}
 
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
     </View>
   )
 }

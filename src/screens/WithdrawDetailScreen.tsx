@@ -12,6 +12,7 @@ import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import { resolveImageUrl } from '../api/cards'
 import { fetchMyWithdrawals } from '../api/wallet'
+import { BottomBackButton } from '../components/BottomBackButton'
 
 const { width: W } = Dimensions.get('window')
 
@@ -175,6 +176,8 @@ export default function WithdrawDetailScreen(props: StackScreenProps<RootStackPa
           </View>
         </Modal>
       )}
+
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
     </View>
   )
 }

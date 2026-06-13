@@ -18,6 +18,7 @@ import { useCountry } from '../context/CountryContext'
 
 // Colors now from theme
 import { colors as _c } from '../theme'
+import { BottomBackButton } from '../components/BottomBackButton'
 const GREEN = _c.primary
 const GREEN_LIGHT = _c.primaryLight
 
@@ -621,7 +622,8 @@ export default function RateCalculatorScreen(props: StackScreenProps<RootStackPa
                       {active && (
                         <View style={s.rateCardCheck}>
                           <Feather name="check-circle" size={16} color={colors.primary} />
-                        </View>
+                          <BottomBackButton onPress={() => props.navigation.goBack()} />
+    </View>
                       )}
                     </TouchableOpacity>
                   )

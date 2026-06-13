@@ -18,6 +18,7 @@ import { currLabel } from '../util/currency'
 import { useCountry } from '../context/CountryContext'
 
 import { colors as _c } from '../theme'
+import { BottomBackButton } from '../components/BottomBackButton'
 const GREEN = _c.primary
 const GREEN_LIGHT = _c.primaryLight
 
@@ -430,6 +431,7 @@ export default function RateAlertScreen(props: StackScreenProps<RootStackParams,
           </View>
         </View>
       </Modal>
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
     </View>
   )
 }

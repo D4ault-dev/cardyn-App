@@ -13,6 +13,7 @@ import { ProfileSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import client from '../api/client'
 import { resolveImageUrl } from '../api/cards'
+import { BottomBackButton } from '../components/BottomBackButton'
 
 // ─── Row ──────────────────────────────────────────────────────────────────────
 function Row({
@@ -193,6 +194,8 @@ export default function AccountSettingsScreen(props: StackScreenProps<RootStackP
 
         </ScrollView>
       )}
+
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
 
     </View>
   )

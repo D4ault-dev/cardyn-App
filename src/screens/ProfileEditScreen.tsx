@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { getStatusBarHeight } from '../util/statusBar'
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
+import { BottomBackButton } from '../components/BottomBackButton'
 import { Feather } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { useAuth } from '../context/AuthContext'
@@ -454,6 +455,7 @@ export default function ProfileEditScreen(props: StackScreenProps<RootStackParam
 
       {/* ── Toast ── */}
       {Toast}
+      <BottomBackButton onPress={() => props.navigation.goBack()} />
 
     </View>
   )

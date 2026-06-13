@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { AppHeader } from '../components/AppHeader'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
+import { BottomBackButton } from '../components/BottomBackButton'
 import { Skeleton, GenericListSkeleton } from '../components/Skeleton'
 import { colors, typography, spacing, radius, shadow } from '../theme'
 import {
