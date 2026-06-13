@@ -31,8 +31,10 @@ export function CardCodeInputs({
 
   function handleFocus(idx: number) {
     onFocus(idx)
-    // Scroll down so the focused input is visible above the keyboard
-    setTimeout(() => scrollRef?.current?.scrollToEnd({ animated: true }), 300)
+    // Scroll so the focused input + the sell button are visible above the keyboard
+    setTimeout(() => {
+      scrollRef?.current?.scrollToEnd({ animated: true })
+    }, 350)
   }
 
   return (

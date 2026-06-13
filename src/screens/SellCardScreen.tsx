@@ -5,7 +5,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Image,
   Alert, Modal, FlatList, Platform,
-  Dimensions, Animated, Keyboard,
+  Dimensions, Animated, Keyboard, KeyboardAvoidingView,
 } from 'react-native'
 import { SvgUri } from 'react-native-svg'
 import { StackScreenProps } from '@react-navigation/stack'
@@ -130,13 +130,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     fetchCurrencies().then(list => setCurrencyLogoMap(buildCurrencyLogoMap(list))).catch(() => {})
   }, [])
 
-  // Track keyboard visibility — hides the sell button while keyboard is open
-  const [keyboardVisible, setKeyboardVisible] = useState(false)
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true))
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false))
-    return () => { show.remove(); hide.remove() }
-  }, [])
+  // (keyboard visibility tracking removed — sell button now lives inside ScrollView)
 
   // Photo sheet
   const [photoSheetOpen, setPhotoSheetOpen]       = useState(false)
@@ -841,7 +835,11 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
 
   return (
     <>
-    <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
+    <KeyboardAvoidingView
+      style={[s.safe, { paddingTop: getStatusBarHeight() }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
 
         {/* Header */}
         <View style={s.header}>
@@ -857,7 +855,7 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 100 }}>
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}>
 
           <View style={s.form}>
 
@@ -1040,11 +1038,9 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
             )}
 
           </View>
-        </ScrollView>
 
-        {/* ── Bottom bar: Sell button — hidden while keyboard is open ── */}
-        {!keyboardVisible && (
-          <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + spacing[4] }]}>
+          {/* ── Bottom bar: Sell button — always visible inside scroll ── */}
+          <View style={s.bottomBar}>
             {/* Show progress hint when Code type and not all filled */}
             {selectedInputType === 'Code' && !allFilled && codesFilledCount > 0 && (
               <View style={s.sellHint}>
@@ -1070,9 +1066,10 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
               }
             </TouchableOpacity>
           </View>
-        )}
 
-      </View>
+        </ScrollView>
+
+      </KeyboardAvoidingView>
 
       {/* ── Confirm Trade Modal — redesigned ── */}
       <ConfirmSheet
@@ -1749,13 +1746,12 @@ const s = StyleSheet.create({
   payoutAmt:  { fontSize: typography.size.xl, fontWeight: typography.weight.extrabold, color: colors.primary },
   payoutRate: { fontSize: typography.size.lg, fontWeight: typography.weight.extrabold, color: colors.primary },
 
-  // Bottom bar — absolutely pinned to bottom of screen
+  // Bottom bar — inside ScrollView, not absolutely pinned
   bottomBar: {
-    position: 'absolute' as const,
-    bottom: 0, left: 0, right: 0,
     paddingHorizontal: spacing[5],
     paddingTop: spacing[3],
-    backgroundColor: colors.background,
+    paddingBottom: spacing[2],
+    backgroundColor: 'transparent',
     gap: spacing[3],
   },
 
@@ -2239,9 +2235,4 @@ const sp = StyleSheet.create({
   rowLbl:   { fontSize: typography.size.base, color: colors.muted },
   rowVal:   { fontSize: typography.size.base, fontWeight: typography.weight.semibold, color: colors.dark },
   sectionTitle: { fontSize: typography.size.base, fontWeight: typography.weight.bold, color: colors.dark, marginBottom: spacing[3] },
-  bottomBar: {
-    paddingHorizontal: spacing[5], paddingVertical: spacing[4],
-    backgroundColor: colors.surface,
-    borderTopWidth: 1, borderTopColor: colors.border,
-  },
 })
