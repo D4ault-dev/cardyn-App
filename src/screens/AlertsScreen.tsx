@@ -326,8 +326,14 @@ function DetailPanel({ item, onBack, onAction, navigating }: {
 
         {/* Icon + time */}
         <View style={dp.heroSection}>
-          <View style={[dp.heroIcon, { backgroundColor: style.bg }]}>
-            <Feather name={style.icon} size={32} color={style.color} />
+          <View style={[dp.heroIcon, { backgroundColor: '#F5F5F5' }]}>
+            {style.svgKey === 'question' ? (
+              <SvgXml xml={colorSvg(SVG_QUESTION, '#555')} width={40} height={40} />
+            ) : style.svgKey === 'pocketbook' ? (
+              <SvgXml xml={colorSvg(SVG_POCKETBOOK, '#F59E0B')} width={40} height={40} />
+            ) : (
+              <Feather name={style.icon} size={32} color="#555" />
+            )}
           </View>
           <View style={[dp.typePill, { backgroundColor: style.bg }]}>
             <Text style={[dp.typePillTxt, { color: style.color }]}>
