@@ -453,26 +453,38 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
     // Only available in 1.2.0+ builds
     if (!mlKitAvailable) return
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync()
-      if (status !== 'granted') {
-        alert('Camera permission required to scan card code.')
+      // Let user choose camera or gallery
+      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync()
+      const { status: libStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+
+      // Try gallery first if camera not available
+      let result: ImagePicker.ImagePickerResult | null = null
+
+      if (camStatus === 'granted') {
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.9,
+          allowsEditing: false,
+        })
+      } else if (libStatus === 'granted') {
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.9,
+        })
+      } else {
+        alert('需要相机或相册权限来扫描卡片。')
         return
       }
+
+      if (!result || result.canceled || !result.assets?.[0]?.uri) return
+
       setOcrScanning(true)
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        quality: 0.9,
-        allowsEditing: false,
-      })
-      if (result.canceled || !result.assets?.[0]?.uri) {
-        setOcrScanning(false)
-        return
-      }
       const uri = result.assets[0].uri
       const codes = await extractCodesFromImage(uri)
       setOcrScanning(false)
+
       if (codes.length === 0) {
-        alert('No card code detected. Please try again with clearer lighting, or type the code manually.')
+        alert('未识别到卡片代码，请确保图片清晰，或手动输入代码。')
         return
       }
       setCardCodes(prev => {
@@ -485,16 +497,17 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
       })
     } catch (e: any) {
       setOcrScanning(false)
-      alert('Scan failed. Please type the code manually.')
+      alert('扫描失败，请手动输入代码。')
     }
   }
 
-  // Check if ML Kit is available — only works in builds >= 1.2.0
+  // Check if ML Kit is available — only works in native builds >= 1.2.0, never in browser
   // Can't use require() check since RN bundles don't throw for missing native modules
-  // Use app version instead — 1.2.0 is the first build with ML Kit linked
+  // Use app version AND platform check — web/Chrome never supports ML Kit
   const appVersion = require('../../app.json')?.expo?.version || '0.0.0'
   const [major, minor] = appVersion.split('.').map(Number)
-  const mlKitAvailable = major > 1 || (major === 1 && minor >= 2)
+  const isNative = Platform.OS === 'ios' || Platform.OS === 'android'
+  const mlKitAvailable = isNative && (major > 1 || (major === 1 && minor >= 2))
 
   function handleBarCodeScanned({ data }: { data: string }) {
     setScannerOpen(false)
@@ -974,8 +987,8 @@ export default function SellCardScreen(props: StackScreenProps<RootStackParams, 
                 attempted={attempted && selectedInputType === 'Code'}
                 codeRefs={codeRefs}
                 scrollRef={scrollRef}
-                onScanPhoto={undefined}
-                ocrScanning={false}
+                onScanPhoto={mlKitAvailable ? handleScanPhoto : undefined}
+                ocrScanning={ocrScanning}
                 onChangeCode={(idx, v) => {
                   const next = [...cardCodes]; next[idx] = v; setCardCodes(next)
                 }}
