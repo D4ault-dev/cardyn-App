@@ -283,16 +283,24 @@ const nr = StyleSheet.create({
 })
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
-function DetailPanel({ item, onBack, onAction, navigating }: {
+function DetailPanel({ item, onBack, onAction, navigating, cardLogoMap }: {
   item: Notification
   onBack: () => void
   onAction: () => void
   navigating: boolean
+  cardLogoMap: Record<string, string>
 }) {
   const insets = useSafeAreaInsets()
   const slideX = useRef(new Animated.Value(SCREEN_W)).current
   const type  = getNotifType(item.screen)
   const style = getNotifStyle(type)
+
+  // Card logo for order notifications
+  const cleanTitle = stripEmoji(item.title)
+  const cleanBody  = stripEmoji(item.body)
+  const cardName = extractCardName(cleanTitle, cleanBody)
+  const normalizedName = cardName ? normalizeCardName(cardName) : null
+  const cardLogoUrl = normalizedName ? (cardLogoMap[normalizedName] || cardLogoMap[cardName!.toLowerCase()] || null) : null
 
   useEffect(() => {
     Animated.spring(slideX, {
@@ -326,8 +334,10 @@ function DetailPanel({ item, onBack, onAction, navigating }: {
 
         {/* Icon + time */}
         <View style={dp.heroSection}>
-          <View style={[dp.heroIcon, { backgroundColor: '#F5F5F5' }]}>
-            {style.svgKey === 'question' ? (
+          <View style={[dp.heroIcon, { backgroundColor: cardLogoUrl ? '#fff' : '#F5F5F5', borderWidth: cardLogoUrl ? 1 : 0, borderColor: '#eee' }]}>
+            {cardLogoUrl ? (
+              <Image source={{ uri: cardLogoUrl }} style={{ width: ms(56), height: ms(56), borderRadius: ms(12) }} resizeMode="cover" />
+            ) : style.svgKey === 'question' ? (
               <SvgXml xml={colorSvg(SVG_QUESTION, '#555')} width={40} height={40} />
             ) : style.svgKey === 'pocketbook' ? (
               <SvgXml xml={colorSvg(SVG_POCKETBOOK, '#F59E0B')} width={40} height={40} />
@@ -692,6 +702,7 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
           onBack={() => setSelected(null)}
           onAction={handleAction}
           navigating={navigating}
+          cardLogoMap={cardLogoMap}
         />
       )}
     </View>

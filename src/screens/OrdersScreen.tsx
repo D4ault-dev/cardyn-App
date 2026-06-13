@@ -10,10 +10,6 @@ const { width: W } = Dimensions.get('window')
 import { StackScreenProps } from '@react-navigation/stack'
 import { AppHeader } from '../components/AppHeader'
 import { Feather } from '@expo/vector-icons'
-import { SvgXml } from 'react-native-svg'
-
-// Pocketbook SVG for withdrawal icon
-const SVG_POCKETBOOK = `<svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.85599 7.99998L21.1535 3.79483C23.0749 3.2297 25 4.6701 25 6.67293V7.99998H25.2C26.8802 7.99998 27.7202 7.99998 28.362 8.32696C28.9265 8.61458 29.3854 9.07352 29.673 9.63801C30 10.2797 30 11.1198 30 12.8V25.2C30 26.8801 30 27.7202 29.673 28.362C29.3854 28.9264 28.9265 29.3854 28.362 29.673C27.7202 30 26.8802 30 25.2 30H6.8C5.11984 30 4.27976 30 3.63803 29.673C3.07354 29.3854 2.6146 28.9264 2.32698 28.362C2 27.7202 2 26.8801 2 25.2V12.8C2 11.1198 2 10.2797 2.32698 9.63801C2.6146 9.07352 3.07354 8.61458 3.63803 8.32696C4.27976 7.99998 5.11984 7.99998 6.8 7.99998H6.85599ZM21.7178 5.71356C22.3583 5.52519 23 6.00532 23 6.67293V7.99998H13.944L21.7178 5.71356ZM6.97681 9.99998H25.2C26.0731 9.99998 26.6076 10.0015 27.0075 10.0342C27.1938 10.0494 27.3065 10.0686 27.375 10.0847C27.454 10.109 27.454 10.109C27.6422 10.2048 27.7951 10.3578 27.891 10.546C27.891 10.546 27.9153 10.625 27.9658 10.9925C27.9984 11.3924 28 11.9269 28 12.8V17.5H23.5C22.9477 17.5 22.5 17.9477 22.5 18.5C22.5 19.0523 22.9477 19.5 23.5 19.5H28V25.2C28 26.0731 27.9984 26.6076 27.9658 27.0075C27.9505 27.1938 27.9314 27.3065 27.9153 27.375C27.891 27.454 27.891 27.454C27.7951 27.6421 27.6422 27.7951 27.454 27.891C27.454 27.891 27.375 27.9153 27.0075 27.9658C26.6076 27.9984 26.0731 28 25.2 28H6.8C5.92692 28 5.39239 27.9984 4.99247 27.9658C4.80617 27.9505 4.69345 27.9314 4.625 27.9153C4.54601 27.891 4.54601 27.891C4.35785 27.7951 4.20487 27.6421 4.10899 27.454C4.10899 27.454 4.08469 27.375 4.03423 27.0075C4.00156 26.6076 4 26.0731 4 25.2V12.8C4 11.9269 4.00156 11.3924 4.03423 10.9925C4.04945 10.8061 4.06857 10.6934 4.08469 10.625C4.10899 10.546 4.10899 10.546C4.20487 10.3578 4.35785 10.2048 4.54601 10.109C4.54601 10.109 4.625 10.0847 4.99247 10.0342C5.39239 10.0015 5.92692 9.99998 6.8 9.99998H6.97681Z" fill="FILL_COLOR"/></svg>`
 import { useAuth } from '../context/AuthContext'
 import { Spinner, AppRefreshControl } from '../components/Spinner'
 import { OrderListSkeleton, GenericListSkeleton } from '../components/Skeleton'
@@ -803,7 +799,7 @@ export default function OrdersScreen(props: StackScreenProps<RootStackParams, 'T
                 </View>
                 <View style={s.cardMid}>
                   <View style={[s.cardLogo, s.cardLogoFallback, { backgroundColor: colors.errorLight }]}>
-                    <SvgXml xml={SVG_POCKETBOOK.replace('FILL_COLOR', colors.error)} width={22} height={22} />
+                    <Feather name="credit-card" size={22} color={colors.error} />
                   </View>
                   <View style={s.cardInfo}>
                     <Text style={s.cardName} numberOfLines={1}>{w.bankName}</Text>
