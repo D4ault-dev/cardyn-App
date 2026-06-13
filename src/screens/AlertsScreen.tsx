@@ -17,6 +17,16 @@ import { ms, RF } from '../util/responsive'
 import { clearBadge } from '../util/pushNotifications'
 import { swrFetch, cacheGet, TTL } from '../util/cache'
 import { fetchCardCategories, resolveImageUrl } from '../api/cards'
+import { SvgXml } from 'react-native-svg'
+
+// ── Custom SVG icons ──────────────────────────────────────────────────────────
+const SVG_QUESTION = `<svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.512 11.1618C11.3386 11.784 11.8707 12.3294 12.5166 12.3294C13.1147 12.3294 13.5779 11.8443 13.8357 11.3046C14.2292 10.4811 15.0415 9.99653 16.1399 9.99653C17.6264 9.99653 18.5921 10.8971 18.5921 12.1233C18.5921 13.2409 18.1255 13.8702 16.8126 14.6623C15.3261 15.5521 14.6642 16.5286 14.7184 18.0586C14.7244 18.5398 15.1162 18.9266 15.5974 18.9266H16.3135C16.679 18.9266 16.9754 18.6303 16.9754 18.2648C16.9754 17.1471 17.3768 16.572 18.7766 15.7474C20.2089 14.8902 21.0552 13.7075 21.0552 12.0256C21.0552 9.70356 19.1238 8 16.2592 8C13.6348 8 12.0293 9.30573 11.512 11.1618Z" fill="COLOR"/><path d="M15.7885 20.9C15.1506 20.9 14.6334 21.4171 14.6334 22.0551C14.6334 22.693 15.1506 23.2102 15.7885 23.2102C16.4265 23.2102 16.9436 22.693 16.9436 22.0551C16.9436 21.4171 16.4265 20.9 15.7885 20.9Z" fill="COLOR"/><path fill-rule="evenodd" clip-rule="evenodd" d="M30 16C30 23.732 23.732 30 16 30C8.26801 30 2 23.732 2 16C2 8.26801 8.26801 2 16 2C23.732 2 30 8.26801 30 16ZM16 28C22.6274 28 28 22.6274 28 16C28 9.37258 22.6274 4 16 4C9.37258 4 4 9.37258 4 16C4 22.6274 9.37258 28 16 28Z" fill="COLOR"/></svg>`
+
+const SVG_POCKETBOOK = `<svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.85599 7.99998L21.1535 3.79483C23.0749 3.2297 25 4.6701 25 6.67293V7.99998H25.2C26.8802 7.99998 27.7202 7.99998 28.362 8.32696C28.9265 8.61458 29.3854 9.07352 29.673 9.63801C30 10.2797 30 11.1198 30 12.8V25.2C30 26.8801 30 27.7202 29.673 28.362C29.3854 28.9264 28.9265 29.3854 28.362 29.673C27.7202 30 26.8802 30 25.2 30H6.8C5.11984 30 4.27976 30 3.63803 29.673C3.07354 29.3854 2.6146 28.9264 2.32698 28.362C2 27.7202 2 26.8801 2 25.2V12.8C2 11.1198 2 10.2797 2.32698 9.63801C2.6146 9.07352 3.07354 8.61458 3.63803 8.32696C4.27976 7.99998 5.11984 7.99998 6.8 7.99998H6.85599ZM21.7178 5.71356C22.3583 5.52519 23 6.00532 23 6.67293V7.99998H13.944L21.7178 5.71356ZM6.97681 9.99998C6.99194 10.0003 7.00711 10.0003 7.02232 9.99998H25.2C26.0731 9.99998 26.6076 10.0015 27.0075 10.0342C27.1938 10.0494 27.3065 10.0686 27.375 10.0847C27.4076 10.0923 27.4276 10.0988 27.4384 10.1026C27.4488 10.1063 27.454 10.109 27.454 10.109C27.6422 10.2048 27.7951 10.3578 27.891 10.546C27.891 10.546 27.8936 10.5512 27.8973 10.5616C27.9012 10.5724 27.9076 10.5924 27.9153 10.625C27.9314 10.6934 27.9505 10.8061 27.9658 10.9925C27.9984 11.3924 28 11.9269 28 12.8V17.5H23.5C22.9477 17.5 22.5 17.9477 22.5 18.5C22.5 19.0523 22.9477 19.5 23.5 19.5H28V25.2C28 26.0731 27.9984 26.6076 27.9658 27.0075C27.9505 27.1938 27.9314 27.3065 27.9153 27.375C27.9076 27.4075 27.9012 27.4276 27.8973 27.4384C27.8936 27.4488 27.891 27.454 27.891 27.454C27.7951 27.6421 27.6422 27.7951 27.454 27.891C27.454 27.891 27.4488 27.8936 27.4384 27.8973C27.4276 27.9012 27.4076 27.9076 27.375 27.9153C27.3065 27.9314 27.1938 27.9505 27.0075 27.9658C26.6076 27.9984 26.0731 28 25.2 28H6.8C5.92692 28 5.39239 27.9984 4.99247 27.9658C4.80617 27.9505 4.69345 27.9314 4.625 27.9153C4.59244 27.9076 4.57241 27.9012 4.56158 27.8973C4.55118 27.8936 4.54601 27.891 4.54601 27.891C4.35785 27.7951 4.20487 27.6421 4.10899 27.454C4.10899 27.454 4.10636 27.4488 4.10265 27.4384C4.09879 27.4276 4.09236 27.4075 4.08469 27.375C4.06857 27.3065 4.04945 27.1938 4.03423 27.0075C4.00156 26.6076 4 26.0731 4 25.2V12.8C4 11.9269 4.00156 11.3924 4.03423 10.9925C4.04945 10.8061 4.06857 10.6934 4.08469 10.625C4.09236 10.5924 4.09879 10.5724 4.10265 10.5616C4.10636 10.5512 4.10899 10.546 4.10899 10.546C4.20487 10.3578 4.35785 10.2048 4.54601 10.109C4.54601 10.109 4.55118 10.1063 4.56158 10.1026C4.57241 10.0988 4.59244 10.0923 4.625 10.0847C4.69345 10.0686 4.80617 10.0494 4.99247 10.0342C5.39239 10.0015 5.92692 9.99998 6.8 9.99998H6.97681Z" fill="COLOR"/></svg>`
+
+function colorSvg(svg: string, color: string) {
+  return svg.replace(/COLOR/g, color)
+}
 
 const SCREEN_W = Dimensions.get('window').width
 
@@ -102,10 +112,10 @@ function getNotifType(screen: string | null): 'order' | 'withdrawal' | 'system' 
 
 function getNotifStyle(type: ReturnType<typeof getNotifType>) {
   switch (type) {
-    case 'order':       return { icon: 'shopping-bag' as const, bg: '#EEF4FF', color: '#3B82F6' }
-    case 'withdrawal':  return { icon: 'credit-card' as const,  bg: '#FFF4E6', color: '#F59E0B' }
-    case 'system':      return { icon: 'bell' as const,         bg: '#F0FFF4', color: '#10B981' }
-    case 'announcement':return { icon: 'megaphone' as const,    bg: '#FFF0F6', color: '#EC4899' }
+    case 'order':       return { icon: 'box' as const,            svgKey: null,           bg: '#F5F5F5', color: '#555' }
+    case 'withdrawal':  return { icon: 'arrow-up-right' as const, svgKey: 'pocketbook',   bg: '#FFF8EE', color: '#F59E0B' }
+    case 'system':      return { icon: 'bell' as const,           svgKey: 'question',     bg: '#F5F5F5', color: '#555' }
+    case 'announcement':return { icon: 'bell' as const,           svgKey: 'question',     bg: '#F5F5F5', color: '#555' }
   }
 }
 
@@ -177,6 +187,13 @@ function NotifRow({ item, onPress, onDelete, cardLogoMap }: {
   const iconBg    = cardStyle?.bg    || style.bg
   const iconColor = cardStyle?.color || style.color
 
+  // Determine which SVG to show for system/withdrawal if no card logo
+  const svgXml = !cardLogoUrl && style.svgKey === 'question'
+    ? colorSvg(SVG_QUESTION, iconColor)
+    : !cardLogoUrl && style.svgKey === 'pocketbook'
+    ? colorSvg(SVG_POCKETBOOK, iconColor)
+    : null
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -186,12 +203,14 @@ function NotifRow({ item, onPress, onDelete, cardLogoMap }: {
       {/* Left accent */}
       {!item.isRead && <View style={nr.leftAccent} />}
 
-      {/* Icon — use real card logo if available, else Feather icon */}
-      <View style={[nr.iconWrap, { backgroundColor: cardLogoUrl ? '#fff' : iconBg }]}>
+      {/* Icon — card logo > SVG > Feather fallback */}
+      <View style={[nr.iconWrap, { backgroundColor: cardLogoUrl ? '#fff' : '#F5F5F5', borderWidth: cardLogoUrl ? 1 : 0, borderColor: '#eee' }]}>
         {cardLogoUrl ? (
           <Image source={{ uri: cardLogoUrl }} style={nr.cardLogoImg} resizeMode="cover" />
+        ) : svgXml ? (
+          <SvgXml xml={svgXml} width={22} height={22} />
         ) : (
-          <Feather name={style.icon} size={18} color={iconColor} />
+          <Feather name={style.icon} size={18} color="#666" />
         )}
       </View>
 
@@ -312,7 +331,7 @@ function DetailPanel({ item, onBack, onAction, navigating }: {
           </View>
           <View style={[dp.typePill, { backgroundColor: style.bg }]}>
             <Text style={[dp.typePillTxt, { color: style.color }]}>
-              {type === 'order' ? 'Order Update' : type === 'withdrawal' ? 'Withdrawal' : type === 'system' ? 'System' : 'Announcement'}
+              {type === 'order' ? 'Order Update' : type === 'withdrawal' ? 'Payment' : type === 'system' ? 'System' : 'Notice'}
             </Text>
           </View>
           <Text style={dp.heroTime}>{timeAgo(item.createTime)}</Text>
@@ -547,7 +566,7 @@ export default function AlertsScreen(props: StackScreenProps<RootStackParams, 'A
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
       <View style={[s.safe, { paddingTop: getStatusBarHeight() }]}>
 
         {/* ── Header ── */}
@@ -701,7 +720,7 @@ const s = StyleSheet.create({
 
   // Tabs
   tabs: {
-    paddingHorizontal: spacing[4], paddingBottom: spacing[3],
+    paddingHorizontal: spacing[4], paddingBottom: spacing[2],
     gap: spacing[2], flexDirection: 'row',
   },
   tab: {
